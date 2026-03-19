@@ -12,6 +12,30 @@ via_ir = true
 offline = true
 fs_permissions = [{ access = "read-write", path = "./" }]
 
+[rpc_endpoints]
+mainnet = "${MAINNET_RPC_URL}"
+sepolia = "${SEPOLIA_RPC_URL}"
+
+[profile.default.fuzz]
+runs = 512
+max_test_rejects = 131_072
+
+[profile.default.invariant]
+runs = 256
+depth = 500
+fail_on_revert = false
+dictionary_weight = 80
+
+[profile.ci.fuzz]
+runs = 2_000
+max_test_rejects = 262_144
+
+[profile.ci.invariant]
+runs = 1_000
+depth = 750
+fail_on_revert = false
+dictionary_weight = 85
+
 [fmt]
 line_length = 100
 tab_width = 4

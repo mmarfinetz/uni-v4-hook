@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {IReferenceOracle} from "./interfaces/IReferenceOracle.sol";
-import {IHooks} from "v4-core/interfaces/IHooks.sol";
-import {IPoolManager} from "v4-core/interfaces/IPoolManager.sol";
-import {BalanceDelta, BalanceDeltaLibrary} from "v4-core/types/BalanceDelta.sol";
-import {BeforeSwapDelta, BeforeSwapDeltaLibrary} from "v4-core/types/BeforeSwapDelta.sol";
-import {Hooks} from "v4-core/libraries/Hooks.sol";
-import {LPFeeLibrary} from "v4-core/libraries/LPFeeLibrary.sol";
-import {FullMath} from "v4-core/libraries/FullMath.sol";
-import {StateLibrary} from "v4-core/libraries/StateLibrary.sol";
-import {TickMath} from "v4-core/libraries/TickMath.sol";
-import {PoolKey} from "v4-core/types/PoolKey.sol";
-import {PoolId, PoolIdLibrary} from "v4-core/types/PoolId.sol";
-import {ModifyLiquidityParams, SwapParams} from "v4-core/types/PoolOperation.sol";
-import {FixedPointMathLib} from "solmate/src/utils/FixedPointMathLib.sol";
+import { IReferenceOracle } from "./interfaces/IReferenceOracle.sol";
+import { IHooks } from "v4-core/interfaces/IHooks.sol";
+import { IPoolManager } from "v4-core/interfaces/IPoolManager.sol";
+import { BalanceDelta, BalanceDeltaLibrary } from "v4-core/types/BalanceDelta.sol";
+import { BeforeSwapDelta, BeforeSwapDeltaLibrary } from "v4-core/types/BeforeSwapDelta.sol";
+import { Hooks } from "v4-core/libraries/Hooks.sol";
+import { LPFeeLibrary } from "v4-core/libraries/LPFeeLibrary.sol";
+import { FullMath } from "v4-core/libraries/FullMath.sol";
+import { StateLibrary } from "v4-core/libraries/StateLibrary.sol";
+import { TickMath } from "v4-core/libraries/TickMath.sol";
+import { PoolKey } from "v4-core/types/PoolKey.sol";
+import { PoolId, PoolIdLibrary } from "v4-core/types/PoolId.sol";
+import { ModifyLiquidityParams, SwapParams } from "v4-core/types/PoolOperation.sol";
+import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 
 contract OracleAnchoredLVRHook is IHooks {
     using LPFeeLibrary for uint24;
@@ -24,6 +24,7 @@ contract OracleAnchoredLVRHook is IHooks {
     error NotOwner();
     error NotPoolManager();
     error OwnerAlreadyInitialized();
+    error InvalidOwner();
     error InvalidConfig();
     error InvalidPool();
     error InvalidOraclePrice();
@@ -37,7 +38,7 @@ contract OracleAnchoredLVRHook is IHooks {
     uint256 internal constant WAD = 1e18;
     uint256 internal constant SQRT_WAD = 1e9;
     uint256 internal constant Q96 = 2 ** 96;
-    uint256 internal constant EWMA_ALPHA_BPS = 2_000;
+    uint256 internal constant EWMA_ALPHA_BPS = 2000;
     uint256 internal constant BPS_DENOMINATOR = 10_000;
     uint256 internal constant MAX_ABS_TICK = 887_272;
     uint256 internal constant MAX_WIDTH_TICKS = 1_774_544;
@@ -49,10 +50,12 @@ contract OracleAnchoredLVRHook is IHooks {
         IReferenceOracle oracle;
         uint24 baseFee;
         uint24 maxFee;
+        uint24 alphaBps;
         uint32 maxOracleAge;
         uint32 latencySecs;
         uint32 centerTolTicks;
         uint256 lvrBudgetWad;
+        uint256 bootstrapSigma2PerSecondWad;
     }
 
     struct RiskState {
@@ -70,16 +73,24 @@ contract OracleAnchoredLVRHook is IHooks {
         address indexed oracle,
         uint24 baseFee,
         uint24 maxFee,
+        uint24 alphaBps,
         uint32 maxOracleAge,
         uint32 latencySecs,
         uint32 centerTolTicks,
-        uint256 lvrBudgetWad
+        uint256 lvrBudgetWad,
+        uint256 bootstrapSigma2PerSecondWad
     );
     event RiskStateSet(
-        PoolId indexed poolId, uint256 sigma2PerSecondWad, uint256 lastOraclePriceWad, uint256 lastOracleTs
+        PoolId indexed poolId,
+        uint256 sigma2PerSecondWad,
+        uint256 lastOraclePriceWad,
+        uint256 lastOracleTs
     );
     event RiskUpdated(
-        PoolId indexed poolId, uint256 sigma2PerSecondWad, uint256 lastOraclePriceWad, uint256 lastOracleTs
+        PoolId indexed poolId,
+        uint256 sigma2PerSecondWad,
+        uint256 lastOraclePriceWad,
+        uint256 lastOracleTs
     );
 
     constructor(IPoolManager _poolManager) {
@@ -97,6 +108,7 @@ contract OracleAnchoredLVRHook is IHooks {
     }
 
     function initializeOwner(address initialOwner) external {
+        if (initialOwner == address(0)) revert InvalidOwner();
         if (owner != address(0)) revert OwnerAlreadyInitialized();
         owner = initialOwner;
         emit OwnerInitialized(initialOwner);
@@ -125,8 +137,10 @@ contract OracleAnchoredLVRHook is IHooks {
         if (address(key.hooks) != address(this)) revert InvalidPool();
         if (!key.fee.isDynamicFee()) revert InvalidPool();
         if (
-            address(cfg.oracle) == address(0) || cfg.baseFee > cfg.maxFee || cfg.maxFee > LPFeeLibrary.MAX_LP_FEE
-                || cfg.maxOracleAge == 0 || cfg.lvrBudgetWad == 0
+            address(cfg.oracle) == address(0) || cfg.baseFee > cfg.maxFee
+                || cfg.maxFee > LPFeeLibrary.MAX_LP_FEE || cfg.maxOracleAge == 0
+                || cfg.lvrBudgetWad == 0 || cfg.alphaBps == 0 || cfg.alphaBps > BPS_DENOMINATOR
+                || cfg.bootstrapSigma2PerSecondWad == 0
         ) revert InvalidConfig();
 
         PoolId id = key.toId();
@@ -137,10 +151,12 @@ contract OracleAnchoredLVRHook is IHooks {
             address(cfg.oracle),
             cfg.baseFee,
             cfg.maxFee,
+            cfg.alphaBps,
             cfg.maxOracleAge,
             cfg.latencySecs,
             cfg.centerTolTicks,
-            cfg.lvrBudgetWad
+            cfg.lvrBudgetWad,
+            cfg.bootstrapSigma2PerSecondWad
         );
     }
 
@@ -162,7 +178,12 @@ contract OracleAnchoredLVRHook is IHooks {
     function previewSwapFee(PoolKey calldata key, bool zeroForOne)
         external
         view
-        returns (bool toxic, uint24 feeUnits, uint160 referenceSqrtPriceX96, uint160 poolSqrtPriceX96)
+        returns (
+            bool toxic,
+            uint24 feeUnits,
+            uint160 referenceSqrtPriceX96,
+            uint160 poolSqrtPriceX96
+        )
     {
         PoolId id = key.toId();
         Config memory cfg = _loadConfig(id);
@@ -176,7 +197,12 @@ contract OracleAnchoredLVRHook is IHooks {
         PoolId id = key.toId();
         Config memory cfg = _loadConfig(id);
         RiskState memory state = risk[id];
-        return _minWidthTicks(state.sigma2PerSecondWad, cfg.latencySecs, cfg.lvrBudgetWad, key.tickSpacing);
+        return _minWidthTicks(
+            _effectiveSigma2PerSecondWad(cfg, state),
+            cfg.latencySecs,
+            cfg.lvrBudgetWad,
+            key.tickSpacing
+        );
     }
 
     function beforeInitialize(address, PoolKey calldata, uint160)
@@ -199,13 +225,12 @@ contract OracleAnchoredLVRHook is IHooks {
         return IHooks.afterInitialize.selector;
     }
 
-    function beforeAddLiquidity(address, PoolKey calldata key, ModifyLiquidityParams calldata params, bytes calldata)
-        external
-        view
-        override
-        onlyPoolManager
-        returns (bytes4)
-    {
+    function beforeAddLiquidity(
+        address,
+        PoolKey calldata key,
+        ModifyLiquidityParams calldata params,
+        bytes calldata
+    ) external view override onlyPoolManager returns (bytes4) {
         if (params.tickLower >= params.tickUpper) revert InvalidTickRange();
 
         PoolId id = key.toId();
@@ -220,7 +245,12 @@ contract OracleAnchoredLVRHook is IHooks {
         }
 
         uint256 widthTicks = uint256(int256(params.tickUpper - params.tickLower));
-        uint256 minTicks = _minWidthTicks(risk[id].sigma2PerSecondWad, cfg.latencySecs, cfg.lvrBudgetWad, key.tickSpacing);
+        uint256 minTicks = _minWidthTicks(
+            _effectiveSigma2PerSecondWad(cfg, risk[id]),
+            cfg.latencySecs,
+            cfg.lvrBudgetWad,
+            key.tickSpacing
+        );
         if (widthTicks < minTicks) revert WidthTooNarrow(widthTicks, minTicks);
 
         return IHooks.beforeAddLiquidity.selector;
@@ -237,13 +267,12 @@ contract OracleAnchoredLVRHook is IHooks {
         return (IHooks.afterAddLiquidity.selector, BalanceDeltaLibrary.ZERO_DELTA);
     }
 
-    function beforeRemoveLiquidity(address, PoolKey calldata, ModifyLiquidityParams calldata, bytes calldata)
-        external
-        view
-        override
-        onlyPoolManager
-        returns (bytes4)
-    {
+    function beforeRemoveLiquidity(
+        address,
+        PoolKey calldata,
+        ModifyLiquidityParams calldata,
+        bytes calldata
+    ) external view override onlyPoolManager returns (bytes4) {
         return IHooks.beforeRemoveLiquidity.selector;
     }
 
@@ -271,7 +300,8 @@ contract OracleAnchoredLVRHook is IHooks {
 
         uint160 referenceSqrtPriceX96 = _priceWadToSqrtPriceX96(referencePriceWad);
         (uint160 poolSqrtPriceX96,,,) = poolManager.getSlot0(id);
-        (, uint24 feeUnits) = _quoteFee(cfg, params.zeroForOne, referenceSqrtPriceX96, poolSqrtPriceX96);
+        (, uint24 feeUnits) =
+            _quoteFee(cfg, params.zeroForOne, referenceSqrtPriceX96, poolSqrtPriceX96);
 
         return (
             IHooks.beforeSwap.selector,
@@ -315,28 +345,37 @@ contract OracleAnchoredLVRHook is IHooks {
         if (address(cfg.oracle) == address(0)) revert InvalidConfig();
     }
 
-    function _loadFreshOracle(Config memory cfg) internal view returns (uint256 priceWad, uint256 updatedAt) {
+    function _loadFreshOracle(Config memory cfg)
+        internal
+        view
+        returns (uint256 priceWad, uint256 updatedAt)
+    {
         (priceWad, updatedAt) = cfg.oracle.latestPriceWad();
         if (priceWad == 0) revert InvalidOraclePrice();
         if (block.timestamp > updatedAt + cfg.maxOracleAge) revert OracleStale();
     }
 
-    function _quoteFee(Config memory cfg, bool zeroForOne, uint160 referenceSqrtPriceX96, uint160 poolSqrtPriceX96)
-        internal
-        pure
-        returns (bool toxic, uint24 feeUnits)
-    {
+    function _quoteFee(
+        Config memory cfg,
+        bool zeroForOne,
+        uint160 referenceSqrtPriceX96,
+        uint160 poolSqrtPriceX96
+    ) internal pure returns (bool toxic, uint24 feeUnits) {
         uint256 feeWad = uint256(cfg.baseFee) * 1e12;
 
         if (referenceSqrtPriceX96 > poolSqrtPriceX96) {
             toxic = !zeroForOne;
             if (toxic) {
-                feeWad += FullMath.mulDiv(referenceSqrtPriceX96, WAD, poolSqrtPriceX96) - WAD;
+                uint256 exactPremiumWad =
+                    FullMath.mulDiv(referenceSqrtPriceX96, WAD, poolSqrtPriceX96) - WAD;
+                feeWad += FullMath.mulDiv(exactPremiumWad, cfg.alphaBps, BPS_DENOMINATOR);
             }
         } else if (referenceSqrtPriceX96 < poolSqrtPriceX96) {
             toxic = zeroForOne;
             if (toxic) {
-                feeWad += FullMath.mulDiv(poolSqrtPriceX96, WAD, referenceSqrtPriceX96) - WAD;
+                uint256 exactPremiumWad =
+                    FullMath.mulDiv(poolSqrtPriceX96, WAD, referenceSqrtPriceX96) - WAD;
+                feeWad += FullMath.mulDiv(exactPremiumWad, cfg.alphaBps, BPS_DENOMINATOR);
             }
         }
 
@@ -350,7 +389,9 @@ contract OracleAnchoredLVRHook is IHooks {
             current.lastOraclePriceWad = referencePriceWad;
             current.lastOracleTs = updatedAt;
             risk[id] = current;
-            emit RiskUpdated(id, current.sigma2PerSecondWad, current.lastOraclePriceWad, current.lastOracleTs);
+            emit RiskUpdated(
+                id, current.sigma2PerSecondWad, current.lastOraclePriceWad, current.lastOracleTs
+            );
             return;
         }
 
@@ -365,9 +406,11 @@ contract OracleAnchoredLVRHook is IHooks {
         if (current.sigma2PerSecondWad == 0) {
             current.sigma2PerSecondWad = sampleSigma2PerSecondWad;
         } else {
-            uint256 retained =
-                FullMath.mulDiv(current.sigma2PerSecondWad, BPS_DENOMINATOR - EWMA_ALPHA_BPS, BPS_DENOMINATOR);
-            uint256 updated = FullMath.mulDiv(sampleSigma2PerSecondWad, EWMA_ALPHA_BPS, BPS_DENOMINATOR);
+            uint256 retained = FullMath.mulDiv(
+                current.sigma2PerSecondWad, BPS_DENOMINATOR - EWMA_ALPHA_BPS, BPS_DENOMINATOR
+            );
+            uint256 updated =
+                FullMath.mulDiv(sampleSigma2PerSecondWad, EWMA_ALPHA_BPS, BPS_DENOMINATOR);
             current.sigma2PerSecondWad = retained + updated;
         }
 
@@ -375,14 +418,26 @@ contract OracleAnchoredLVRHook is IHooks {
         current.lastOracleTs = updatedAt;
         risk[id] = current;
 
-        emit RiskUpdated(id, current.sigma2PerSecondWad, current.lastOraclePriceWad, current.lastOracleTs);
+        emit RiskUpdated(
+            id, current.sigma2PerSecondWad, current.lastOraclePriceWad, current.lastOracleTs
+        );
     }
 
-    function _minWidthTicks(uint256 sigma2PerSecondWad, uint256 latencySecs, uint256 lvrBudgetWad, int24 tickSpacing)
+    function _effectiveSigma2PerSecondWad(Config memory cfg, RiskState memory state)
         internal
         pure
         returns (uint256)
     {
+        if (state.sigma2PerSecondWad != 0) return state.sigma2PerSecondWad;
+        return cfg.bootstrapSigma2PerSecondWad;
+    }
+
+    function _minWidthTicks(
+        uint256 sigma2PerSecondWad,
+        uint256 latencySecs,
+        uint256 lvrBudgetWad,
+        int24 tickSpacing
+    ) internal pure returns (uint256) {
         if (lvrBudgetWad == 0) revert InvalidConfig();
         if (sigma2PerSecondWad == 0 || latencySecs == 0) return 0;
 
@@ -421,13 +476,19 @@ contract OracleAnchoredLVRHook is IHooks {
         return WAD - expNegQuarterWad;
     }
 
-    function _priceWadToSqrtPriceX96(uint256 priceWad) internal pure returns (uint160 sqrtPriceX96) {
+    function _priceWadToSqrtPriceX96(uint256 priceWad)
+        internal
+        pure
+        returns (uint160 sqrtPriceX96)
+    {
         if (priceWad == 0) revert InvalidOraclePrice();
 
         uint256 sqrtPriceWad = FixedPointMathLib.sqrt(priceWad);
         uint256 scaled = FullMath.mulDiv(sqrtPriceWad, Q96, SQRT_WAD);
 
-        if (scaled < TickMath.MIN_SQRT_PRICE || scaled >= TickMath.MAX_SQRT_PRICE) revert InvalidOraclePrice();
+        if (scaled < TickMath.MIN_SQRT_PRICE || scaled >= TickMath.MAX_SQRT_PRICE) {
+            revert InvalidOraclePrice();
+        }
         sqrtPriceX96 = uint160(scaled);
     }
 

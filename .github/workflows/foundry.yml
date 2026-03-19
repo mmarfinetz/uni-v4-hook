@@ -1,0 +1,63 @@
+name: Foundry
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+permissions: {}
+
+jobs:
+  forge-tests:
+    name: Forge Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Prepare local solc toolchain
+        run: chmod +x toolchain/solc-0.8.26
+
+      - name: Show Forge version
+        run: forge --version
+
+      - name: Run unit, fuzz, and invariant tests
+        env:
+          FOUNDRY_PROFILE: ci
+        run: forge test -vvv --no-match-path test/OracleAnchoredLVRHookFork.t.sol
+
+  fork-tests:
+    name: Mainnet Fork Tests
+    if: ${{ secrets.MAINNET_RPC_URL != '' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Prepare local solc toolchain
+        run: chmod +x toolchain/solc-0.8.26
+
+      - name: Run pinned-block fork tests
+        env:
+          FOUNDRY_PROFILE: ci
+          MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+          SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
+        run: forge test -vvv --match-path test/OracleAnchoredLVRHookFork.t.sol

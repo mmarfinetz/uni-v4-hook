@@ -3,3 +3,16 @@
 .bin/
 cache/
 out/
+
+# Local docs / working notes
+lvr_v4_hook_paper.pdf
+lvr_v4_hook_paper_dutch_auction.pdf
+AGENTS.md
+.codex/
+
+# Local runtime / secrets
+.env
+.env.*
+
+# Generated Python artifacts
+script/__pycache__/

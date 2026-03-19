@@ -1,33 +1,38 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {Test} from "forge-std/Test.sol";
-import {OracleAnchoredLVRHook} from "src/OracleAnchoredLVRHook.sol";
-import {MockReferenceOracle} from "src/mocks/MockReferenceOracle.sol";
-import {Deployers} from "../lib/v4-core/test/utils/Deployers.sol";
-import {IHooks} from "v4-core/interfaces/IHooks.sol";
-import {IPoolManager} from "v4-core/interfaces/IPoolManager.sol";
-import {ModifyLiquidityParams} from "v4-core/types/PoolOperation.sol";
-import {Hooks} from "v4-core/libraries/Hooks.sol";
-import {LPFeeLibrary} from "v4-core/libraries/LPFeeLibrary.sol";
-import {CustomRevert} from "v4-core/libraries/CustomRevert.sol";
-import {TickMath} from "v4-core/libraries/TickMath.sol";
-import {FullMath} from "v4-core/libraries/FullMath.sol";
+import { Test } from "forge-std/Test.sol";
+import { OracleAnchoredLVRHook } from "src/OracleAnchoredLVRHook.sol";
+import { ChainlinkReferenceOracle } from "src/oracles/ChainlinkReferenceOracle.sol";
+import { Deployers } from "../lib/v4-core/test/utils/Deployers.sol";
+import { IHooks } from "v4-core/interfaces/IHooks.sol";
+import { IPoolManager } from "v4-core/interfaces/IPoolManager.sol";
+import { ModifyLiquidityParams } from "v4-core/types/PoolOperation.sol";
+import { Hooks } from "v4-core/libraries/Hooks.sol";
+import { LPFeeLibrary } from "v4-core/libraries/LPFeeLibrary.sol";
+import { CustomRevert } from "v4-core/libraries/CustomRevert.sol";
+import { TickMath } from "v4-core/libraries/TickMath.sol";
+import { FullMath } from "v4-core/libraries/FullMath.sol";
+import { ManualAggregatorV3 } from "./helpers/ManualAggregatorV3.sol";
 
 contract OracleAnchoredLVRHookPropertiesTest is Test, Deployers {
     uint256 internal constant WAD = 1e18;
     uint256 internal constant SQRT_WAD = 1e9;
     uint24 internal constant BASE_FEE = 500;
     uint24 internal constant MAX_FEE = 50_000;
+    uint24 internal constant ALPHA_BPS = 10_000;
     uint32 internal constant MAX_ORACLE_AGE = 1 hours;
     uint32 internal constant LATENCY_SECS = 60;
     uint32 internal constant CENTER_TOLERANCE_TICKS = 30;
     uint256 internal constant LVR_BUDGET_WAD = 1e16;
     uint256 internal constant SIGMA2_PER_SECOND_WAD = 4e14;
+    uint256 internal constant BOOTSTRAP_SIGMA2_PER_SECOND_WAD = 8e14;
     int24 internal constant TICK_SPACING = 60;
 
     OracleAnchoredLVRHook internal hook;
-    MockReferenceOracle internal oracle;
+    ChainlinkReferenceOracle internal oracle;
+    ManualAggregatorV3 internal baseFeed;
+    ManualAggregatorV3 internal quoteFeed;
 
     function setUp() public {
         deployFreshManagerAndRouters();
@@ -40,8 +45,9 @@ contract OracleAnchoredLVRHookPropertiesTest is Test, Deployers {
         hook = OracleAnchoredLVRHook(hookAddress);
         hook.initializeOwner(address(this));
 
-        oracle = new MockReferenceOracle();
-        oracle.setLatestPrice(WAD, block.timestamp);
+        baseFeed = new ManualAggregatorV3(18, int256(WAD), block.timestamp);
+        quoteFeed = new ManualAggregatorV3(18, int256(WAD), block.timestamp);
+        oracle = new ChainlinkReferenceOracle(baseFeed, false, quoteFeed, false);
 
         (key,) = initPool(
             currency0,
@@ -71,7 +77,9 @@ contract OracleAnchoredLVRHookPropertiesTest is Test, Deployers {
         assertEq(zeroForOneFee, BASE_FEE);
     }
 
-    function testFuzz_previewSwapFee_negativeGapClassifiesOnlyZeroForOneToxic(uint16 rawGapTicks) public {
+    function testFuzz_previewSwapFee_negativeGapClassifiesOnlyZeroForOneToxic(uint16 rawGapTicks)
+        public
+    {
         int24 gapTicks = int24(int256(bound(uint256(rawGapTicks), 1, 900)));
         _setOracleAtTick(-gapTicks);
 
@@ -84,7 +92,9 @@ contract OracleAnchoredLVRHookPropertiesTest is Test, Deployers {
         assertEq(oneForZeroFee, BASE_FEE);
     }
 
-    function testFuzz_previewSwapFee_toxicSurchargeMonotonicInGap(uint16 rawGapA, uint16 rawGapB) public {
+    function testFuzz_previewSwapFee_toxicSurchargeMonotonicInGap(uint16 rawGapA, uint16 rawGapB)
+        public
+    {
         int24 gapA = int24(int256(bound(uint256(rawGapA), 1, 900)));
         int24 gapB = int24(int256(bound(uint256(rawGapB), 1, 900)));
 
@@ -114,14 +124,18 @@ contract OracleAnchoredLVRHookPropertiesTest is Test, Deployers {
         hook.setConfig(key, cfg);
 
         vm.expectRevert(
-            abi.encodeWithSelector(OracleAnchoredLVRHook.DeviationTooLarge.selector, computedFee, maxFee)
+            abi.encodeWithSelector(
+                OracleAnchoredLVRHook.DeviationTooLarge.selector, computedFee, maxFee
+            )
         );
         hook.previewSwapFee(key, false);
     }
 
-    function testFuzz_minWidthTicks_increasesWithSigma(uint256 rawSigmaA, uint256 rawSigmaB) public {
-        uint256 sigmaA = bound(rawSigmaA, 0, 6e14);
-        uint256 sigmaB = bound(rawSigmaB, 0, 6e14);
+    function testFuzz_minWidthTicks_increasesWithSigma(uint256 rawSigmaA, uint256 rawSigmaB)
+        public
+    {
+        uint256 sigmaA = bound(rawSigmaA, 1, 6e14);
+        uint256 sigmaB = bound(rawSigmaB, 1, 6e14);
 
         if (sigmaA > sigmaB) (sigmaA, sigmaB) = (sigmaB, sigmaA);
 
@@ -134,7 +148,9 @@ contract OracleAnchoredLVRHookPropertiesTest is Test, Deployers {
         assertGe(wideRequirement, narrowRequirement);
     }
 
-    function testFuzz_minWidthTicks_increasesWithLatency(uint32 rawLatencyA, uint32 rawLatencyB) public {
+    function testFuzz_minWidthTicks_increasesWithLatency(uint32 rawLatencyA, uint32 rawLatencyB)
+        public
+    {
         uint32 latencyA = uint32(bound(rawLatencyA, 1, 180));
         uint32 latencyB = uint32(bound(rawLatencyB, 1, 180));
 
@@ -174,7 +190,9 @@ contract OracleAnchoredLVRHookPropertiesTest is Test, Deployers {
                 CustomRevert.WrappedError.selector,
                 address(hook),
                 IHooks.beforeAddLiquidity.selector,
-                abi.encodeWithSelector(OracleAnchoredLVRHook.OffCenter.selector, int24(180), int24(0)),
+                abi.encodeWithSelector(
+                    OracleAnchoredLVRHook.OffCenter.selector, int24(180), int24(0)
+                ),
                 abi.encodeWithSelector(Hooks.HookCallFailed.selector)
             )
         );
@@ -186,10 +204,12 @@ contract OracleAnchoredLVRHookPropertiesTest is Test, Deployers {
             oracle: oracle,
             baseFee: BASE_FEE,
             maxFee: MAX_FEE,
+            alphaBps: ALPHA_BPS,
             maxOracleAge: MAX_ORACLE_AGE,
             latencySecs: LATENCY_SECS,
             centerTolTicks: CENTER_TOLERANCE_TICKS,
-            lvrBudgetWad: LVR_BUDGET_WAD
+            lvrBudgetWad: LVR_BUDGET_WAD,
+            bootstrapSigma2PerSecondWad: BOOTSTRAP_SIGMA2_PER_SECOND_WAD
         });
     }
 
@@ -202,24 +222,28 @@ contract OracleAnchoredLVRHookPropertiesTest is Test, Deployers {
     function _addLiquidity(int24 tickLower, int24 tickUpper, bytes32 salt) internal {
         modifyLiquidityRouter.modifyLiquidity(
             key,
-            ModifyLiquidityParams({tickLower: tickLower, tickUpper: tickUpper, liquidityDelta: 1e18, salt: salt}),
+            ModifyLiquidityParams({
+                tickLower: tickLower, tickUpper: tickUpper, liquidityDelta: 1e18, salt: salt
+            }),
             ZERO_BYTES
         );
     }
 
     function _setOracleAtTick(int24 tick) internal {
-        oracle.setLatestPrice(_priceWadAtTick(tick), block.timestamp);
+        baseFeed.setRoundData(int256(_priceWadAtTick(tick)), block.timestamp);
+        quoteFeed.setRoundData(int256(WAD), block.timestamp);
     }
 
     function _expectedFeeUnits(int24 oracleTick, bool zeroForOne) internal pure returns (uint24) {
-        return _expectedFeeUnits(TickMath.getSqrtPriceAtTick(oracleTick), SQRT_PRICE_1_1, zeroForOne);
+        return
+            _expectedFeeUnits(TickMath.getSqrtPriceAtTick(oracleTick), SQRT_PRICE_1_1, zeroForOne);
     }
 
-    function _expectedFeeUnits(uint160 referenceSqrtPriceX96, uint160 poolSqrtPriceX96, bool zeroForOne)
-        internal
-        pure
-        returns (uint24)
-    {
+    function _expectedFeeUnits(
+        uint160 referenceSqrtPriceX96,
+        uint160 poolSqrtPriceX96,
+        bool zeroForOne
+    ) internal pure returns (uint24) {
         uint256 feeWad = uint256(BASE_FEE) * 1e12;
 
         if (referenceSqrtPriceX96 > poolSqrtPriceX96 && !zeroForOne) {
