@@ -134,6 +134,40 @@ def correction_trade(pool_price: float, reference_price: float) -> Optional[Dict
     }
 
 
+def exact_fee_identity_stats(
+    sample_count: int = 10_000,
+    seed: int = 7,
+    gap_std: float = 0.02,
+) -> Dict[str, float | int]:
+    if sample_count <= 0:
+        raise ValueError("sample_count must be > 0")
+    if gap_std <= 0.0:
+        raise ValueError("gap_std must be > 0")
+
+    rng = random.Random(seed)
+    max_absolute_error = 0.0
+    mean_absolute_error = 0.0
+
+    for _ in range(sample_count):
+        log_gap = rng.gauss(0.0, gap_std)
+        trade = correction_trade(1.0, math.exp(log_gap))
+        if trade is None:
+            raise ValueError("Exact fee identity sampling produced a zero-gap repricing.")
+
+        exact_fee_revenue = float(trade["surcharge"]) * float(trade["toxic_input_notional"])
+        absolute_error = abs(exact_fee_revenue - float(trade["gross_lvr"]))
+        max_absolute_error = max(max_absolute_error, absolute_error)
+        mean_absolute_error += absolute_error
+
+    return {
+        "sample_count": sample_count,
+        "seed": seed,
+        "gap_std": gap_std,
+        "max_absolute_error": max_absolute_error,
+        "mean_absolute_error": mean_absolute_error / sample_count,
+    }
+
+
 def width_factor(width_ticks: int) -> float:
     if width_ticks <= 0:
         return 0.0

@@ -1,0 +1,23 @@
+{
+  "decision_labels": {
+    "toxic_candidate": "Pre-swap oracle/pool gap is outside the noise floor and the swap direction closes the gap.",
+    "benign_candidate": "Swap direction widens the oracle/pool gap or the gap remains inside the configured noise floor.",
+    "uncertain": "Oracle is stale, ordering is ambiguous, or the gap is inside the tighter noise band."
+  },
+  "outcome_labels": {
+    "toxic_confirmed": "Future reference prices keep markout positive and the observed pool/oracle gap closes beyond the configured threshold.",
+    "benign_confirmed": "Future reference prices do not show adverse selection and the observed gap does not close in the toxic direction.",
+    "uncertain": "Horizons disagree, future reference points are missing, or the price mean-reverts inside the reversion window."
+  },
+  "markout_horizons_seconds": [
+    12,
+    60,
+    300,
+    3600
+  ],
+  "noise_band_bps": 1.0,
+  "noise_floor_bps": 2.0,
+  "gap_closure_threshold": 0.5,
+  "reversion_window_seconds": 60,
+  "max_oracle_age_seconds": 3600
+}

@@ -1,6 +1,7 @@
 import argparse
 import csv
 import json
+import math
 import tempfile
 import unittest
 from pathlib import Path
@@ -33,6 +34,8 @@ class HistoricalReplayTest(unittest.TestCase):
             width_ticks=12_000,
             series_json_out=None,
             series_csv_out=None,
+            market_reference_updates=None,
+            label_config=str(Path(__file__).with_name("label_config.json")),
             json=False,
         )
 
@@ -212,6 +215,154 @@ class HistoricalReplayTest(unittest.TestCase):
 
             self.assertEqual(fixed_metrics["executed_toxic_swaps"], 1)
             self.assertAlmostEqual(fixed_metrics["final_pool_price"], 1.02, places=9)
+
+    def test_labeling_toxic_candidate_confirmed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            oracle_path = self.write_csv(
+                tmp_path,
+                "oracle.csv",
+                [
+                    {"timestamp": 0, "price": 1.0},
+                    {"timestamp": 60, "price": 1.02},
+                    {"timestamp": 73, "price": 1.02},
+                    {"timestamp": 121, "price": 1.021},
+                    {"timestamp": 361, "price": 1.022},
+                    {"timestamp": 3661, "price": 1.023},
+                ],
+            )
+            swap_path = self.write_csv(
+                tmp_path,
+                "swaps.csv",
+                [
+                    {"timestamp": 61, "direction": "one_for_zero", "notional_quote": 0.15},
+                ],
+            )
+
+            report = replay(self.make_args(oracle_path, swap_path))
+            row = report["flow_labels"][0]
+
+            self.assertEqual(row["decision_label"], "toxic_candidate")
+            self.assertEqual(row["outcome_label"], "toxic_confirmed")
+            self.assertGreater(row["markout_12s"], 0.0)
+
+    def test_labeling_benign_candidate_confirmed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            oracle_path = self.write_csv(
+                tmp_path,
+                "oracle.csv",
+                [
+                    {"timestamp": 0, "price": 1.0},
+                    {"timestamp": 60, "price": 1.02},
+                    {"timestamp": 73, "price": 1.02},
+                    {"timestamp": 121, "price": 1.02},
+                    {"timestamp": 361, "price": 1.02},
+                    {"timestamp": 3661, "price": 1.02},
+                ],
+            )
+            swap_path = self.write_csv(
+                tmp_path,
+                "swaps.csv",
+                [
+                    {"timestamp": 61, "direction": "zero_for_one", "notional_quote": 0.15},
+                ],
+            )
+
+            report = replay(self.make_args(oracle_path, swap_path))
+            row = report["flow_labels"][0]
+
+            self.assertEqual(row["decision_label"], "benign_candidate")
+            self.assertEqual(row["outcome_label"], "benign_confirmed")
+            self.assertLess(row["markout_12s"], 0.0)
+
+    def test_labeling_uncertain_stale(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            oracle_path = self.write_csv(
+                tmp_path,
+                "oracle.csv",
+                [
+                    {"timestamp": 0, "price": 1.0},
+                    {"timestamp": 4012, "price": 1.01},
+                    {"timestamp": 4060, "price": 1.01},
+                    {"timestamp": 4300, "price": 1.01},
+                    {"timestamp": 7600, "price": 1.01},
+                ],
+            )
+            swap_path = self.write_csv(
+                tmp_path,
+                "swaps.csv",
+                [
+                    {"timestamp": 4000, "direction": "one_for_zero", "notional_quote": 0.05},
+                ],
+            )
+
+            report = replay(self.make_args(oracle_path, swap_path))
+            row = report["flow_labels"][0]
+
+            self.assertEqual(row["decision_label"], "uncertain")
+
+    def test_markout_horizon_alignment(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            oracle_path = self.write_csv(
+                tmp_path,
+                "oracle.csv",
+                [
+                    {"timestamp": 0, "price": 1.0},
+                    {"timestamp": 60, "price": 1.02},
+                    {"timestamp": 80, "price": 1.025},
+                    {"timestamp": 121, "price": 1.03},
+                    {"timestamp": 361, "price": 1.04},
+                    {"timestamp": 3661, "price": 1.05},
+                ],
+            )
+            swap_path = self.write_csv(
+                tmp_path,
+                "swaps.csv",
+                [
+                    {"timestamp": 61, "direction": "one_for_zero", "notional_quote": 0.15},
+                ],
+            )
+
+            report = replay(self.make_args(oracle_path, swap_path))
+            row = report["flow_labels"][0]
+
+            self.assertAlmostEqual(row["markout_12s"], math.log(1.025 / 1.0) * 10_000.0, places=9)
+
+    def test_confusion_matrix_shape(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            oracle_path = self.write_csv(
+                tmp_path,
+                "oracle.csv",
+                [
+                    {"timestamp": 0, "price": 1.0},
+                    {"timestamp": 60, "price": 1.02},
+                    {"timestamp": 73, "price": 1.02},
+                    {"timestamp": 121, "price": 1.021},
+                    {"timestamp": 361, "price": 1.022},
+                    {"timestamp": 3661, "price": 1.023},
+                ],
+            )
+            swap_path = self.write_csv(
+                tmp_path,
+                "swaps.csv",
+                [
+                    {"timestamp": 61, "direction": "one_for_zero", "notional_quote": 0.15},
+                ],
+            )
+
+            report = replay(self.make_args(oracle_path, swap_path))
+            matrix = report["label_confusion_matrix"]
+
+            self.assertEqual(set(matrix.keys()), {"toxic_candidate", "benign_candidate", "uncertain"})
+            for outcomes in matrix.values():
+                self.assertEqual(
+                    set(outcomes.keys()),
+                    {"toxic_confirmed", "benign_confirmed", "uncertain"},
+                )
 
 
 if __name__ == "__main__":

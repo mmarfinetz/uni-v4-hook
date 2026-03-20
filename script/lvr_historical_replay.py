@@ -35,9 +35,19 @@ import argparse
 import csv
 import json
 import math
+import warnings
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
+
+from script.flow_classification import (
+    DEFAULT_LABEL_CONFIG_PATH,
+    assign_decision_label,
+    assign_outcome_label,
+    compute_gap_closure_fraction,
+    compute_signed_markout,
+    load_label_config,
+)
 
 
 LN_1_0001 = math.log(1.0001)
@@ -46,6 +56,8 @@ BPS_DENOMINATOR = 10_000
 DEFAULT_CURVES = ("fixed", "hook", "linear", "log")
 ORACLE_KIND_ORDER = 0
 SWAP_KIND_ORDER = 1
+DECISION_LABELS = ("toxic_candidate", "benign_candidate", "uncertain")
+OUTCOME_LABELS = ("toxic_confirmed", "benign_confirmed", "uncertain")
 
 
 @dataclass
@@ -53,6 +65,8 @@ class OracleUpdate:
     timestamp: int
     price: float
     block_number: Optional[int] = None
+    tx_hash: Optional[str] = None
+    log_index: Optional[int] = None
     source: Optional[str] = None
 
 
@@ -69,6 +83,10 @@ class SwapSample:
     block_number: Optional[int] = None
     tx_hash: Optional[str] = None
     log_index: Optional[int] = None
+    sqrt_price_x96: Optional[int] = None
+    sqrtPriceX96: Optional[int] = None
+    tick: Optional[int] = None
+    pre_swap_tick: Optional[int] = None
     source: Optional[str] = None
 
 
@@ -242,6 +260,16 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional path to write line-comparison series as CSV.",
     )
+    parser.add_argument(
+        "--market-reference-updates",
+        default=None,
+        help="Optional path to market_reference_updates.csv used for ex-post markouts.",
+    )
+    parser.add_argument(
+        "--label-config",
+        default=str(DEFAULT_LABEL_CONFIG_PATH),
+        help="Path to the flow-label taxonomy JSON.",
+    )
     parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON summary.")
     return parser.parse_args()
 
@@ -293,6 +321,8 @@ def load_oracle_updates(path_str: str) -> List[OracleUpdate]:
                 timestamp=timestamp,
                 price=price,
                 block_number=parse_optional_int(row, "block_number"),
+                tx_hash=parse_optional_str(row, "tx_hash"),
+                log_index=parse_optional_int(row, "log_index"),
                 source=(
                     parse_optional_str(row, "source")
                     or parse_optional_str(row, "source_label")
@@ -304,7 +334,14 @@ def load_oracle_updates(path_str: str) -> List[OracleUpdate]:
     if not updates:
         raise ValueError("Oracle update file is empty.")
 
-    updates.sort(key=lambda item: (item.timestamp, item.block_number or 0))
+    updates.sort(
+        key=lambda item: (
+            item.timestamp,
+            item.block_number or 0,
+            item.log_index or 0,
+            item.tx_hash or "",
+        )
+    )
     return updates
 
 
@@ -352,6 +389,10 @@ def load_swap_samples(path_str: str) -> List[SwapSample]:
                 block_number=parse_optional_int(row, "block_number"),
                 tx_hash=parse_optional_str(row, "tx_hash"),
                 log_index=parse_optional_int(row, "log_index"),
+                sqrt_price_x96=parse_optional_int(row, "sqrt_price_x96"),
+                sqrtPriceX96=parse_optional_int(row, "sqrtPriceX96"),
+                tick=parse_optional_int(row, "tick"),
+                pre_swap_tick=parse_optional_int(row, "pre_swap_tick"),
                 source=parse_optional_str(row, "source"),
             )
         )
@@ -839,6 +880,8 @@ def replay(args: argparse.Namespace) -> Dict[str, Any]:
         "width_factor": width_factor(args.width_ticks),
     }
 
+    label_artifacts = build_label_artifacts(args, oracle_updates, series_points)
+
     return {
         "inputs": {
             "oracle_updates_path": args.oracle_updates,
@@ -864,6 +907,11 @@ def replay(args: argparse.Namespace) -> Dict[str, Any]:
         },
         "width_guard": width_guard_summary,
         "strategies": {state.config.name: state.finalize() for state in strategies.values()},
+        "flow_labels": label_artifacts["flow_labels"],
+        "swap_markouts": label_artifacts["swap_markouts"],
+        "label_confusion_matrix": label_artifacts["label_confusion_matrix"],
+        "manual_review_sample": label_artifacts["manual_review_sample"],
+        "label_reference_source": label_artifacts["label_reference_source"],
         "series": [asdict(point) for point in series_points],
     }
 
@@ -879,6 +927,260 @@ def write_series_csv(path_str: str, series: Iterable[Dict[str, Any]]) -> None:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()))
         writer.writeheader()
         writer.writerows(rows)
+
+
+def write_rows_csv(path_str: str, fieldnames: list[str], rows: Iterable[Dict[str, Any]]) -> None:
+    path = Path(path_str)
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def _load_markout_reference_updates(
+    args: argparse.Namespace,
+    oracle_updates: List[OracleUpdate],
+) -> tuple[List[OracleUpdate], str]:
+    market_reference_path = getattr(args, "market_reference_updates", None)
+    if market_reference_path:
+        return load_oracle_updates(market_reference_path), market_reference_path
+
+    warnings.warn(
+        "market_reference_updates.csv was not provided; falling back to oracle_updates for markouts.",
+        stacklevel=2,
+    )
+    return oracle_updates, args.oracle_updates
+
+
+def _canonical_swap_points(series_points: List[ReplayPoint]) -> List[ReplayPoint]:
+    canonical: Dict[int, ReplayPoint] = {}
+    for point in series_points:
+        existing = canonical.get(point.event_index)
+        if existing is None or (existing.strategy != "fixed_fee" and point.strategy == "fixed_fee"):
+            canonical[point.event_index] = point
+    return [canonical[index] for index in sorted(canonical)]
+
+
+def _oracle_precedes_swap(update: OracleUpdate, point: ReplayPoint) -> bool:
+    if update.timestamp < point.timestamp:
+        return True
+    if update.timestamp > point.timestamp:
+        return False
+
+    if update.block_number is None or point.block_number is None:
+        return True
+    if update.block_number < point.block_number:
+        return True
+    if update.block_number > point.block_number:
+        return False
+
+    if update.log_index is None or point.log_index is None:
+        return True
+    return update.log_index < point.log_index
+
+
+def _latest_oracle_for_swap(oracle_updates: List[OracleUpdate], point: ReplayPoint) -> Optional[OracleUpdate]:
+    latest: Optional[OracleUpdate] = None
+    for update in oracle_updates:
+        if _oracle_precedes_swap(update, point):
+            latest = update
+            continue
+        if update.timestamp > point.timestamp:
+            break
+    return latest
+
+
+def _future_rows_after_timestamp(rows: List[OracleUpdate], timestamp: int) -> List[OracleUpdate]:
+    return [row for row in rows if row.timestamp > timestamp]
+
+
+def _first_row_at_or_after(rows: List[OracleUpdate], target_timestamp: int) -> OracleUpdate:
+    for row in rows:
+        if row.timestamp >= target_timestamp:
+            return row
+    raise ValueError(f"No oracle update found at or after timestamp {target_timestamp}.")
+
+
+def _empty_confusion_matrix() -> Dict[str, Dict[str, int]]:
+    return {
+        decision_label: {outcome_label: 0 for outcome_label in OUTCOME_LABELS}
+        for decision_label in DECISION_LABELS
+    }
+
+
+def _sample_manual_review(flow_labels: List[Dict[str, Any]], sample_size: int = 20) -> List[Dict[str, Any]]:
+    if not flow_labels:
+        return []
+
+    groups: Dict[tuple[str, str], List[Dict[str, Any]]] = {}
+    for row in flow_labels:
+        key = (row["decision_label"], row["outcome_label"])
+        groups.setdefault(key, []).append(row)
+
+    for key in groups:
+        groups[key].sort(key=lambda row: abs(float(row["gap_bps"])), reverse=True)
+
+    total = sum(len(rows) for rows in groups.values())
+    sample_size = min(sample_size, total)
+    allocations = {key: 0 for key in groups}
+    remainders: List[tuple[float, tuple[str, str]]] = []
+    assigned = 0
+
+    for key, rows in groups.items():
+        proportional = (sample_size * len(rows)) / total
+        allocation = min(len(rows), int(math.floor(proportional)))
+        allocations[key] = allocation
+        assigned += allocation
+        remainders.append((proportional - allocation, key))
+
+    for _, key in sorted(remainders, reverse=True):
+        if assigned >= sample_size:
+            break
+        if allocations[key] >= len(groups[key]):
+            continue
+        allocations[key] += 1
+        assigned += 1
+
+    selected: List[Dict[str, Any]] = []
+    for key in sorted(groups):
+        selected.extend(groups[key][:allocations[key]])
+    return selected
+
+
+def build_label_artifacts(
+    args: argparse.Namespace,
+    oracle_updates: List[OracleUpdate],
+    series_points: List[ReplayPoint],
+) -> Dict[str, Any]:
+    if not series_points:
+        return {
+            "flow_labels": [],
+            "swap_markouts": [],
+            "label_confusion_matrix": _empty_confusion_matrix(),
+            "manual_review_sample": [],
+            "label_reference_source": None,
+        }
+
+    cfg = load_label_config(getattr(args, "label_config", DEFAULT_LABEL_CONFIG_PATH))
+    markout_reference_updates, reference_source = _load_markout_reference_updates(args, oracle_updates)
+    flow_labels: List[Dict[str, Any]] = []
+    swap_markouts: List[Dict[str, Any]] = []
+    confusion_matrix = _empty_confusion_matrix()
+
+    canonical_points = _canonical_swap_points(series_points)
+    horizons = [int(value) for value in cfg["markout_horizons_seconds"]]
+    shortest_horizon = min(horizons)
+
+    for point in canonical_points:
+        oracle_row = _latest_oracle_for_swap(oracle_updates, point)
+        future_oracle_rows = _future_rows_after_timestamp(oracle_updates, point.timestamp)
+        future_markout_rows = _future_rows_after_timestamp(markout_reference_updates, point.timestamp)
+
+        if oracle_row is None:
+            decision_label = "uncertain"
+        else:
+            decision_label = assign_decision_label(point, oracle_row, cfg)
+
+        outcome_label = assign_outcome_label(point, future_oracle_rows, cfg)
+
+        try:
+            post_horizon_oracle = _first_row_at_or_after(future_oracle_rows, point.timestamp + shortest_horizon)
+            gap_closure_fraction = compute_gap_closure_fraction(
+                point,
+                point.reference_price,
+                post_horizon_oracle.price,
+            )
+        except ValueError:
+            gap_closure_fraction = None
+
+        markout_columns: Dict[str, Any] = {}
+        for horizon_seconds in horizons:
+            try:
+                signed_markout = compute_signed_markout(point, future_markout_rows, horizon_seconds)
+                reference_row = _first_row_at_or_after(
+                    future_markout_rows,
+                    point.timestamp + horizon_seconds,
+                )
+                reference_price_at_horizon = reference_row.price
+            except ValueError:
+                signed_markout = None
+                reference_price_at_horizon = None
+
+            markout_columns[f"markout_{horizon_seconds}s"] = signed_markout
+            swap_markouts.append(
+                {
+                    "tx_hash": point.tx_hash,
+                    "log_index": point.log_index,
+                    "horizon_seconds": horizon_seconds,
+                    "signed_markout": signed_markout,
+                    "reference_price_at_horizon": reference_price_at_horizon,
+                }
+            )
+
+        flow_row = {
+            "tx_hash": point.tx_hash,
+            "log_index": point.log_index,
+            "block_number": point.block_number,
+            "timestamp": point.timestamp,
+            "direction": point.direction,
+            "decision_label": decision_label,
+            "outcome_label": outcome_label,
+            "gap_bps": point.gap_bps,
+            "gap_closure_fraction": gap_closure_fraction,
+            **markout_columns,
+        }
+        flow_labels.append(flow_row)
+        confusion_matrix[decision_label][outcome_label] += 1
+
+    return {
+        "flow_labels": flow_labels,
+        "swap_markouts": swap_markouts,
+        "label_confusion_matrix": confusion_matrix,
+        "manual_review_sample": _sample_manual_review(flow_labels),
+        "label_reference_source": reference_source,
+    }
+
+
+def write_label_artifacts(args: argparse.Namespace, report: Dict[str, Any]) -> None:
+    if getattr(args, "series_csv_out", None):
+        output_dir = Path(args.series_csv_out).resolve().parent
+    elif getattr(args, "series_json_out", None):
+        output_dir = Path(args.series_json_out).resolve().parent
+    else:
+        output_dir = Path(args.oracle_updates).resolve().parent
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    horizons = load_label_config(getattr(args, "label_config", DEFAULT_LABEL_CONFIG_PATH))["markout_horizons_seconds"]
+    flow_fieldnames = [
+        "tx_hash",
+        "log_index",
+        "block_number",
+        "timestamp",
+        "direction",
+        "decision_label",
+        "outcome_label",
+        "gap_bps",
+        "gap_closure_fraction",
+        *[f"markout_{int(horizon)}s" for horizon in horizons],
+    ]
+    markout_fieldnames = [
+        "tx_hash",
+        "log_index",
+        "horizon_seconds",
+        "signed_markout",
+        "reference_price_at_horizon",
+    ]
+    write_rows_csv(str(output_dir / "flow_labels.csv"), flow_fieldnames, report["flow_labels"])
+    write_rows_csv(str(output_dir / "swap_markouts.csv"), markout_fieldnames, report["swap_markouts"])
+    write_rows_csv(
+        str(output_dir / "manual_review_sample.csv"),
+        flow_fieldnames,
+        report["manual_review_sample"],
+    )
+    (output_dir / "label_confusion_matrix.json").write_text(
+        json.dumps(report["label_confusion_matrix"], indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
 
 
 def print_report(report: Dict[str, Any]) -> None:
@@ -933,8 +1235,13 @@ def main() -> None:
         Path(args.series_json_out).write_text(json.dumps(report["series"], indent=2), encoding="utf-8")
     if args.series_csv_out:
         write_series_csv(args.series_csv_out, report["series"])
+    write_label_artifacts(args, report)
 
-    summary = {key: value for key, value in report.items() if key != "series"}
+    summary = {
+        key: value
+        for key, value in report.items()
+        if key not in {"series", "flow_labels", "swap_markouts", "manual_review_sample"}
+    }
     if args.json:
         print(json.dumps(summary, indent=2, sort_keys=True))
     else:
