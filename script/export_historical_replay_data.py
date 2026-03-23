@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import time
 import urllib.error
@@ -171,14 +172,61 @@ class RpcClient:
         timeout: int,
         max_retries: int = 5,
         retry_backoff_seconds: float = 1.0,
+        cache_dir: str | None = None,
     ) -> None:
         self.rpc_url = rpc_url
         self.timeout = timeout
         self.max_retries = max_retries
         self.retry_backoff_seconds = retry_backoff_seconds
         self._next_id = 1
+        self.cache_dir = Path(cache_dir) if cache_dir else None
+        if self.cache_dir is not None:
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
+
+    def _cache_path(self, method: str, params: list[Any]) -> Path | None:
+        if self.cache_dir is None:
+            return None
+        key = json.dumps(
+            {
+                "rpc_url": self.rpc_url,
+                "method": method,
+                "params": params,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+        digest = hashlib.sha256(key).hexdigest()
+        return self.cache_dir / f"{digest}.json"
+
+    def _load_cached_result(self, method: str, params: list[Any]) -> Any | None:
+        cache_path = self._cache_path(method, params)
+        if cache_path is None or not cache_path.exists():
+            return None
+        with cache_path.open(encoding="utf-8") as handle:
+            payload = json.load(handle)
+        if payload.get("method") != method:
+            raise RuntimeError(f"RPC cache entry mismatch for {cache_path}")
+        return payload["result"]
+
+    def _store_cached_result(self, method: str, params: list[Any], result: Any) -> None:
+        cache_path = self._cache_path(method, params)
+        if cache_path is None:
+            return
+        payload = {
+            "method": method,
+            "params": params,
+            "result": result,
+        }
+        tmp_path = cache_path.with_suffix(".tmp")
+        with tmp_path.open("w", encoding="utf-8") as handle:
+            json.dump(payload, handle, sort_keys=True, separators=(",", ":"))
+        tmp_path.replace(cache_path)
 
     def call(self, method: str, params: list[Any]) -> Any:
+        cached = self._load_cached_result(method, params)
+        if cached is not None:
+            return cached
+
         attempt = 0
         while True:
             payload = {
@@ -215,6 +263,7 @@ class RpcClient:
 
             error = result.get("error")
             if error is None:
+                self._store_cached_result(method, params, result["result"])
                 return result["result"]
 
             if error.get("code") == 429 and attempt < self.max_retries:
@@ -227,11 +276,24 @@ class RpcClient:
         if not requests:
             return []
 
+        cached_results: list[Any | None] = []
+        pending_requests: list[tuple[str, list[Any]]] = []
+        pending_positions: list[int] = []
+        for index, (method, params) in enumerate(requests):
+            cached = self._load_cached_result(method, params)
+            cached_results.append(cached)
+            if cached is None:
+                pending_requests.append((method, params))
+                pending_positions.append(index)
+
+        if not pending_requests:
+            return [item for item in cached_results]
+
         attempt = 0
         while True:
             payload = []
             response_ids: list[int] = []
-            for method, params in requests:
+            for method, params in pending_requests:
                 payload.append(
                     {
                         "jsonrpc": "2.0",
@@ -274,13 +336,20 @@ class RpcClient:
             indexed_results = {item["id"]: item for item in result}
             ordered_results: list[Any] = []
             retry_needed = False
-            for response_id, (method, _) in zip(response_ids, requests, strict=True):
+            for response_id, (method, params), position in zip(
+                response_ids,
+                pending_requests,
+                pending_positions,
+                strict=True,
+            ):
                 item = indexed_results.get(response_id)
                 if item is None:
                     raise RuntimeError(f"RPC batch missing response for id={response_id} method={method}")
                 error = item.get("error")
                 if error is None:
                     ordered_results.append(item["result"])
+                    cached_results[position] = item["result"]
+                    self._store_cached_result(method, params, item["result"])
                     continue
                 if error.get("code") == 429 and attempt < self.max_retries:
                     retry_needed = True
@@ -291,7 +360,7 @@ class RpcClient:
                 time.sleep(self.retry_backoff_seconds * (2 ** attempt))
                 attempt += 1
                 continue
-            return ordered_results
+            return [item for item in cached_results]
 
 
 def parse_args() -> argparse.Namespace:
@@ -332,12 +401,35 @@ def parse_args() -> argparse.Namespace:
         help="Optional label used in market reference rows.",
     )
     parser.add_argument(
+        "--market-to-block",
+        type=int,
+        default=None,
+        help="Optional inclusive end block for market_reference_updates.csv. Defaults to --to-block.",
+    )
+    parser.add_argument(
         "--max-oracle-age-seconds",
         type=int,
         default=3600,
         help="Threshold used to materialize oracle_stale_windows.csv.",
     )
     parser.add_argument("--rpc-timeout", type=int, default=45, help="RPC timeout in seconds.")
+    parser.add_argument(
+        "--rpc-cache-dir",
+        default=None,
+        help="Optional directory for persistent RPC response caching.",
+    )
+    parser.add_argument(
+        "--max-retries",
+        type=int,
+        default=5,
+        help="Max retries for rate-limited RPC requests. Default: 5.",
+    )
+    parser.add_argument(
+        "--retry-backoff-seconds",
+        type=float,
+        default=1.0,
+        help="Initial exponential backoff in seconds for retried RPC requests. Default: 1.0.",
+    )
     return parser.parse_args()
 
 
@@ -1021,8 +1113,19 @@ def export_historical_replay_data(
         raise ValueError("--from-block must be <= --to-block")
     if args.max_oracle_age_seconds <= 0:
         raise ValueError("--max-oracle-age-seconds must be > 0")
+    market_to_block = getattr(args, "market_to_block", None)
+    if market_to_block is None:
+        market_to_block = args.to_block
+    if market_to_block < args.to_block:
+        raise ValueError("--market-to-block must be >= --to-block")
 
-    rpc_client = client or RpcClient(args.rpc_url, timeout=args.rpc_timeout)
+    rpc_client = client or RpcClient(
+        args.rpc_url,
+        timeout=args.rpc_timeout,
+        max_retries=getattr(args, "max_retries", 5),
+        retry_backoff_seconds=getattr(args, "retry_backoff_seconds", 1.0),
+        cache_dir=getattr(args, "rpc_cache_dir", None),
+    )
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1141,7 +1244,7 @@ def export_historical_replay_data(
             market_base_feed,
             args.market_base_label,
             args.from_block,
-            args.to_block,
+            market_to_block,
             args.blocks_per_request,
             block_timestamps,
         )
@@ -1150,7 +1253,7 @@ def export_historical_replay_data(
             market_quote_feed,
             args.market_quote_label,
             args.from_block,
-            args.to_block,
+            market_to_block,
             args.blocks_per_request,
             block_timestamps,
         )
@@ -1226,6 +1329,7 @@ def export_historical_replay_data(
         "liquidity_events": len(liquidity_events),
         "initialized_ticks": len(initialized_ticks),
         "market_reference_updates": len(market_reference_rows),
+        "market_reference_to_block": market_to_block if market_reference_rows else None,
         "output_dir": str(output_dir),
     }
 

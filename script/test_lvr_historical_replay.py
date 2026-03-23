@@ -276,6 +276,49 @@ class HistoricalReplayTest(unittest.TestCase):
             self.assertEqual(row["outcome_label"], "benign_confirmed")
             self.assertLess(row["markout_12s"], 0.0)
 
+    def test_labeling_uses_markout_reference_for_outcome_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            oracle_path = self.write_csv(
+                tmp_path,
+                "oracle.csv",
+                [
+                    {"timestamp": 0, "price": 1.0},
+                    {"timestamp": 60, "price": 1.02},
+                    {"timestamp": 73, "price": 1.02},
+                    {"timestamp": 121, "price": 1.021},
+                    {"timestamp": 361, "price": 1.022},
+                    {"timestamp": 3661, "price": 1.023},
+                ],
+            )
+            market_reference_path = self.write_csv(
+                tmp_path,
+                "market_reference.csv",
+                [
+                    {"timestamp": 60, "price": 0.98},
+                    {"timestamp": 73, "price": 0.98},
+                    {"timestamp": 121, "price": 0.98},
+                    {"timestamp": 361, "price": 0.98},
+                    {"timestamp": 3661, "price": 0.98},
+                ],
+            )
+            swap_path = self.write_csv(
+                tmp_path,
+                "swaps.csv",
+                [
+                    {"timestamp": 61, "direction": "one_for_zero", "notional_quote": 0.15},
+                ],
+            )
+
+            args = self.make_args(oracle_path, swap_path)
+            args.market_reference_updates = str(market_reference_path)
+            report = replay(args)
+            row = report["flow_labels"][0]
+
+            self.assertEqual(report["label_reference_source"], str(market_reference_path))
+            self.assertEqual(row["outcome_label"], "benign_confirmed")
+            self.assertIsNone(row["uncertain_reason"])
+
     def test_labeling_uncertain_stale(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir)
@@ -302,6 +345,7 @@ class HistoricalReplayTest(unittest.TestCase):
             row = report["flow_labels"][0]
 
             self.assertEqual(row["decision_label"], "uncertain")
+            self.assertEqual(row["uncertain_reason"], "stale_oracle")
 
     def test_markout_horizon_alignment(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

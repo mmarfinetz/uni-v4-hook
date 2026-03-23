@@ -1,9 +1,11 @@
 import argparse
 import csv
+import io
 import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from script.export_historical_replay_data import (
     AGGREGATOR_SELECTOR,
@@ -20,6 +22,7 @@ from script.export_historical_replay_data import (
     TICK_SPACING_SELECTOR,
     TOKEN0_SELECTOR,
     TOKEN1_SELECTOR,
+    RpcClient,
     UNISWAP_V3_TICK_BITMAP_MAPPING_SLOT,
     UNISWAP_V3_TICKS_MAPPING_SLOT,
     _build_oracle_stale_windows,
@@ -119,7 +122,39 @@ class ExportHistoricalReplayDataTest(unittest.TestCase):
     recipient = "0x7777777777777777777777777777777777777777"
     aggregator = "0x8888888888888888888888888888888888888888"
 
-    def make_args(self, output_dir: str, *, to_block: int = 104, max_oracle_age_seconds: int = 20) -> argparse.Namespace:
+    def test_rpc_client_uses_disk_cache_for_repeat_call(self) -> None:
+        class FakeResponse(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            payload = json.dumps({"jsonrpc": "2.0", "id": 1, "result": "0x1"}).encode()
+            urlopen_calls = []
+
+            def fake_urlopen(request, timeout):
+                urlopen_calls.append((request.full_url, timeout))
+                return FakeResponse(payload)
+
+            client = RpcClient("https://example.invalid", timeout=45, cache_dir=tmp_dir)
+            with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+                self.assertEqual(client.call("eth_blockNumber", []), "0x1")
+                self.assertEqual(client.call("eth_blockNumber", []), "0x1")
+
+            self.assertEqual(len(urlopen_calls), 1)
+
+    def make_args(
+        self,
+        output_dir: str,
+        *,
+        to_block: int = 104,
+        max_oracle_age_seconds: int = 20,
+        market_base_feed: str | None = None,
+        market_quote_feed: str | None = None,
+        market_to_block: int | None = None,
+    ) -> argparse.Namespace:
         return argparse.Namespace(
             rpc_url="http://example.invalid",
             from_block=100,
@@ -131,15 +166,16 @@ class ExportHistoricalReplayDataTest(unittest.TestCase):
             blocks_per_request=10,
             base_label="base_feed",
             quote_label="quote_feed",
-            market_base_feed=None,
-            market_quote_feed=None,
+            market_base_feed=market_base_feed,
+            market_quote_feed=market_quote_feed,
             market_base_label="market_base_feed",
             market_quote_label="market_quote_feed",
+            market_to_block=market_to_block,
             max_oracle_age_seconds=max_oracle_age_seconds,
             rpc_timeout=45,
         )
 
-    def make_client(self, *, boundary: bool = False) -> FakeRpcClient:
+    def make_client(self, *, boundary: bool = False, include_market_extension: bool = False) -> FakeRpcClient:
         block_timestamps = {
             100: 20,
             101: 30,
@@ -147,6 +183,8 @@ class ExportHistoricalReplayDataTest(unittest.TestCase):
             103: 40 if boundary else 41,
             104: 50,
         }
+        if include_market_extension:
+            block_timestamps[105] = 60
 
         eth_calls = {
             (self.base_feed, DECIMALS_SELECTOR, "latest"): _hex_word(8),
@@ -227,6 +265,27 @@ class ExportHistoricalReplayDataTest(unittest.TestCase):
                 updated_at=50,
             ),
         ]
+        if include_market_extension:
+            logs.extend(
+                [
+                    self.answer_updated_log(
+                        address=self.quote_feed,
+                        block_number=105,
+                        log_index=0,
+                        answer=100_700_000,
+                        round_id=3,
+                        updated_at=60,
+                    ),
+                    self.answer_updated_log(
+                        address=self.base_feed,
+                        block_number=105,
+                        log_index=1,
+                        answer=2_075_000_00000,
+                        round_id=3,
+                        updated_at=60,
+                    ),
+                ]
+            )
 
         return FakeRpcClient(block_timestamps=block_timestamps, eth_calls=eth_calls, eth_storage=eth_storage, logs=logs)
 
@@ -498,6 +557,25 @@ class ExportHistoricalReplayDataTest(unittest.TestCase):
         )
 
         self.assertEqual(stale_windows, [])
+
+    def test_market_reference_updates_can_extend_beyond_primary_to_block(self) -> None:
+        client = self.make_client(include_market_extension=True)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            summary = export_historical_replay_data(
+                self.make_args(
+                    tmp_dir,
+                    market_base_feed=self.base_feed,
+                    market_quote_feed=self.quote_feed,
+                    market_to_block=105,
+                ),
+                client=client,
+            )
+            rows = self.read_csv(Path(tmp_dir) / "market_reference_updates.csv")
+
+        self.assertGreater(len(rows), 3)
+        self.assertEqual(summary["market_reference_to_block"], 105)
+        self.assertEqual(rows[-1]["block_number"], "105")
 
     def test_timestamp_alignment_and_swap_ordering(self) -> None:
         client = self.make_client()

@@ -22,15 +22,32 @@ def load_label_config(path: str | Path = DEFAULT_LABEL_CONFIG_PATH) -> dict[str,
     return payload
 
 
-def assign_decision_label(swap_row: Any, oracle_row: Any, cfg: Mapping[str, Any]) -> str:
+def assign_decision_label(
+    swap_row: Any,
+    oracle_row: Any,
+    cfg: Mapping[str, Any],
+    *,
+    with_reason: bool = False,
+) -> str | tuple[str, str | None]:
+    label, reason = _assign_decision_label_with_reason(swap_row, oracle_row, cfg)
+    if with_reason:
+        return label, reason
+    return label
+
+
+def _assign_decision_label_with_reason(
+    swap_row: Any,
+    oracle_row: Any,
+    cfg: Mapping[str, Any],
+) -> tuple[str, str | None]:
     config = _validate_config(cfg)
     swap_timestamp = _required_int(swap_row, "timestamp")
     oracle_timestamp = _required_int(oracle_row, "timestamp")
 
     if _is_ambiguous_ordering(swap_row, oracle_row):
-        return "uncertain"
+        return "uncertain", "ambiguous_ordering"
     if swap_timestamp > oracle_timestamp + config["max_oracle_age_seconds"]:
-        return "uncertain"
+        return "uncertain", "stale_oracle"
 
     reference_price = _reference_price(oracle_row, swap_row)
     pool_price_before = _required_float(swap_row, "pool_price_before")
@@ -38,20 +55,33 @@ def assign_decision_label(swap_row: Any, oracle_row: Any, cfg: Mapping[str, Any]
     price_gap_bps = _gap_bps(reference_price, pool_price_before)
 
     if price_gap_bps <= config["noise_band_bps"]:
-        return "uncertain"
+        return "uncertain", "noise_band"
     if _is_toxic(direction, reference_price, pool_price_before) and price_gap_bps > config["noise_floor_bps"]:
-        return "toxic_candidate"
-    return "benign_candidate"
+        return "toxic_candidate", None
+    return "benign_candidate", None
 
 
 def assign_outcome_label(
     swap_row: Any,
     future_oracle_rows: Sequence[Any],
     cfg: Mapping[str, Any],
-) -> str:
+    *,
+    with_reason: bool = False,
+) -> str | tuple[str, str | None]:
+    label, reason = _assign_outcome_label_with_reason(swap_row, future_oracle_rows, cfg)
+    if with_reason:
+        return label, reason
+    return label
+
+
+def _assign_outcome_label_with_reason(
+    swap_row: Any,
+    future_oracle_rows: Sequence[Any],
+    cfg: Mapping[str, Any],
+) -> tuple[str, str | None]:
     config = _validate_config(cfg)
     if not future_oracle_rows:
-        return "uncertain"
+        return "uncertain", "missing_future_rows"
 
     sorted_rows = sorted(
         future_oracle_rows,
@@ -74,26 +104,43 @@ def assign_outcome_label(
             _reference_price(swap_row),
             _reference_price(earliest_future_row),
         )
-        markouts = [
-            compute_signed_markout(swap_row, sorted_rows, horizon_seconds)
-            for horizon_seconds in config["markout_horizons_seconds"]
-        ]
     except ValueError:
-        return "uncertain"
+        return "uncertain", "missing_future_rows"
+
+    markouts: list[float] = []
+    for horizon_seconds in config["markout_horizons_seconds"]:
+        try:
+            markouts.append(compute_signed_markout(swap_row, sorted_rows, horizon_seconds))
+        except ValueError:
+            return "uncertain", "missing_future_rows"
 
     has_positive_markout = any(markout > 0.0 for markout in markouts)
     has_non_positive_markout = any(markout <= 0.0 for markout in markouts)
-    if has_positive_markout and has_non_positive_markout:
-        return "uncertain"
 
     if _mean_reverted_within_window(swap_row, sorted_rows, config["reversion_window_seconds"]):
-        return "uncertain"
+        return "uncertain", "mean_reversion"
+
+    if has_positive_markout and has_non_positive_markout:
+        return "uncertain", "horizon_disagreement"
 
     if has_positive_markout and earliest_gap_closure > config["gap_closure_threshold"]:
-        return "toxic_confirmed"
+        return "toxic_confirmed", None
     if (not has_positive_markout) and earliest_gap_closure <= 0.0:
-        return "benign_confirmed"
-    return "uncertain"
+        return "benign_confirmed", None
+    return "uncertain", "horizon_disagreement"
+
+
+def choose_uncertain_reason(
+    decision_label: str,
+    decision_reason: str | None,
+    outcome_label: str,
+    outcome_reason: str | None,
+) -> str | None:
+    if decision_label == "uncertain":
+        return decision_reason
+    if outcome_label == "uncertain":
+        return outcome_reason
+    return None
 
 
 def compute_signed_markout(
@@ -377,6 +424,13 @@ def main() -> None:
     future_oracle_rows = _load_rows(args.future_oracles)
     horizons = [int(value) for value in cfg["markout_horizons_seconds"]]
     shortest_horizon = min(horizons)
+    decision_label, decision_reason = assign_decision_label(swap_row, oracle_row, cfg, with_reason=True)
+    outcome_label, outcome_reason = assign_outcome_label(
+        swap_row,
+        future_oracle_rows,
+        cfg,
+        with_reason=True,
+    )
 
     try:
         first_future_row = _first_row_at_or_after(
@@ -392,8 +446,14 @@ def main() -> None:
         gap_closure_fraction = None
 
     result = {
-        "decision_label": assign_decision_label(swap_row, oracle_row, cfg),
-        "outcome_label": assign_outcome_label(swap_row, future_oracle_rows, cfg),
+        "decision_label": decision_label,
+        "outcome_label": outcome_label,
+        "uncertain_reason": choose_uncertain_reason(
+            decision_label,
+            decision_reason,
+            outcome_label,
+            outcome_reason,
+        ),
         "gap_closure_fraction": gap_closure_fraction,
         "markouts": {},
     }

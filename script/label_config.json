@@ -1,4 +1,5 @@
 {
+  "label_config_version": 2,
   "decision_labels": {
     "toxic_candidate": "Pre-swap oracle/pool gap is outside the noise floor and the swap direction closes the gap.",
     "benign_candidate": "Swap direction widens the oracle/pool gap or the gap remains inside the configured noise floor.",
@@ -19,5 +20,36 @@
   "noise_floor_bps": 2.0,
   "gap_closure_threshold": 0.5,
   "reversion_window_seconds": 60,
-  "max_oracle_age_seconds": 3600
+  "max_oracle_age_seconds": 3600,
+  "sensitivity_horizon_subsets_seconds": [
+    [
+      12,
+      60
+    ],
+    [
+      12,
+      60,
+      300
+    ],
+    [
+      60,
+      300,
+      3600
+    ]
+  ],
+  "sensitivity_threshold_variants": [
+    {
+      "name": "tight_gap",
+      "gap_closure_threshold": 0.6
+    },
+    {
+      "name": "loose_gap",
+      "gap_closure_threshold": 0.4
+    },
+    {
+      "name": "wider_noise",
+      "noise_band_bps": 2.0,
+      "noise_floor_bps": 3.0
+    }
+  ]
 }

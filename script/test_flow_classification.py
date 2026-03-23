@@ -106,11 +106,12 @@ class FlowClassificationTest(unittest.TestCase):
         future_rows = self.make_future_rows([1.02, 1.021, 1.022, 1.023])
 
         gap_closure = compute_gap_closure_fraction(swap, 1.02, 1.02)
-        label = assign_outcome_label(swap, future_rows, self.cfg)
+        label, reason = assign_outcome_label(swap, future_rows, self.cfg, with_reason=True)
 
         self.assertAlmostEqual(gap_closure, 0.3, places=12)
         self.assertGreater(compute_signed_markout(swap, future_rows, 12), 0.0)
         self.assertEqual(label, "uncertain")
+        self.assertEqual(reason, "horizon_disagreement")
 
     def test_full_gap_closure(self) -> None:
         swap = self.make_swap(
@@ -139,7 +140,9 @@ class FlowClassificationTest(unittest.TestCase):
 
         self.assertGreater(compute_signed_markout(swap, future_rows, 12), 0.0)
         self.assertTrue(math.isclose(compute_signed_markout(swap, future_rows, 60), 0.0, abs_tol=1e-12))
-        self.assertEqual(assign_outcome_label(swap, future_rows, self.cfg), "uncertain")
+        label, reason = assign_outcome_label(swap, future_rows, self.cfg, with_reason=True)
+        self.assertEqual(label, "uncertain")
+        self.assertEqual(reason, "mean_reversion")
 
     def test_stale_oracle_uncertain(self) -> None:
         swap = self.make_swap(
@@ -151,7 +154,50 @@ class FlowClassificationTest(unittest.TestCase):
         )
         oracle = self.make_oracle(price=1.02, timestamp=0, block_number=1, log_index=1)
 
-        self.assertEqual(assign_decision_label(swap, oracle, self.cfg), "uncertain")
+        label, reason = assign_decision_label(swap, oracle, self.cfg, with_reason=True)
+        self.assertEqual(label, "uncertain")
+        self.assertEqual(reason, "stale_oracle")
+
+    def test_noise_band_uncertain_reason(self) -> None:
+        swap = self.make_swap(
+            direction="one_for_zero",
+            pool_price_before=1.0,
+            pool_price_after=1.00005,
+            reference_price=1.00005,
+        )
+        oracle = self.make_oracle(price=1.00005)
+
+        label, reason = assign_decision_label(swap, oracle, self.cfg, with_reason=True)
+
+        self.assertEqual(label, "uncertain")
+        self.assertEqual(reason, "noise_band")
+
+    def test_ambiguous_ordering_uncertain_reason(self) -> None:
+        swap = self.make_swap(
+            direction="one_for_zero",
+            pool_price_before=1.0,
+            pool_price_after=1.01,
+            reference_price=1.02,
+        )
+        oracle = self.make_oracle(price=1.02, timestamp=100, block_number=11, log_index=7)
+
+        label, reason = assign_decision_label(swap, oracle, self.cfg, with_reason=True)
+
+        self.assertEqual(label, "uncertain")
+        self.assertEqual(reason, "ambiguous_ordering")
+
+    def test_missing_future_rows_uncertain_reason(self) -> None:
+        swap = self.make_swap(
+            direction="one_for_zero",
+            pool_price_before=1.0,
+            pool_price_after=1.02,
+            reference_price=1.02,
+        )
+
+        label, reason = assign_outcome_label(swap, [], self.cfg, with_reason=True)
+
+        self.assertEqual(label, "uncertain")
+        self.assertEqual(reason, "missing_future_rows")
 
 
 if __name__ == "__main__":

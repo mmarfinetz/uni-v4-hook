@@ -8,10 +8,14 @@ import json
 import math
 import random
 from dataclasses import dataclass
+from decimal import Decimal, getcontext
 from typing import Dict, Optional
 
 
 LN_1_0001 = math.log(1.0001)
+getcontext().prec = 80
+DECIMAL_ZERO = Decimal(0)
+DECIMAL_ONE = Decimal(1)
 
 
 @dataclass
@@ -95,35 +99,54 @@ def generate_reference_path(steps: int, sigma: float, rng: random.Random) -> lis
     return path
 
 
-def correction_trade(pool_price: float, reference_price: float) -> Optional[Dict[str, float | str]]:
-    if pool_price <= 0.0 or reference_price <= 0.0:
+def correction_trade(
+    pool_price: float | Decimal,
+    reference_price: float | Decimal,
+    *,
+    reserve_scale: float | Decimal | None = None,
+    liquidity: int | None = None,
+    token0_decimals: int | None = None,
+    token1_decimals: int | None = None,
+) -> Optional[Dict[str, Decimal | str]]:
+    pool_price_decimal = _decimal(pool_price)
+    reference_price_decimal = _decimal(reference_price)
+    if pool_price_decimal <= 0 or reference_price_decimal <= 0:
         return None
-    if math.isclose(pool_price, reference_price, rel_tol=0.0, abs_tol=1e-18):
+    if pool_price_decimal == reference_price_decimal:
         return None
 
-    x = 1.0 / math.sqrt(pool_price)
-    y = math.sqrt(pool_price)
-    log_gap = math.log(reference_price / pool_price)
-    gap_bps = abs(log_gap) * 10_000.0
+    scale = reserve_scale_decimal(
+        reserve_scale=reserve_scale,
+        liquidity=liquidity,
+        token0_decimals=token0_decimals,
+        token1_decimals=token1_decimals,
+    )
+    sqrt_pool = pool_price_decimal.sqrt()
+    x = scale / sqrt_pool
+    y = scale * sqrt_pool
+    gap_bps = Decimal(str(abs(math.log(float(reference_price_decimal / pool_price_decimal))) * 10_000.0))
 
-    if reference_price > pool_price:
-        ratio = reference_price / pool_price
-        root = math.sqrt(ratio)
-        token0_out = x * (1.0 - 1.0 / root)
-        token1_in = y * (root - 1.0)
-        gross_lvr = reference_price * token0_out - token1_in
+    if reference_price_decimal > pool_price_decimal:
+        ratio = reference_price_decimal / pool_price_decimal
+        root = ratio.sqrt()
+        token0_out = x * (DECIMAL_ONE - (DECIMAL_ONE / root))
+        token1_in = y * (root - DECIMAL_ONE)
+        gross_lvr = reference_price_decimal * token0_out - token1_in
         toxic_input_notional = token1_in
         toxic_direction = "one_for_zero"
     else:
-        ratio = pool_price / reference_price
-        root = math.sqrt(ratio)
-        token0_in = x * (root - 1.0)
-        token1_out = y * (1.0 - 1.0 / root)
-        gross_lvr = token1_out - reference_price * token0_in
-        toxic_input_notional = reference_price * token0_in
+        ratio = pool_price_decimal / reference_price_decimal
+        root = ratio.sqrt()
+        token0_in = x * (root - DECIMAL_ONE)
+        token1_out = y * (DECIMAL_ONE - (DECIMAL_ONE / root))
+        gross_lvr = token1_out - reference_price_decimal * token0_in
+        toxic_input_notional = reference_price_decimal * token0_in
         toxic_direction = "zero_for_one"
 
-    surcharge = math.sqrt(max(reference_price / pool_price, pool_price / reference_price)) - 1.0
+    surcharge = max(
+        reference_price_decimal / pool_price_decimal,
+        pool_price_decimal / reference_price_decimal,
+    ).sqrt() - DECIMAL_ONE
 
     return {
         "gross_lvr": gross_lvr,
@@ -145,8 +168,8 @@ def exact_fee_identity_stats(
         raise ValueError("gap_std must be > 0")
 
     rng = random.Random(seed)
-    max_absolute_error = 0.0
-    mean_absolute_error = 0.0
+    max_absolute_error = DECIMAL_ZERO
+    mean_absolute_error = DECIMAL_ZERO
 
     for _ in range(sample_count):
         log_gap = rng.gauss(0.0, gap_std)
@@ -154,8 +177,8 @@ def exact_fee_identity_stats(
         if trade is None:
             raise ValueError("Exact fee identity sampling produced a zero-gap repricing.")
 
-        exact_fee_revenue = float(trade["surcharge"]) * float(trade["toxic_input_notional"])
-        absolute_error = abs(exact_fee_revenue - float(trade["gross_lvr"]))
+        exact_fee_revenue = trade["surcharge"] * trade["toxic_input_notional"]
+        absolute_error = abs(exact_fee_revenue - trade["gross_lvr"])
         max_absolute_error = max(max_absolute_error, absolute_error)
         mean_absolute_error += absolute_error
 
@@ -163,8 +186,8 @@ def exact_fee_identity_stats(
         "sample_count": sample_count,
         "seed": seed,
         "gap_std": gap_std,
-        "max_absolute_error": max_absolute_error,
-        "mean_absolute_error": mean_absolute_error / sample_count,
+        "max_absolute_error": float(max_absolute_error),
+        "mean_absolute_error": float(mean_absolute_error / sample_count),
     }
 
 
@@ -224,6 +247,38 @@ def apply_strategy(
     metrics.fee_revenue += fee_rate * float(trade["toxic_input_notional"])
     metrics.final_pool_price = reference_price
     return reference_price
+
+
+def reserve_scale_decimal(
+    *,
+    reserve_scale: float | Decimal | None = None,
+    liquidity: int | None = None,
+    token0_decimals: int | None = None,
+    token1_decimals: int | None = None,
+) -> Decimal:
+    if reserve_scale is not None and liquidity is not None:
+        raise ValueError("Provide either reserve_scale or liquidity, not both.")
+    if reserve_scale is not None:
+        scale = _decimal(reserve_scale)
+        if scale <= 0:
+            raise ValueError("reserve_scale must be positive.")
+        return scale
+    if liquidity is None:
+        return DECIMAL_ONE
+    if liquidity <= 0:
+        raise ValueError("liquidity must be positive.")
+    if token0_decimals is None or token1_decimals is None:
+        raise ValueError("token decimals are required when liquidity is provided.")
+
+    liquidity_decimal = Decimal(liquidity)
+    decimals_product = (Decimal(10) ** token0_decimals) * (Decimal(10) ** token1_decimals)
+    return liquidity_decimal / decimals_product.sqrt()
+
+
+def _decimal(value: float | Decimal) -> Decimal:
+    if isinstance(value, Decimal):
+        return value
+    return Decimal(str(value))
 
 
 def simulate(args: argparse.Namespace) -> Dict[str, object]:
