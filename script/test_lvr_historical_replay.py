@@ -408,6 +408,181 @@ class HistoricalReplayTest(unittest.TestCase):
                     {"toxic_confirmed", "benign_confirmed", "uncertain"},
                 )
 
+    def test_replay_diagnostic_fields_populated(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            oracle_path = self.write_csv(
+                tmp_path,
+                "oracle.csv",
+                [
+                    {"timestamp": 0, "price": 1.0},
+                    {"timestamp": 60, "price": 1.02},
+                ],
+            )
+            swap_path = self.write_csv(
+                tmp_path,
+                "swaps.csv",
+                [
+                    {"timestamp": 61, "direction": "one_for_zero", "notional_quote": 0.15},
+                ],
+            )
+
+            report = replay(self.make_args(oracle_path, swap_path))
+            row = next(
+                entry
+                for entry in report["series"]
+                if entry["strategy"] == "hook_fee" and entry["event_index"] == 1
+            )
+
+            self.assertGreater(row["stale_loss_exact_quote"], 0.0)
+            self.assertGreaterEqual(row["capture_ratio"], 0.0)
+            self.assertLessEqual(row["capture_ratio"], 1.0)
+            self.assertIn(row["gap_bp_bucket"], {"<1", "1-2", "2-5", "5-10", "10-50", ">50"})
+            self.assertEqual(row["flow_label"], "toxic")
+
+    def test_width_guard_backtest_runs_on_empty_liquidity_events(self) -> None:
+        from script.run_width_guard_backtest import run_width_guard_backtest
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            oracle_path = self.write_csv(
+                tmp_path,
+                "oracle.csv",
+                [{"timestamp": 0, "price": 1.0}],
+            )
+            pool_snapshot_path = tmp_path / "pool_snapshot.json"
+            pool_snapshot_path.write_text(
+                json.dumps(
+                    {
+                        "sqrtPriceX96": str(1 << 96),
+                        "tick": 0,
+                        "liquidity": str(10**18),
+                        "fee": 3000,
+                        "tickSpacing": 60,
+                        "token0_decimals": 18,
+                        "token1_decimals": 18,
+                        "from_block": 1,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            liquidity_events_path = tmp_path / "liquidity_events.csv"
+            with liquidity_events_path.open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(
+                    handle,
+                    fieldnames=[
+                        "block_number",
+                        "timestamp",
+                        "tx_hash",
+                        "log_index",
+                        "event_type",
+                        "tick_lower",
+                        "tick_upper",
+                        "amount",
+                        "amount0",
+                        "amount1",
+                    ],
+                )
+                writer.writeheader()
+
+            with self.assertRaises(ValueError):
+                run_width_guard_backtest(
+                    argparse.Namespace(
+                        liquidity_events=str(liquidity_events_path),
+                        oracle_updates=str(oracle_path),
+                        pool_snapshot=str(pool_snapshot_path),
+                        output=str(tmp_path / "width_guard.csv"),
+                        summary_output=str(tmp_path / "width_guard_summary.json"),
+                        latency_seconds=60,
+                        lvr_budget=0.5,
+                        center_tol_ticks=30,
+                        bootstrap_sigma2_per_second_wad=100_000_000_000,
+                    )
+                )
+
+    def test_replay_zero_oracle_updates_raises_value_error(self) -> None:
+        from script.lvr_historical_replay import load_oracle_updates
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            oracle_path = Path(tmp_dir) / "oracle.csv"
+            with oracle_path.open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=["timestamp", "price"])
+                writer.writeheader()
+
+            with self.assertRaises(ValueError):
+                load_oracle_updates(str(oracle_path))
+
+    def test_replay_negative_oracle_price_raises_value_error(self) -> None:
+        from script.lvr_historical_replay import load_oracle_updates
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            oracle_path = self.write_csv(
+                tmp_path,
+                "oracle.csv",
+                [{"timestamp": 0, "price": -1.0}],
+            )
+
+            with self.assertRaises(ValueError):
+                load_oracle_updates(str(oracle_path))
+
+    def test_replay_oracle_staleness_threshold_is_strictly_greater(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            oracle_path = self.write_csv(
+                tmp_path,
+                "oracle.csv",
+                [{"timestamp": 0, "price": 1.0}],
+            )
+            swap_path = self.write_csv(
+                tmp_path,
+                "swaps.csv",
+                [
+                    {"timestamp": 60, "direction": "one_for_zero", "notional_quote": 0.05},
+                    {"timestamp": 61, "direction": "one_for_zero", "notional_quote": 0.05},
+                ],
+            )
+
+            report = replay(self.make_args(oracle_path, swap_path))
+            hook_metrics = report["strategies"]["hook_fee"]
+            hook_rows = [row for row in report["series"] if row["strategy"] == "hook_fee"]
+
+            self.assertEqual(hook_metrics["executed_swaps"], 1)
+            self.assertEqual(hook_metrics["rejected_stale_oracle"], 1)
+            self.assertTrue(hook_rows[0]["executed"])
+            self.assertFalse(hook_rows[1]["executed"])
+            self.assertEqual(hook_rows[1]["reject_reason"], "stale_oracle")
+
+    def test_replay_repeated_same_oracle_timestamp_does_not_double_count(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            oracle_path = self.write_csv(
+                tmp_path,
+                "oracle.csv",
+                [
+                    {"timestamp": 0, "price": 1.0},
+                    {"timestamp": 60, "price": 1.02},
+                    {"timestamp": 60, "price": 1.03},
+                    {"timestamp": 120, "price": 1.04},
+                ],
+            )
+            swap_path = self.write_csv(
+                tmp_path,
+                "swaps.csv",
+                [{"timestamp": 121, "direction": "one_for_zero", "notional_quote": 0.05}],
+            )
+
+            report = replay(self.make_args(oracle_path, swap_path))
+            sample_sigma_first = ((abs(1.02 - 1.0) / 1.0) ** 2) / 60.0
+            sample_sigma_second = ((abs(1.04 - 1.03) / 1.03) ** 2) / 60.0
+            expected_sigma = ((sample_sigma_first * 8000) + (sample_sigma_second * 2000)) / 10_000
+
+            self.assertAlmostEqual(
+                report["width_guard"]["final_sigma2_per_second"],
+                expected_sigma,
+                places=18,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

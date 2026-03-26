@@ -16,3 +16,4 @@ AGENTS.md
 
 # Generated Python artifacts
 script/__pycache__/
+.worktale/

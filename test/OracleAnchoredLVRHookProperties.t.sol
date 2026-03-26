@@ -13,6 +13,7 @@ import { LPFeeLibrary } from "v4-core/libraries/LPFeeLibrary.sol";
 import { CustomRevert } from "v4-core/libraries/CustomRevert.sol";
 import { TickMath } from "v4-core/libraries/TickMath.sol";
 import { FullMath } from "v4-core/libraries/FullMath.sol";
+import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { ManualAggregatorV3 } from "./helpers/ManualAggregatorV3.sol";
 
 contract OracleAnchoredLVRHookPropertiesTest is Test, Deployers {
@@ -38,16 +39,18 @@ contract OracleAnchoredLVRHookPropertiesTest is Test, Deployers {
         deployFreshManagerAndRouters();
         deployMintAndApprove2Currencies();
 
-        OracleAnchoredLVRHook implementation = new OracleAnchoredLVRHook(IPoolManager(manager));
         address hookAddress = _permissionedHookAddress();
-        vm.etch(hookAddress, address(implementation).code);
+        deployCodeTo(
+            "src/OracleAnchoredLVRHook.sol:OracleAnchoredLVRHook",
+            abi.encode(IPoolManager(manager), address(this)),
+            hookAddress
+        );
 
         hook = OracleAnchoredLVRHook(hookAddress);
-        hook.initializeOwner(address(this));
 
         baseFeed = new ManualAggregatorV3(18, int256(WAD), block.timestamp);
         quoteFeed = new ManualAggregatorV3(18, int256(WAD), block.timestamp);
-        oracle = new ChainlinkReferenceOracle(baseFeed, false, quoteFeed, false);
+        oracle = new ChainlinkReferenceOracle(baseFeed, false, quoteFeed, false, 18, 18);
 
         (key,) = initPool(
             currency0,
@@ -235,8 +238,7 @@ contract OracleAnchoredLVRHookPropertiesTest is Test, Deployers {
     }
 
     function _expectedFeeUnits(int24 oracleTick, bool zeroForOne) internal pure returns (uint24) {
-        return
-            _expectedFeeUnits(TickMath.getSqrtPriceAtTick(oracleTick), SQRT_PRICE_1_1, zeroForOne);
+        return _expectedFeeUnits(_referenceSqrtPriceX96AtTick(oracleTick), SQRT_PRICE_1_1, zeroForOne);
     }
 
     function _expectedFeeUnits(
@@ -259,5 +261,10 @@ contract OracleAnchoredLVRHookPropertiesTest is Test, Deployers {
         uint160 sqrtPriceX96 = TickMath.getSqrtPriceAtTick(tick);
         uint256 sqrtPriceWad = FullMath.mulDiv(sqrtPriceX96, SQRT_WAD, 2 ** 96);
         return FullMath.mulDiv(sqrtPriceWad, sqrtPriceWad, 1);
+    }
+
+    function _referenceSqrtPriceX96AtTick(int24 tick) internal pure returns (uint160) {
+        uint256 sqrtPriceWad = FixedPointMathLib.sqrt(_priceWadAtTick(tick));
+        return uint160(FullMath.mulDiv(sqrtPriceWad, 2 ** 96, SQRT_WAD));
     }
 }

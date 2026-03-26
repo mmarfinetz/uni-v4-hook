@@ -19,6 +19,8 @@ contract ChainlinkReferenceOracle is IReferenceOracle {
     bool public immutable hasQuoteFeed;
     bool public immutable invertBase;
     bool public immutable invertQuote;
+    uint8 public immutable token0Decimals;
+    uint8 public immutable token1Decimals;
 
     uint8 internal immutable baseFeedDecimals;
     uint8 internal immutable quoteFeedDecimals;
@@ -27,7 +29,9 @@ contract ChainlinkReferenceOracle is IReferenceOracle {
         IChainlinkAggregatorV3 _baseFeed,
         bool _invertBase,
         IChainlinkAggregatorV3 _quoteFeed,
-        bool _invertQuote
+        bool _invertQuote,
+        uint8 _token0Decimals,
+        uint8 _token1Decimals
     ) {
         if (address(_baseFeed) == address(0)) revert InvalidFeed(address(0));
 
@@ -36,23 +40,39 @@ contract ChainlinkReferenceOracle is IReferenceOracle {
         hasQuoteFeed = address(_quoteFeed) != address(0);
         invertBase = _invertBase;
         invertQuote = _invertQuote;
+        token0Decimals = _token0Decimals;
+        token1Decimals = _token1Decimals;
 
         baseFeedDecimals = _validatedDecimals(_baseFeed);
         quoteFeedDecimals = hasQuoteFeed ? _validatedDecimals(_quoteFeed) : 0;
     }
 
-    function latestPriceWad() external view returns (uint256 priceWad, uint256 updatedAt) {
+    function latestPriceWad()
+        external
+        view
+        returns (uint256 priceWad, uint256 updatedAt, uint256 latestFeedTs)
+    {
         (uint256 basePriceWad, uint256 baseUpdatedAt) =
             _readFeed(baseFeed, baseFeedDecimals, invertBase);
 
         if (!hasQuoteFeed) {
-            return (basePriceWad, baseUpdatedAt);
+            priceWad = basePriceWad;
+            updatedAt = baseUpdatedAt;
+            latestFeedTs = baseUpdatedAt;
+        } else {
+            (uint256 quotePriceWad, uint256 quoteUpdatedAt) =
+                _readFeed(quoteFeed, quoteFeedDecimals, invertQuote);
+            priceWad = FullMath.mulDiv(basePriceWad, WAD, quotePriceWad);
+            updatedAt = baseUpdatedAt < quoteUpdatedAt ? baseUpdatedAt : quoteUpdatedAt;
+            latestFeedTs = baseUpdatedAt > quoteUpdatedAt ? baseUpdatedAt : quoteUpdatedAt;
         }
 
-        (uint256 quotePriceWad, uint256 quoteUpdatedAt) =
-            _readFeed(quoteFeed, quoteFeedDecimals, invertQuote);
-        priceWad = FullMath.mulDiv(basePriceWad, WAD, quotePriceWad);
-        updatedAt = baseUpdatedAt < quoteUpdatedAt ? baseUpdatedAt : quoteUpdatedAt;
+        // Convert the economic feed ratio into the pool's raw-unit amount1/amount0 price.
+        if (token0Decimals >= token1Decimals) {
+            priceWad = FullMath.mulDiv(priceWad, 10 ** (token0Decimals - token1Decimals), 1);
+        } else {
+            priceWad = FullMath.mulDiv(priceWad, 1, 10 ** (token1Decimals - token0Decimals));
+        }
     }
 
     function _readFeed(IChainlinkAggregatorV3 feed, uint8 decimals, bool invert)

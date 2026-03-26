@@ -151,6 +151,7 @@ class ExportHistoricalReplayDataTest(unittest.TestCase):
         *,
         to_block: int = 104,
         max_oracle_age_seconds: int = 20,
+        oracle_lookback_blocks: int = 0,
         market_base_feed: str | None = None,
         market_quote_feed: str | None = None,
         market_to_block: int | None = None,
@@ -171,6 +172,7 @@ class ExportHistoricalReplayDataTest(unittest.TestCase):
             market_base_label="market_base_feed",
             market_quote_label="market_quote_feed",
             market_to_block=market_to_block,
+            oracle_lookback_blocks=oracle_lookback_blocks,
             max_oracle_age_seconds=max_oracle_age_seconds,
             rpc_timeout=45,
         )
@@ -576,6 +578,96 @@ class ExportHistoricalReplayDataTest(unittest.TestCase):
         self.assertGreater(len(rows), 3)
         self.assertEqual(summary["market_reference_to_block"], 105)
         self.assertEqual(rows[-1]["block_number"], "105")
+
+    def test_oracle_lookback_blocks_carries_single_pre_window_seed_row(self) -> None:
+        client = FakeRpcClient(
+            block_timestamps={
+                99: 10,
+                100: 20,
+                101: 30,
+                102: 40,
+                103: 45,
+                104: 50,
+            },
+            eth_calls={
+                (self.base_feed, DECIMALS_SELECTOR, "latest"): _hex_word(8),
+                (self.quote_feed, DECIMALS_SELECTOR, "latest"): _hex_word(8),
+                (self.pool, TOKEN0_SELECTOR, "latest"): _topic_address(self.token0),
+                (self.pool, TOKEN1_SELECTOR, "latest"): _topic_address(self.token1),
+                (self.token0, DECIMALS_SELECTOR, "latest"): _hex_word(18),
+                (self.token1, DECIMALS_SELECTOR, "latest"): _hex_word(6),
+                (
+                    self.pool,
+                    SLOT0_SELECTOR,
+                    hex(100),
+                ): _encode_mixed_words((79228162514264337593543950336, False), (0, True), (0, False), (0, False), (0, False), (0, False), (1, False)),
+                (self.pool, LIQUIDITY_SELECTOR, hex(100)): _hex_word(10**18),
+                (self.pool, FEE_SELECTOR, hex(100)): _hex_word(3000),
+                (self.pool, TICK_SPACING_SELECTOR, hex(100)): _hex_signed_word(60),
+            },
+            eth_storage=self.make_initialized_tick_storage(),
+            logs=[
+                self.answer_updated_log(
+                    address=self.quote_feed,
+                    block_number=99,
+                    log_index=0,
+                    answer=100_000_000,
+                    round_id=1,
+                    updated_at=10,
+                ),
+                self.answer_updated_log(
+                    address=self.base_feed,
+                    block_number=99,
+                    log_index=1,
+                    answer=2_000_000_00000,
+                    round_id=1,
+                    updated_at=10,
+                ),
+                self.swap_log(
+                    block_number=100,
+                    log_index=2,
+                    amount0=-100,
+                    amount1=250_000_000,
+                    sqrt_price_x96=80000000000000000000000000000,
+                    liquidity=10**18,
+                    tick=120,
+                ),
+                self.mint_log(
+                    block_number=100,
+                    log_index=10,
+                    tick_lower=-120,
+                    tick_upper=120,
+                    amount=5000,
+                    amount0=1_000_000,
+                    amount1=2_000_000,
+                ),
+                self.answer_updated_log(
+                    address=self.base_feed,
+                    block_number=104,
+                    log_index=0,
+                    answer=2_050_000_00000,
+                    round_id=2,
+                    updated_at=50,
+                ),
+            ],
+        )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            summary = export_historical_replay_data(
+                self.make_args(
+                    tmp_dir,
+                    oracle_lookback_blocks=1,
+                    market_base_feed=self.base_feed,
+                    market_quote_feed=self.quote_feed,
+                ),
+                client=client,
+            )
+            oracle_rows = self.read_csv(Path(tmp_dir) / "oracle_updates.csv")
+            market_rows = self.read_csv(Path(tmp_dir) / "market_reference_updates.csv")
+
+        self.assertEqual(summary["oracle_updates"], 2)
+        self.assertEqual([row["block_number"] for row in oracle_rows], ["99", "104"])
+        self.assertEqual([row["block_number"] for row in market_rows], ["99", "104"])
 
     def test_timestamp_alignment_and_swap_ordering(self) -> None:
         client = self.make_client()

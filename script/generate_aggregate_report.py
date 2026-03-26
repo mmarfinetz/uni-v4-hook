@@ -48,6 +48,15 @@ class ReplayErrorStatsRow:
 
 
 @dataclass(frozen=True)
+class FeeIdentityStatsRow:
+    window_id: str
+    pool: str
+    regime: str
+    fee_identity_holds: bool | None
+    fee_identity_max_error_exact: float | None
+
+
+@dataclass(frozen=True)
 class CrossPoolRankingFlag:
     ranking_type: str
     regime: str
@@ -90,44 +99,10 @@ def generate_aggregate_report(args: argparse.Namespace) -> dict[str, Any]:
             raise ValueError(f"window_id={window.window_id}: aggregate/window summary mismatch.")
         window_summaries.append(window_summary)
 
-    sample_counts = [
-        asdict(
-            SampleCountRow(
-                window_id=str(row["window_id"]),
-                pool=str(row["pool"]),
-                regime=str(row["regime"]),
-                oracle_updates=int(row["oracle_updates"]),
-                swap_samples=int(row["swap_samples"]),
-            )
-        )
-        for row in window_summaries
-    ]
-    confirmed_label_share = [
-        asdict(
-            ConfirmedLabelShareRow(
-                window_id=str(row["window_id"]),
-                pool=str(row["pool"]),
-                regime=str(row["regime"]),
-                confirmed_label_rate=_optional_float(row.get("confirmed_label_rate")),
-            )
-        )
-        for row in window_summaries
-    ]
-    replay_error_stats = [
-        asdict(
-            ReplayErrorStatsRow(
-                window_id=str(row["window_id"]),
-                pool=str(row["pool"]),
-                regime=str(row["regime"]),
-                replay_error_p50=_optional_float(row.get("replay_error_p50")),
-                replay_error_p99=_optional_float(row.get("replay_error_p99")),
-                replay_error_tolerance=_optional_float(row.get("replay_error_tolerance")),
-                exact_replay_reliable=_optional_bool(row.get("exact_replay_reliable")),
-                analysis_basis=str(row["analysis_basis"]),
-            )
-        )
-        for row in window_summaries
-    ]
+    sample_counts = build_sample_count_rows(window_summaries)
+    confirmed_label_share = build_confirmed_label_share_rows(window_summaries)
+    replay_error_stats = build_replay_error_stat_rows(window_summaries)
+    fee_identity_stats = build_fee_identity_stat_rows(window_summaries)
 
     oracle_ranking_stability = aggregate_summary.get("oracle_ranking_stability")
     if not isinstance(oracle_ranking_stability, list):
@@ -165,6 +140,9 @@ def generate_aggregate_report(args: argparse.Namespace) -> dict[str, Any]:
         "sample_counts": sample_counts,
         "confirmed_label_share": confirmed_label_share,
         "replay_error_stats": replay_error_stats,
+        "fee_identity_stats": fee_identity_stats,
+        "fee_identity_aggregate": build_fee_identity_aggregate(fee_identity_stats),
+        "regime_breakdown": build_regime_breakdown(window_summaries),
         "oracle_ranking_stability": oracle_ranking_stability,
         "fee_policy_ranking_stability": fee_policy_ranking_stability,
         "cross_pool_ranking_flags": [asdict(flag) for flag in cross_pool_flags],
@@ -181,6 +159,121 @@ def generate_aggregate_report(args: argparse.Namespace) -> dict[str, Any]:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
     return report
+
+
+def build_sample_count_rows(window_summaries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        asdict(
+            SampleCountRow(
+                window_id=str(row["window_id"]),
+                pool=str(row["pool"]),
+                regime=str(row["regime"]),
+                oracle_updates=int(row["oracle_updates"]),
+                swap_samples=int(row["swap_samples"]),
+            )
+        )
+        for row in window_summaries
+    ]
+
+
+def build_confirmed_label_share_rows(window_summaries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        asdict(
+            ConfirmedLabelShareRow(
+                window_id=str(row["window_id"]),
+                pool=str(row["pool"]),
+                regime=str(row["regime"]),
+                confirmed_label_rate=_optional_float(row.get("confirmed_label_rate")),
+            )
+        )
+        for row in window_summaries
+    ]
+
+
+def build_replay_error_stat_rows(window_summaries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        asdict(
+            ReplayErrorStatsRow(
+                window_id=str(row["window_id"]),
+                pool=str(row["pool"]),
+                regime=str(row["regime"]),
+                replay_error_p50=_optional_float(row.get("replay_error_p50")),
+                replay_error_p99=_optional_float(row.get("replay_error_p99")),
+                replay_error_tolerance=_optional_float(row.get("replay_error_tolerance")),
+                exact_replay_reliable=_optional_bool(row.get("exact_replay_reliable")),
+                analysis_basis=str(row["analysis_basis"]),
+            )
+        )
+        for row in window_summaries
+    ]
+
+
+def build_fee_identity_stat_rows(window_summaries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        asdict(
+            FeeIdentityStatsRow(
+                window_id=str(row["window_id"]),
+                pool=str(row["pool"]),
+                regime=str(row["regime"]),
+                fee_identity_holds=_optional_bool(row.get("fee_identity_holds")),
+                fee_identity_max_error_exact=_optional_float(row.get("fee_identity_max_error_exact")),
+            )
+        )
+        for row in window_summaries
+    ]
+
+
+def build_fee_identity_aggregate(fee_identity_stats: list[dict[str, Any]]) -> dict[str, Any]:
+    populated_rows = [
+        row
+        for row in fee_identity_stats
+        if row["fee_identity_holds"] is not None or row["fee_identity_max_error_exact"] is not None
+    ]
+    error_values = [
+        float(row["fee_identity_max_error_exact"])
+        for row in populated_rows
+        if row["fee_identity_max_error_exact"] is not None
+    ]
+    return {
+        "windows_with_fee_identity": len(populated_rows),
+        "all_fee_identity_holds": (
+            all(row["fee_identity_holds"] is True for row in populated_rows)
+            if populated_rows
+            else None
+        ),
+        "max_fee_identity_max_error_exact": max(error_values) if error_values else None,
+    }
+
+
+def build_regime_breakdown(window_summaries: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for summary in window_summaries:
+        grouped.setdefault(str(summary["regime"]), []).append(summary)
+
+    breakdown: dict[str, dict[str, Any]] = {}
+    for regime, rows in sorted(grouped.items()):
+        pools = sorted({str(summary["pool"]) for summary in rows})
+        fee_identity_stats = build_fee_identity_stat_rows(rows)
+        breakdown[regime] = {
+            "window_count": len(rows),
+            "pool_count": len(pools),
+            "pools": pools,
+            "sample_counts": build_sample_count_rows(rows),
+            "confirmed_label_share": build_confirmed_label_share_rows(rows),
+            "replay_error_stats": build_replay_error_stat_rows(rows),
+            "fee_identity_stats": fee_identity_stats,
+            "fee_identity_aggregate": build_fee_identity_aggregate(fee_identity_stats),
+            "oracle_ranking_stability": [
+                asdict(row)
+                for row in ranking_stability_rows([tuple(summary["oracle_ranking"]) for summary in rows])
+            ],
+            "fee_policy_ranking_stability": [
+                asdict(row)
+                for row in ranking_stability_rows([tuple(summary["fee_policy_ranking"]) for summary in rows])
+            ],
+            "cross_pool_ranking_flags": [asdict(flag) for flag in build_cross_pool_flags(rows)],
+        }
+    return breakdown
 
 
 def build_cross_pool_flags(window_summaries: list[dict[str, Any]]) -> list[CrossPoolRankingFlag]:

@@ -23,7 +23,6 @@ contract OracleAnchoredLVRHook is IHooks {
 
     error NotOwner();
     error NotPoolManager();
-    error OwnerAlreadyInitialized();
     error InvalidOwner();
     error InvalidConfig();
     error InvalidPool();
@@ -39,6 +38,11 @@ contract OracleAnchoredLVRHook is IHooks {
     uint256 internal constant SQRT_WAD = 1e9;
     uint256 internal constant Q96 = 2 ** 96;
     uint256 internal constant EWMA_ALPHA_BPS = 2000;
+    /// @dev Scaling factor: WAD (1e18) / LP_FEE_DENOMINATOR (1e6) = 1e12.
+    /// Fee units are in ppm (parts per million); WAD-scale fees must be divided
+    /// by this factor to convert back to ppm for the PoolManager.
+    uint256 internal constant FEE_SCALE = 1e12;
+    /// @dev Basis-point denominator: 10_000 bps = 100%.
     uint256 internal constant BPS_DENOMINATOR = 10_000;
     uint256 internal constant MAX_ABS_TICK = 887_272;
     uint256 internal constant MAX_WIDTH_TICKS = 1_774_544;
@@ -93,8 +97,11 @@ contract OracleAnchoredLVRHook is IHooks {
         uint256 lastOracleTs
     );
 
-    constructor(IPoolManager _poolManager) {
+    constructor(IPoolManager _poolManager, address initialOwner) {
+        if (initialOwner == address(0)) revert InvalidOwner();
         poolManager = _poolManager;
+        owner = initialOwner;
+        emit OwnerInitialized(initialOwner);
     }
 
     modifier onlyOwner() {
@@ -105,13 +112,6 @@ contract OracleAnchoredLVRHook is IHooks {
     modifier onlyPoolManager() {
         if (msg.sender != address(poolManager)) revert NotPoolManager();
         _;
-    }
-
-    function initializeOwner(address initialOwner) external {
-        if (initialOwner == address(0)) revert InvalidOwner();
-        if (owner != address(0)) revert OwnerAlreadyInitialized();
-        owner = initialOwner;
-        emit OwnerInitialized(initialOwner);
     }
 
     function getHookPermissions() external pure returns (Hooks.Permissions memory permissions) {
@@ -187,7 +187,7 @@ contract OracleAnchoredLVRHook is IHooks {
     {
         PoolId id = key.toId();
         Config memory cfg = _loadConfig(id);
-        (uint256 referencePriceWad,) = _loadFreshOracle(cfg);
+        (uint256 referencePriceWad,,) = _loadFreshOracle(cfg);
         referenceSqrtPriceX96 = _priceWadToSqrtPriceX96(referencePriceWad);
         (poolSqrtPriceX96,,,) = poolManager.getSlot0(id);
         (toxic, feeUnits) = _quoteFee(cfg, zeroForOne, referenceSqrtPriceX96, poolSqrtPriceX96);
@@ -196,9 +196,8 @@ contract OracleAnchoredLVRHook is IHooks {
     function minWidthTicks(PoolKey calldata key) external view returns (uint256) {
         PoolId id = key.toId();
         Config memory cfg = _loadConfig(id);
-        RiskState memory state = risk[id];
         return _minWidthTicks(
-            _effectiveSigma2PerSecondWad(cfg, state),
+            _effectiveSigma2PerSecondWad(cfg, risk[id]),
             cfg.latencySecs,
             cfg.lvrBudgetWad,
             key.tickSpacing
@@ -235,7 +234,7 @@ contract OracleAnchoredLVRHook is IHooks {
 
         PoolId id = key.toId();
         Config memory cfg = _loadConfig(id);
-        (uint256 referencePriceWad,) = _loadFreshOracle(cfg);
+        (uint256 referencePriceWad,,) = _loadFreshOracle(cfg);
         uint160 referenceSqrtPriceX96 = _priceWadToSqrtPriceX96(referencePriceWad);
         int24 referenceTick = TickMath.getTickAtSqrtPrice(referenceSqrtPriceX96);
         int24 midpointTick = int24((int256(params.tickLower) + int256(params.tickUpper)) / 2);
@@ -295,8 +294,8 @@ contract OracleAnchoredLVRHook is IHooks {
     {
         PoolId id = key.toId();
         Config memory cfg = _loadConfig(id);
-        (uint256 referencePriceWad, uint256 updatedAt) = _loadFreshOracle(cfg);
-        _refreshRisk(id, referencePriceWad, updatedAt);
+        (uint256 referencePriceWad,, uint256 latestFeedTs) = _loadFreshOracle(cfg);
+        _refreshRisk(id, referencePriceWad, latestFeedTs);
 
         uint160 referenceSqrtPriceX96 = _priceWadToSqrtPriceX96(referencePriceWad);
         (uint160 poolSqrtPriceX96,,,) = poolManager.getSlot0(id);
@@ -348,9 +347,19 @@ contract OracleAnchoredLVRHook is IHooks {
     function _loadFreshOracle(Config memory cfg)
         internal
         view
-        returns (uint256 priceWad, uint256 updatedAt)
+        returns (uint256 priceWad, uint256 updatedAt, uint256 latestFeedTs)
     {
-        (priceWad, updatedAt) = cfg.oracle.latestPriceWad();
+        try cfg.oracle.latestPriceWad() returns (
+            uint256 fetchedPriceWad,
+            uint256 fetchedUpdatedAt,
+            uint256 fetchedLatestFeedTs
+        ) {
+            priceWad = fetchedPriceWad;
+            updatedAt = fetchedUpdatedAt;
+            latestFeedTs = fetchedLatestFeedTs;
+        } catch {
+            revert InvalidOraclePrice();
+        }
         if (priceWad == 0) revert InvalidOraclePrice();
         if (block.timestamp > updatedAt + cfg.maxOracleAge) revert OracleStale();
     }
@@ -361,7 +370,7 @@ contract OracleAnchoredLVRHook is IHooks {
         uint160 referenceSqrtPriceX96,
         uint160 poolSqrtPriceX96
     ) internal pure returns (bool toxic, uint24 feeUnits) {
-        uint256 feeWad = uint256(cfg.baseFee) * 1e12;
+        uint256 feeWad = uint256(cfg.baseFee) * FEE_SCALE;
 
         if (referenceSqrtPriceX96 > poolSqrtPriceX96) {
             toxic = !zeroForOne;
@@ -379,15 +388,19 @@ contract OracleAnchoredLVRHook is IHooks {
             }
         }
 
-        feeUnits = uint24(feeWad / 1e12);
+        uint256 feeUnits256 = feeWad / FEE_SCALE;
+        if (feeUnits256 > type(uint24).max) {
+            revert DeviationTooLarge(type(uint24).max, cfg.maxFee);
+        }
+        feeUnits = uint24(feeUnits256);
         if (feeUnits > cfg.maxFee) revert DeviationTooLarge(feeUnits, cfg.maxFee);
     }
 
-    function _refreshRisk(PoolId id, uint256 referencePriceWad, uint256 updatedAt) internal {
+    function _refreshRisk(PoolId id, uint256 referencePriceWad, uint256 latestFeedTs) internal {
         RiskState memory current = risk[id];
-        if (updatedAt <= current.lastOracleTs || current.lastOraclePriceWad == 0) {
+        if (latestFeedTs <= current.lastOracleTs || current.lastOraclePriceWad == 0) {
             current.lastOraclePriceWad = referencePriceWad;
-            current.lastOracleTs = updatedAt;
+            current.lastOracleTs = latestFeedTs;
             risk[id] = current;
             emit RiskUpdated(
                 id, current.sigma2PerSecondWad, current.lastOraclePriceWad, current.lastOracleTs
@@ -395,7 +408,7 @@ contract OracleAnchoredLVRHook is IHooks {
             return;
         }
 
-        uint256 dt = updatedAt - current.lastOracleTs;
+        uint256 dt = latestFeedTs - current.lastOracleTs;
         uint256 absoluteChange = referencePriceWad > current.lastOraclePriceWad
             ? referencePriceWad - current.lastOraclePriceWad
             : current.lastOraclePriceWad - referencePriceWad;
@@ -415,7 +428,7 @@ contract OracleAnchoredLVRHook is IHooks {
         }
 
         current.lastOraclePriceWad = referencePriceWad;
-        current.lastOracleTs = updatedAt;
+        current.lastOracleTs = latestFeedTs;
         risk[id] = current;
 
         emit RiskUpdated(
@@ -423,9 +436,9 @@ contract OracleAnchoredLVRHook is IHooks {
         );
     }
 
-    function _effectiveSigma2PerSecondWad(Config memory cfg, RiskState memory state)
+    function _effectiveSigma2PerSecondWad(Config memory cfg, RiskState storage state)
         internal
-        pure
+        view
         returns (uint256)
     {
         if (state.sigma2PerSecondWad != 0) return state.sigma2PerSecondWad;

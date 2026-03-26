@@ -37,16 +37,18 @@ contract OracleAnchoredLVRHookFuzzTest is Test, Deployers {
         deployFreshManagerAndRouters();
         deployMintAndApprove2Currencies();
 
-        OracleAnchoredLVRHook implementation = new OracleAnchoredLVRHook(IPoolManager(manager));
         address hookAddress = _permissionedHookAddress();
-        vm.etch(hookAddress, address(implementation).code);
+        deployCodeTo(
+            "src/OracleAnchoredLVRHook.sol:OracleAnchoredLVRHook",
+            abi.encode(IPoolManager(manager), address(this)),
+            hookAddress
+        );
 
         hook = OracleAnchoredLVRHook(hookAddress);
-        hook.initializeOwner(address(this));
 
         baseFeed = new ManualAggregatorV3(18, int256(WAD), block.timestamp);
         quoteFeed = new ManualAggregatorV3(18, int256(WAD), block.timestamp);
-        oracle = new ChainlinkReferenceOracle(baseFeed, false, quoteFeed, false);
+        oracle = new ChainlinkReferenceOracle(baseFeed, false, quoteFeed, false, 18, 18);
 
         (key,) = initPool(
             currency0,
@@ -137,6 +139,29 @@ contract OracleAnchoredLVRHookFuzzTest is Test, Deployers {
         vm.expectRevert(
             abi.encodeWithSelector(
                 OracleAnchoredLVRHook.DeviationTooLarge.selector, requiredFee, requiredFee - 1
+            )
+        );
+        hook.previewSwapFee(key, false);
+    }
+
+    function testFuzz_previewSwapFee_revertsOnUint24OverflowBeforeCast(uint16 rawTick)
+        public
+    {
+        int24 overflowTick = int24(int256(bound(uint256(rawTick), 57_800, 60_000)));
+
+        hook.setConfig(
+            key,
+            _defaultConfig(
+                BASE_FEE, LPFeeLibrary.MAX_LP_FEE, LATENCY_SECS, CENTER_TOLERANCE_TICKS
+            )
+        );
+        _setOraclePrice(_priceWadAtTick(overflowTick), block.timestamp);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                OracleAnchoredLVRHook.DeviationTooLarge.selector,
+                type(uint24).max,
+                LPFeeLibrary.MAX_LP_FEE
             )
         );
         hook.previewSwapFee(key, false);

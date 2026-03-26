@@ -69,7 +69,7 @@ contract ChainlinkReferenceOracleForkTest is MainnetForkBase {
         IChainlinkAggregatorV3 baseFeed = IChainlinkAggregatorV3(ETH_USD_FEED);
         IChainlinkAggregatorV3 quoteFeed = IChainlinkAggregatorV3(USDC_USD_FEED);
         ChainlinkReferenceOracle oracle =
-            new ChainlinkReferenceOracle(baseFeed, false, quoteFeed, false);
+            new ChainlinkReferenceOracle(baseFeed, false, quoteFeed, false, 6, 18);
 
         assertEq(baseFeed.decimals(), 8);
         assertEq(quoteFeed.decimals(), 8);
@@ -94,14 +94,17 @@ contract ChainlinkReferenceOracleForkTest is MainnetForkBase {
         assertLe(block.timestamp - baseUpdatedAt, ETH_USD_HEARTBEAT_WINDOW);
         assertLe(block.timestamp - quoteUpdatedAt, USDC_USD_HEARTBEAT_WINDOW);
 
-        (uint256 priceWad, uint256 updatedAt) = oracle.latestPriceWad();
+        (uint256 priceWad, uint256 updatedAt, uint256 latestFeedTs) = oracle.latestPriceWad();
 
         uint256 expectedUpdatedAt = baseUpdatedAt < quoteUpdatedAt ? baseUpdatedAt : quoteUpdatedAt;
-        uint256 expectedPriceWad = _expectedPriceWad(baseFeed, quoteFeed, baseAnswer, quoteAnswer);
+        uint256 expectedLatestFeedTs = baseUpdatedAt > quoteUpdatedAt ? baseUpdatedAt : quoteUpdatedAt;
+        uint256 expectedPriceWad =
+            _expectedPriceWad(baseFeed, quoteFeed, baseAnswer, quoteAnswer, 6, 18);
 
         assertEq(updatedAt, expectedUpdatedAt);
+        assertEq(latestFeedTs, expectedLatestFeedTs);
         assertEq(priceWad, expectedPriceWad);
-        assertGt(priceWad, 500e18);
+        assertGt(priceWad, 500e6);
     }
 
     function testFork_rollForwardAcrossBlocks_onlyAdvancesOracleWhenFeedsRefresh() public {
@@ -109,23 +112,30 @@ contract ChainlinkReferenceOracleForkTest is MainnetForkBase {
             IChainlinkAggregatorV3(ETH_USD_FEED),
             false,
             IChainlinkAggregatorV3(LINK_USD_FEED),
-            false
+            false,
+            18,
+            18
         );
 
-        (uint256 initialPriceWad, uint256 initialUpdatedAt) = oracle.latestPriceWad();
+        (uint256 initialPriceWad, uint256 initialUpdatedAt, uint256 initialLatestFeedTs) =
+            oracle.latestPriceWad();
 
         vm.rollFork(MAINNET_FORK_SAME_ORACLE_BLOCK);
-        (uint256 sameBlockPriceWad, uint256 sameBlockUpdatedAt) = oracle.latestPriceWad();
+        (uint256 sameBlockPriceWad, uint256 sameBlockUpdatedAt, uint256 sameBlockLatestFeedTs) =
+            oracle.latestPriceWad();
 
         assertEq(block.number, MAINNET_FORK_SAME_ORACLE_BLOCK);
         assertEq(sameBlockPriceWad, initialPriceWad);
         assertEq(sameBlockUpdatedAt, initialUpdatedAt);
+        assertEq(sameBlockLatestFeedTs, initialLatestFeedTs);
 
         vm.rollFork(MAINNET_FORK_FRESH_ORACLE_BLOCK);
-        (uint256 freshBlockPriceWad, uint256 freshBlockUpdatedAt) = oracle.latestPriceWad();
+        (uint256 freshBlockPriceWad, uint256 freshBlockUpdatedAt, uint256 freshBlockLatestFeedTs) =
+            oracle.latestPriceWad();
 
         assertEq(block.number, MAINNET_FORK_FRESH_ORACLE_BLOCK);
-        assertGt(freshBlockUpdatedAt, sameBlockUpdatedAt);
+        assertGe(freshBlockUpdatedAt, sameBlockUpdatedAt);
+        assertGt(freshBlockLatestFeedTs, sameBlockLatestFeedTs);
         assertNotEq(freshBlockPriceWad, sameBlockPriceWad);
     }
 
@@ -133,12 +143,18 @@ contract ChainlinkReferenceOracleForkTest is MainnetForkBase {
         IChainlinkAggregatorV3 baseFeed,
         IChainlinkAggregatorV3 quoteFeed,
         int256 baseAnswer,
-        int256 quoteAnswer
+        int256 quoteAnswer,
+        uint8 token0Decimals,
+        uint8 token1Decimals
     ) internal view returns (uint256) {
         uint256 basePriceWad = FullMath.mulDiv(uint256(baseAnswer), WAD, 10 ** baseFeed.decimals());
         uint256 quotePriceWad =
             FullMath.mulDiv(uint256(quoteAnswer), WAD, 10 ** quoteFeed.decimals());
-        return FullMath.mulDiv(basePriceWad, WAD, quotePriceWad);
+        uint256 priceWad = FullMath.mulDiv(basePriceWad, WAD, quotePriceWad);
+        if (token0Decimals >= token1Decimals) {
+            return FullMath.mulDiv(priceWad, 10 ** (token0Decimals - token1Decimals), 1);
+        }
+        return FullMath.mulDiv(priceWad, 1, 10 ** (token1Decimals - token0Decimals));
     }
 }
 
@@ -191,7 +207,7 @@ contract OracleAnchoredLVRHookForkTest is MainnetForkBase, Deployers {
     }
 
     function testFork_swapThroughLivePoolManagerUpdatesRiskState() public {
-        (uint256 liveOraclePriceWad, uint256 liveOracleUpdatedAt) = oracle.latestPriceWad();
+        (uint256 liveOraclePriceWad,, uint256 liveOracleLatestFeedTs) = oracle.latestPriceWad();
 
         swap(key, false, -1e15, ZERO_BYTES);
 
@@ -199,7 +215,7 @@ contract OracleAnchoredLVRHookForkTest is MainnetForkBase, Deployers {
             hook.risk(key.toId());
 
         assertEq(lastOraclePriceWad, liveOraclePriceWad);
-        assertEq(lastOracleTs, liveOracleUpdatedAt);
+        assertEq(lastOracleTs, liveOracleLatestFeedTs);
         assertGt(sigma2PerSecondWad, 0);
     }
 
@@ -222,12 +238,12 @@ contract OracleAnchoredLVRHookForkTest is MainnetForkBase, Deployers {
         swap(key, false, -1e15, ZERO_BYTES);
 
         (uint256 sigmaBefore, uint256 priceBefore, uint256 tsBefore) = hook.risk(key.toId());
-        (uint256 oraclePriceBefore, uint256 oracleTsBefore) = oracle.latestPriceWad();
+        (uint256 oraclePriceBefore,, uint256 oracleTsBefore) = oracle.latestPriceWad();
 
         vm.rollFork(MAINNET_FORK_SAME_ORACLE_BLOCK);
         _fundAndApproveLiveTokens();
 
-        (uint256 oraclePriceAfterRoll, uint256 oracleTsAfterRoll) = oracle.latestPriceWad();
+        (uint256 oraclePriceAfterRoll,, uint256 oracleTsAfterRoll) = oracle.latestPriceWad();
         assertEq(oraclePriceAfterRoll, oraclePriceBefore);
         assertEq(oracleTsAfterRoll, oracleTsBefore);
 
@@ -249,7 +265,7 @@ contract OracleAnchoredLVRHookForkTest is MainnetForkBase, Deployers {
         vm.rollFork(MAINNET_FORK_FRESH_ORACLE_BLOCK);
         _fundAndApproveLiveTokens();
 
-        (uint256 freshOraclePriceWad, uint256 freshOracleTs) = oracle.latestPriceWad();
+        (uint256 freshOraclePriceWad,, uint256 freshOracleTs) = oracle.latestPriceWad();
         (bool toxicZeroForOne, uint24 zeroForOneFee,,) = hook.previewSwapFee(key, true);
         (bool toxicOneForZero, uint24 oneForZeroFee,,) = hook.previewSwapFee(key, false);
 
@@ -304,15 +320,19 @@ contract OracleAnchoredLVRHookForkTest is MainnetForkBase, Deployers {
             IChainlinkAggregatorV3(ETH_USD_FEED),
             false,
             IChainlinkAggregatorV3(LINK_USD_FEED),
-            false
+            false,
+            18,
+            18
         );
 
-        OracleAnchoredLVRHook implementation = new OracleAnchoredLVRHook(IPoolManager(manager));
         address hookAddress = _permissionedHookAddress();
-        vm.etch(hookAddress, address(implementation).code);
+        deployCodeTo(
+            "src/OracleAnchoredLVRHook.sol:OracleAnchoredLVRHook",
+            abi.encode(IPoolManager(manager), address(this)),
+            hookAddress
+        );
 
         hook = OracleAnchoredLVRHook(hookAddress);
-        hook.initializeOwner(address(this));
 
         address[] memory persistentAccounts = new address[](5);
         persistentAccounts[0] = address(oracle);
@@ -324,7 +344,7 @@ contract OracleAnchoredLVRHookForkTest is MainnetForkBase, Deployers {
     }
 
     function _initializeLivePool() internal {
-        (uint256 referencePriceWad, uint256 updatedAt) = oracle.latestPriceWad();
+        (uint256 referencePriceWad,, uint256 latestFeedTs) = oracle.latestPriceWad();
 
         (key,) = initPool(
             currency0,
@@ -340,14 +360,14 @@ contract OracleAnchoredLVRHookForkTest is MainnetForkBase, Deployers {
             key,
             SIGMA2_PER_SECOND_WAD,
             FullMath.mulDiv(referencePriceWad, 995, 1000),
-            updatedAt > 300 ? updatedAt - 300 : updatedAt - 1
+            latestFeedTs > 300 ? latestFeedTs - 300 : latestFeedTs - 1
         );
 
         _addCenteredLiquidity(HALF_WIDTH_TICKS, bytes32("fork-seed"));
     }
 
     function _addCenteredLiquidity(int24 halfWidthTicks, bytes32 salt) internal {
-        (uint256 livePriceWad,) = oracle.latestPriceWad();
+        (uint256 livePriceWad,,) = oracle.latestPriceWad();
         int24 referenceTick = TickMath.getTickAtSqrtPrice(_priceWadToSqrtPriceX96(livePriceWad));
         int24 midpoint = _floorToSpacing(referenceTick, TICK_SPACING);
 

@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "skills": {
+    "uniswap-fundamentals": {
+      "source": "whetstoneresearch/doppler-skills",
+      "sourceType": "github",
+      "computedHash": "2154947aa3a72a9abcbf60ee02633b7dccea5fccecafd48082bb93c77afeafbd"
+    },
+    "uniswap-integration": {
+      "source": "coolclaws/uniswap-ai",
+      "sourceType": "github",
+      "computedHash": "0d7008bf6f249073f23f1d85833ebd6056aab7ddd60ce89086cb0cda9e7e42d4"
+    },
+    "uniswap-v4-hooks": {
+      "source": "igoryuzo/uniswapV4-hooks-skill",
+      "sourceType": "github",
+      "computedHash": "333efad0c72bef27eba3729a4f00269215360e52358990150f5233521ea1566c"
+    },
+    "v4-security-foundations": {
+      "source": "uniswap/uniswap-ai",
+      "sourceType": "github",
+      "computedHash": "f4d5741e07fcb5e0efabb7700a44e8102b646645b3da2583b823acc9538acf61"
+    }
+  }
+}

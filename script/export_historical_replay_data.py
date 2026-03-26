@@ -407,6 +407,12 @@ def parse_args() -> argparse.Namespace:
         help="Optional inclusive end block for market_reference_updates.csv. Defaults to --to-block.",
     )
     parser.add_argument(
+        "--oracle-lookback-blocks",
+        type=int,
+        default=0,
+        help="Optional feed warmup span loaded before --from-block. Carries at most one pre-window combined row.",
+    )
+    parser.add_argument(
         "--max-oracle-age-seconds",
         type=int,
         default=3600,
@@ -813,6 +819,26 @@ def _combine_reference_updates(
     return combined
 
 
+def _trim_reference_rows(
+    rows: list[OracleUpdateRow],
+    from_block: int,
+    to_block: int,
+) -> list[OracleUpdateRow]:
+    latest_before_window: OracleUpdateRow | None = None
+    in_window_rows: list[OracleUpdateRow] = []
+
+    for row in rows:
+        if row.block_number < from_block:
+            latest_before_window = row
+            continue
+        if row.block_number <= to_block:
+            in_window_rows.append(row)
+
+    if latest_before_window is None:
+        return in_window_rows
+    return [latest_before_window, *in_window_rows]
+
+
 def _load_swap_samples(
     client: RpcClient,
     pool: str,
@@ -906,19 +932,24 @@ def _load_liquidity_events(
             continue
 
         words = _split_words(entry["data"])
-        if len(words) != 3:
-            continue
-
         topic0 = topics[0].lower()
         block_number = _hex_to_uint(entry["blockNumber"])
-        amount = _hex_to_uint(words[0])
-        amount0 = _hex_to_uint(words[1])
-        amount1 = _hex_to_uint(words[2])
 
         if topic0 == MINT_TOPIC:
             event_type = "mint"
+            if len(words) != 4:
+                continue
+            # Uniswap V3 Mint includes a non-indexed sender before amount/amount0/amount1.
+            amount = _hex_to_uint(words[1])
+            amount0 = _hex_to_uint(words[2])
+            amount1 = _hex_to_uint(words[3])
         elif topic0 == BURN_TOPIC:
             event_type = "burn"
+            if len(words) != 3:
+                continue
+            amount = _hex_to_uint(words[0])
+            amount0 = _hex_to_uint(words[1])
+            amount1 = _hex_to_uint(words[2])
         else:
             continue
 
@@ -1113,11 +1144,15 @@ def export_historical_replay_data(
         raise ValueError("--from-block must be <= --to-block")
     if args.max_oracle_age_seconds <= 0:
         raise ValueError("--max-oracle-age-seconds must be > 0")
+    oracle_lookback_blocks = int(getattr(args, "oracle_lookback_blocks", 0) or 0)
+    if oracle_lookback_blocks < 0:
+        raise ValueError("--oracle-lookback-blocks must be >= 0")
     market_to_block = getattr(args, "market_to_block", None)
     if market_to_block is None:
         market_to_block = args.to_block
     if market_to_block < args.to_block:
         raise ValueError("--market-to-block must be >= --to-block")
+    feed_from_block = max(args.from_block - oracle_lookback_blocks, 0)
 
     rpc_client = client or RpcClient(
         args.rpc_url,
@@ -1154,7 +1189,7 @@ def export_historical_replay_data(
         rpc_client,
         base_feed,
         args.base_label,
-        args.from_block,
+        feed_from_block,
         args.to_block,
         args.blocks_per_request,
         block_timestamps,
@@ -1163,18 +1198,22 @@ def export_historical_replay_data(
         rpc_client,
         quote_feed,
         args.quote_label,
-        args.from_block,
+        feed_from_block,
         args.to_block,
         args.blocks_per_request,
         block_timestamps,
     )
-    oracle_rows = _combine_reference_updates(
-        base_updates,
-        quote_updates,
-        base_decimals,
-        quote_decimals,
-        base_feed,
-        quote_feed,
+    oracle_rows = _trim_reference_rows(
+        _combine_reference_updates(
+            base_updates,
+            quote_updates,
+            base_decimals,
+            quote_decimals,
+            base_feed,
+            quote_feed,
+        ),
+        args.from_block,
+        args.to_block,
     )
 
     swap_rows = _load_swap_samples(
@@ -1243,7 +1282,7 @@ def export_historical_replay_data(
             rpc_client,
             market_base_feed,
             args.market_base_label,
-            args.from_block,
+            feed_from_block,
             market_to_block,
             args.blocks_per_request,
             block_timestamps,
@@ -1252,19 +1291,23 @@ def export_historical_replay_data(
             rpc_client,
             market_quote_feed,
             args.market_quote_label,
-            args.from_block,
+            feed_from_block,
             market_to_block,
             args.blocks_per_request,
             block_timestamps,
         )
         market_reference_rows = _build_market_reference_updates(
-            _combine_reference_updates(
-                market_base_updates,
-                market_quote_updates,
-                market_base_decimals,
-                market_quote_decimals,
-                market_base_feed,
-                market_quote_feed,
+            _trim_reference_rows(
+                _combine_reference_updates(
+                    market_base_updates,
+                    market_quote_updates,
+                    market_base_decimals,
+                    market_quote_decimals,
+                    market_base_feed,
+                    market_quote_feed,
+                ),
+                args.from_block,
+                market_to_block,
             )
         )
 

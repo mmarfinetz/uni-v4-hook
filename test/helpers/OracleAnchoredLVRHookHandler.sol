@@ -206,9 +206,9 @@ contract OracleAnchoredLVRHookHandler is Test {
         bool stale = oracleIsStale();
 
         uint256 oraclePriceWad;
-        uint256 oracleUpdatedAt;
+        uint256 oracleLatestFeedTs;
         if (!stale) {
-            (oraclePriceWad, oracleUpdatedAt) = oracle.latestPriceWad();
+            (oraclePriceWad,, oracleLatestFeedTs) = oracle.latestPriceWad();
         }
 
         try swapRouter.swap(
@@ -227,13 +227,13 @@ contract OracleAnchoredLVRHookHandler is Test {
                 ghostUnexpectedStaleSwapSuccesses++;
             } else {
                 ghostLastSuccessfulSwapOraclePriceWad = oraclePriceWad;
-                ghostLastSuccessfulSwapOracleTs = oracleUpdatedAt;
+                ghostLastSuccessfulSwapOracleTs = oracleLatestFeedTs;
             }
         } catch { }
     }
 
     function oracleIsStale() public view returns (bool) {
-        (, uint256 updatedAt) = oracle.latestPriceWad();
+        (, uint256 updatedAt,) = oracle.latestPriceWad();
         return block.timestamp > updatedAt + MAX_ORACLE_AGE;
     }
 
@@ -269,7 +269,7 @@ contract OracleAnchoredLVRHookHandler is Test {
     }
 
     function _currentReferenceTick() internal view returns (int24) {
-        (uint256 priceWad,) = oracle.latestPriceWad();
+        (uint256 priceWad,,) = oracle.latestPriceWad();
         return TickMath.getTickAtSqrtPrice(_priceWadToSqrtPriceX96(priceWad));
     }
 

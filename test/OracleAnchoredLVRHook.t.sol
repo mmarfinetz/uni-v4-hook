@@ -41,16 +41,18 @@ contract OracleAnchoredLVRHookTest is Test, Deployers {
         deployFreshManagerAndRouters();
         deployMintAndApprove2Currencies();
 
-        OracleAnchoredLVRHook implementation = new OracleAnchoredLVRHook(IPoolManager(manager));
         address hookAddress = _permissionedHookAddress();
-        vm.etch(hookAddress, address(implementation).code);
+        deployCodeTo(
+            "src/OracleAnchoredLVRHook.sol:OracleAnchoredLVRHook",
+            abi.encode(IPoolManager(manager), address(this)),
+            hookAddress
+        );
 
         hook = OracleAnchoredLVRHook(hookAddress);
-        hook.initializeOwner(address(this));
 
         baseFeed = new ManualAggregatorV3(18, int256(WAD), block.timestamp);
         quoteFeed = new ManualAggregatorV3(18, int256(WAD), block.timestamp);
-        oracle = new ChainlinkReferenceOracle(baseFeed, false, quoteFeed, false);
+        oracle = new ChainlinkReferenceOracle(baseFeed, false, quoteFeed, false, 18, 18);
 
         (key,) = initPool(
             currency0,
@@ -242,11 +244,117 @@ contract OracleAnchoredLVRHookTest is Test, Deployers {
         modifyLiquidityRouter.modifyLiquidity(key, params, ZERO_BYTES);
     }
 
-    function test_initializeOwnerRejectsZeroAddress() public {
-        OracleAnchoredLVRHook freshHook = new OracleAnchoredLVRHook(IPoolManager(manager));
-
+    function test_constructorRevertsWhenOwnerIsZeroAddress() public {
         vm.expectRevert(OracleAnchoredLVRHook.InvalidOwner.selector);
-        freshHook.initializeOwner(address(0));
+        new OracleAnchoredLVRHook(IPoolManager(manager), address(0));
+    }
+
+    function test_beforeSwap_revertsOnZeroOraclePrice() public {
+        _setOraclePrice(0, block.timestamp);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CustomRevert.WrappedError.selector,
+                address(hook),
+                IHooks.beforeSwap.selector,
+                abi.encodeWithSelector(OracleAnchoredLVRHook.InvalidOraclePrice.selector),
+                abi.encodeWithSelector(Hooks.HookCallFailed.selector)
+            )
+        );
+        swap(key, false, -1e15, ZERO_BYTES);
+    }
+
+    function test_beforeSwap_revertsOnOracleStalenessAtExactBoundary() public {
+        vm.warp(block.timestamp + MAX_ORACLE_AGE);
+        swap(key, false, -1e15, ZERO_BYTES);
+
+        vm.warp(block.timestamp + 1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CustomRevert.WrappedError.selector,
+                address(hook),
+                IHooks.beforeSwap.selector,
+                abi.encodeWithSelector(OracleAnchoredLVRHook.OracleStale.selector),
+                abi.encodeWithSelector(Hooks.HookCallFailed.selector)
+            )
+        );
+        swap(key, false, -1e15, ZERO_BYTES);
+    }
+
+    function test_beforeSwap_maxFeeClipRevertPropagatesCorrectValues() public {
+        OracleAnchoredLVRHook.Config memory cfg = _defaultConfig();
+        cfg.maxFee = BASE_FEE + 1;
+        hook.setConfig(key, cfg);
+        _setOraclePrice(_priceWadAtTick(100), block.timestamp);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CustomRevert.WrappedError.selector,
+                address(hook),
+                IHooks.beforeSwap.selector,
+                abi.encodeWithSelector(
+                    OracleAnchoredLVRHook.DeviationTooLarge.selector,
+                    _expectedFeeUnits(100, false),
+                    BASE_FEE + 1
+                ),
+                abi.encodeWithSelector(Hooks.HookCallFailed.selector)
+            )
+        );
+        swap(key, false, -1e15, ZERO_BYTES);
+    }
+
+    function test_riskState_doesNotAdvanceOnRepeatedSameOracleTimestamp() public {
+        uint256 firstUpdatedAt = block.timestamp + LATENCY_SECS;
+
+        vm.warp(firstUpdatedAt);
+        _setOraclePrice(_priceWadAtTick(20), firstUpdatedAt);
+        swap(key, false, -1e15, ZERO_BYTES);
+
+        (uint256 sigmaBefore,, uint256 lastOracleTsBefore) = hook.risk(key.toId());
+        assertEq(lastOracleTsBefore, firstUpdatedAt);
+
+        _setOraclePrice(_priceWadAtTick(40), firstUpdatedAt);
+        swap(key, false, -1e15, ZERO_BYTES);
+
+        (uint256 sigmaAfter, uint256 lastOraclePriceWadAfter, uint256 lastOracleTsAfter) =
+            hook.risk(key.toId());
+
+        assertEq(sigmaAfter, sigmaBefore);
+        assertEq(lastOraclePriceWadAfter, _priceWadAtTick(40));
+        assertEq(lastOracleTsAfter, firstUpdatedAt);
+    }
+
+    function test_swapUpdatesRiskStateWhenOnlyBaseFeedTimestampAdvances() public {
+        uint256 priorLatestFeedTs = 100;
+        uint256 quoteUpdatedAt = 90;
+        uint256 nextLatestFeedTs = 110;
+        uint256 updatedReferencePriceWad = _priceWadAtTick(20);
+
+        baseFeed.setRoundData(int256(WAD), priorLatestFeedTs);
+        quoteFeed.setRoundData(int256(WAD), quoteUpdatedAt);
+        hook.setRiskState(key, SIGMA2_PER_SECOND_WAD, WAD, priorLatestFeedTs);
+
+        vm.warp(nextLatestFeedTs);
+        baseFeed.setRoundData(int256(updatedReferencePriceWad), nextLatestFeedTs);
+
+        swap(key, false, -1e15, ZERO_BYTES);
+
+        (uint256 sigma2PerSecondWad, uint256 lastOraclePriceWad, uint256 lastOracleTs) =
+            hook.risk(key.toId());
+
+        assertNotEq(sigma2PerSecondWad, SIGMA2_PER_SECOND_WAD);
+        assertEq(lastOraclePriceWad, updatedReferencePriceWad);
+        assertEq(lastOracleTs, nextLatestFeedTs);
+    }
+
+    function test_riskState_bootstrapSigmaUsedWhenStateIsUninitialized() public {
+        hook.setRiskState(key, 0, 0, 0);
+        uint256 bootstrapWidth = hook.minWidthTicks(key);
+
+        hook.setRiskState(key, BOOTSTRAP_SIGMA2_PER_SECOND_WAD, WAD, block.timestamp);
+        uint256 explicitBootstrapWidth = hook.minWidthTicks(key);
+
+        assertEq(bootstrapWidth, explicitBootstrapWidth);
     }
 
     function _defaultConfig() internal view returns (OracleAnchoredLVRHook.Config memory cfg) {

@@ -8,6 +8,7 @@ import csv
 import itertools
 import json
 import sys
+import warnings
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -31,6 +32,8 @@ from script.lvr_historical_replay import (
     write_series_csv,
 )
 from script.oracle_gap_predictiveness import run_oracle_gap_predictiveness
+from script.run_dutch_auction_backtest import run_dutch_auction_backtest
+from script.run_fee_identity_pass import run_fee_identity_pass
 
 
 OBSERVED_POOL_SERIES_FIELDNAMES = [
@@ -47,6 +50,12 @@ OBSERVED_POOL_SERIES_FIELDNAMES = [
     "pool_sqrt_price_x96_after",
     "executed",
     "reject_reason",
+    "stale_loss_exact_quote",
+    "charged_fee_quote",
+    "capture_ratio",
+    "clip_hit",
+    "gap_bp_bucket",
+    "flow_label",
 ]
 
 
@@ -67,6 +76,7 @@ class BacktestWindow:
     quote_feed: str
     market_base_feed: str | None
     market_quote_feed: str | None
+    oracle_lookback_blocks: int
     markout_extension_blocks: int
     require_exact_replay: bool
     replay_error_tolerance: float
@@ -95,6 +105,18 @@ class AggregateManifestSummaryRow:
     oracle_sources: tuple[str, ...]
     oracle_ranking: tuple[str, ...]
     fee_policy_ranking: tuple[str, ...]
+    fee_identity_holds: bool | None = None
+    fee_identity_max_error_exact: float | None = None
+    dutch_auction_oracle_ranking: tuple[str, ...] | None = None
+    dutch_auction_trigger_rate: float | None = None
+    dutch_auction_fill_rate: float | None = None
+    dutch_auction_no_reference_rate: float | None = None
+    dutch_auction_fallback_rate: float | None = None
+    dutch_auction_oracle_failclosed_rate: float | None = None
+    dutch_auction_lp_net_quote: float | None = None
+    dutch_auction_lp_net_vs_hook_quote: float | None = None
+    dutch_auction_lp_net_vs_fixed_fee_quote: float | None = None
+    dutch_auction_mean_solver_surplus_quote: float | None = None
 
 
 class DataSourceUnavailable(RuntimeError):
@@ -110,6 +132,21 @@ class OracleSourceReplayRow:
     stale_rejections: int
     fee_cap_rejections: int
     lp_net: float
+
+
+@dataclass(frozen=True)
+class OracleSourceAuctionRow:
+    window_id: str
+    oracle_source: str
+    auction_trigger_rate: float | None
+    fill_rate: float | None
+    no_reference_rate: float | None
+    fallback_rate: float | None
+    oracle_failclosed_rate: float | None
+    lp_net_auction_quote: float
+    lp_net_auction_vs_hook_quote: float
+    lp_net_auction_vs_fixed_fee_quote: float
+    mean_solver_surplus_quote: float | None
 
 
 @dataclass(frozen=True)
@@ -168,6 +205,42 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--width-ticks", type=int, default=12_000, help="Width candidate passed into replay.")
     parser.add_argument(
+        "--auction-start-concession-bps",
+        type=float,
+        default=5.0,
+        help="Starting solver concession for the Dutch-auction branch, in stale-loss bps.",
+    )
+    parser.add_argument(
+        "--auction-concession-growth-bps-per-second",
+        type=float,
+        default=10.0,
+        help="Linear solver-concession growth rate for the Dutch-auction branch.",
+    )
+    parser.add_argument(
+        "--auction-max-concession-bps",
+        type=float,
+        default=10_000.0,
+        help="Maximum solver concession for the Dutch-auction branch, in stale-loss bps.",
+    )
+    parser.add_argument(
+        "--auction-max-duration-seconds",
+        type=int,
+        default=600,
+        help="Maximum Dutch-auction duration in seconds.",
+    )
+    parser.add_argument(
+        "--auction-solver-gas-cost-quote",
+        type=float,
+        default=0.25,
+        help="Fixed solver-cost assumption, in quote units, for the Dutch-auction branch.",
+    )
+    parser.add_argument(
+        "--auction-solver-edge-bps",
+        type=float,
+        default=0.0,
+        help="Additional solver edge requirement, in toxic-notional bps, for the Dutch-auction branch.",
+    )
+    parser.add_argument(
         "--allow-toxic-overshoot",
         action="store_true",
         help="Allow toxic swaps to move the pool through the reference price during replay.",
@@ -216,6 +289,7 @@ def load_backtest_manifest(path_str: str) -> BacktestManifest:
             quote_feed=_required_str(item, "quote_feed"),
             market_base_feed=_optional_str(item, "market_base_feed"),
             market_quote_feed=_optional_str(item, "market_quote_feed"),
+            oracle_lookback_blocks=_optional_nonnegative_int(item, "oracle_lookback_blocks") or 0,
             markout_extension_blocks=_required_nonnegative_int(item, "markout_extension_blocks"),
             require_exact_replay=_required_bool(item, "require_exact_replay"),
             replay_error_tolerance=_optional_float(item, "replay_error_tolerance") or 0.001,
@@ -306,6 +380,7 @@ def run_window(
             market_quote_feed=window.market_quote_feed,
             market_base_label=args.market_base_label,
             market_quote_label=args.market_quote_label,
+            oracle_lookback_blocks=window.oracle_lookback_blocks,
             market_to_block=window.to_block + window.markout_extension_blocks,
             max_oracle_age_seconds=args.max_oracle_age_seconds,
             rpc_timeout=args.rpc_timeout,
@@ -350,6 +425,7 @@ def run_window(
     replay_error_stats: dict[str, Any] | None = None
     analysis_series_path = observed_series_path
     analysis_series_strategy = "observed_pool"
+    fee_identity_summary: dict[str, Any] | None = None
 
     if window.require_exact_replay:
         exact_replay_output = emit_exact_replay_artifacts(
@@ -366,6 +442,33 @@ def run_window(
             analysis_basis = "exact_replay"
             analysis_series_path = exact_replay_output["series_path"]
             analysis_series_strategy = "exact_replay"
+            fee_identity_output_path = window_dir / "fee_identity_pass.csv"
+            fee_identity_summary_path = window_dir / "fee_identity_summary.json"
+            try:
+                fee_identity_summary = run_fee_identity_pass(
+                    argparse.Namespace(
+                        observed_series=str(observed_series_path),
+                        exact_series=str(exact_replay_output["series_path"]),
+                        swap_samples=str(export_dir / "swap_samples.csv"),
+                        market_reference_updates=str(market_reference_path),
+                        base_fee_bps=str(args.base_fee_bps),
+                        output=str(fee_identity_output_path),
+                        summary_output=str(fee_identity_summary_path),
+                    )
+                )
+            except AssertionError as exc:
+                warnings.warn(f"window_id={window.window_id}: {exc}")
+                if fee_identity_summary_path.exists():
+                    fee_identity_summary = json.loads(fee_identity_summary_path.read_text(encoding="utf-8"))
+                else:
+                    fee_identity_summary = {
+                        "identity_holds_exact": False,
+                        "max_absolute_error_exact": _parse_fee_identity_max_error(exc),
+                    }
+                    fee_identity_summary_path.write_text(
+                        json.dumps(fee_identity_summary, indent=2, sort_keys=True),
+                        encoding="utf-8",
+                    )
 
     oracle_gap_result = run_oracle_gap_predictiveness(
         series_path=str(analysis_series_path),
@@ -382,6 +485,7 @@ def run_window(
 
     source_reports: dict[str, dict[str, Any]] = {}
     source_rows: list[OracleSourceReplayRow] = []
+    auction_rows: list[OracleSourceAuctionRow] = []
     primary_oracle_source = resolved_oracle_sources[0].name
     for source in resolved_oracle_sources:
         source_output_dir = replay_dir if source.name == primary_oracle_source else replay_dir / source.name
@@ -401,6 +505,21 @@ def run_window(
                 replay_report=replay_report,
             )
         )
+        auction_rows.append(
+            summarize_oracle_source_auction(
+                window_id=window.window_id,
+                oracle_source=source.name,
+                auction_report=run_auction_for_source(
+                    window_id=window.window_id,
+                    oracle_source=source,
+                    output_dir=source_output_dir,
+                    series_path=Path(analysis_series_path),
+                    market_reference_path=market_reference_path,
+                    swap_samples_path=export_dir / "swap_samples.csv",
+                    args=args,
+                ),
+            )
+        )
 
     oracle_source_summary_path = window_dir / "oracle_source_replay_summary.csv"
     write_rows_csv(
@@ -413,8 +532,20 @@ def run_window(
         json.dumps([asdict(row) for row in source_rows], indent=2, sort_keys=True),
         encoding="utf-8",
     )
+    auction_source_summary_path = window_dir / "auction_source_replay_summary.csv"
+    write_rows_csv(
+        str(auction_source_summary_path),
+        list(OracleSourceAuctionRow.__dataclass_fields__.keys()),
+        [asdict(row) for row in auction_rows],
+    )
+    auction_source_summary_json_path = window_dir / "auction_source_replay_summary.json"
+    auction_source_summary_json_path.write_text(
+        json.dumps([asdict(row) for row in auction_rows], indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
 
     aggregated_curve_metrics = aggregate_curve_metrics(source_reports)
+    aggregated_auction_metrics = aggregate_auction_metrics(auction_rows)
 
     confirmed_label_rate = compute_confirmed_label_rate(oracle_gap_result["dataset"])
     label_horizons = [int(value) for value in load_label_config(args.label_config)["markout_horizons_seconds"]]
@@ -434,6 +565,18 @@ def run_window(
         oracle_sources=tuple(source.name for source in resolved_oracle_sources),
         oracle_ranking=rank_oracles(oracle_gap_result["summary_rows"], label_horizons),
         fee_policy_ranking=rank_fee_policies(aggregated_curve_metrics),
+        fee_identity_holds=_summary_bool(fee_identity_summary, "identity_holds_exact"),
+        fee_identity_max_error_exact=_summary_float(fee_identity_summary, "max_absolute_error_exact"),
+        dutch_auction_oracle_ranking=rank_dutch_auction_oracles(auction_rows),
+        dutch_auction_trigger_rate=aggregated_auction_metrics["auction_trigger_rate"],
+        dutch_auction_fill_rate=aggregated_auction_metrics["fill_rate"],
+        dutch_auction_no_reference_rate=aggregated_auction_metrics["no_reference_rate"],
+        dutch_auction_fallback_rate=aggregated_auction_metrics["fallback_rate"],
+        dutch_auction_oracle_failclosed_rate=aggregated_auction_metrics["oracle_failclosed_rate"],
+        dutch_auction_lp_net_quote=aggregated_auction_metrics["lp_net_auction_quote"],
+        dutch_auction_lp_net_vs_hook_quote=aggregated_auction_metrics["lp_net_auction_vs_hook_quote"],
+        dutch_auction_lp_net_vs_fixed_fee_quote=aggregated_auction_metrics["lp_net_auction_vs_fixed_fee_quote"],
+        dutch_auction_mean_solver_surplus_quote=aggregated_auction_metrics["mean_solver_surplus_quote"],
     )
     (window_dir / "window_summary.json").write_text(
         json.dumps(summary_row_payload(summary_row), indent=2, sort_keys=True),
@@ -630,6 +773,44 @@ def run_replay_for_source(
     return replay_report
 
 
+def run_auction_for_source(
+    *,
+    window_id: str,
+    oracle_source: OracleSourceConfig,
+    output_dir: Path,
+    series_path: Path,
+    market_reference_path: Path,
+    swap_samples_path: Path,
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    return run_dutch_auction_backtest(
+        argparse.Namespace(
+            series_csv=str(series_path),
+            swap_samples=str(swap_samples_path),
+            oracle_updates=oracle_source.oracle_updates_path,
+            output=str(output_dir / "dutch_auction_swaps.csv"),
+            summary_output=str(output_dir / "dutch_auction_summary.json"),
+            base_fee_bps=args.base_fee_bps,
+            max_fee_bps=args.max_fee_bps,
+            alpha_bps=args.alpha_bps,
+            max_oracle_age_seconds=args.max_oracle_age_seconds,
+            start_concession_bps=args.auction_start_concession_bps,
+            concession_growth_bps_per_second=args.auction_concession_growth_bps_per_second,
+            max_concession_bps=args.auction_max_concession_bps,
+            max_auction_duration_seconds=args.auction_max_duration_seconds,
+            solver_gas_cost_quote=args.auction_solver_gas_cost_quote,
+            solver_edge_bps=args.auction_solver_edge_bps,
+            market_reference_updates=str(market_reference_path),
+            label_config=args.label_config,
+            latency_seconds=args.latency_seconds,
+            lvr_budget=args.lvr_budget,
+            width_ticks=args.width_ticks,
+            allow_toxic_overshoot=args.allow_toxic_overshoot,
+        )
+    )
+
+
 def summarize_oracle_source_replay(
     *,
     window_id: str,
@@ -664,6 +845,28 @@ def summarize_oracle_source_replay(
     )
 
 
+def summarize_oracle_source_auction(
+    *,
+    window_id: str,
+    oracle_source: str,
+    auction_report: dict[str, Any],
+) -> OracleSourceAuctionRow:
+    summary = auction_report["summary"]
+    return OracleSourceAuctionRow(
+        window_id=window_id,
+        oracle_source=oracle_source,
+        auction_trigger_rate=_optional_float(summary, "auction_trigger_rate"),
+        fill_rate=_optional_float(summary, "fill_rate"),
+        no_reference_rate=_optional_float(summary, "no_reference_rate"),
+        fallback_rate=_optional_float(summary, "fallback_rate"),
+        oracle_failclosed_rate=_optional_float(summary, "oracle_failclosed_rate"),
+        lp_net_auction_quote=float(summary.get("lp_net_auction_quote") or 0.0),
+        lp_net_auction_vs_hook_quote=float(summary.get("lp_net_auction_vs_hook_quote") or 0.0),
+        lp_net_auction_vs_fixed_fee_quote=float(summary.get("lp_net_auction_vs_fixed_fee_quote") or 0.0),
+        mean_solver_surplus_quote=_optional_float(summary, "mean_solver_surplus_quote"),
+    )
+
+
 def aggregate_curve_metrics(source_reports: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
     aggregated: dict[str, dict[str, Any]] = {}
     source_count = len(source_reports)
@@ -692,6 +895,36 @@ def aggregate_curve_metrics(source_reports: dict[str, dict[str, Any]]) -> dict[s
         metrics["recapture_ratio"] /= source_count
         metrics["total_fee_revenue_quote"] /= source_count
     return aggregated
+
+
+def aggregate_auction_metrics(source_rows: list[OracleSourceAuctionRow]) -> dict[str, float | None]:
+    if not source_rows:
+        return {
+            "auction_trigger_rate": None,
+            "fill_rate": None,
+            "no_reference_rate": None,
+            "fallback_rate": None,
+            "oracle_failclosed_rate": None,
+            "lp_net_auction_quote": None,
+            "lp_net_auction_vs_hook_quote": None,
+            "lp_net_auction_vs_fixed_fee_quote": None,
+            "mean_solver_surplus_quote": None,
+        }
+
+    count = len(source_rows)
+    return {
+        "auction_trigger_rate": _mean_optional([row.auction_trigger_rate for row in source_rows]),
+        "fill_rate": _mean_optional([row.fill_rate for row in source_rows]),
+        "no_reference_rate": _mean_optional([row.no_reference_rate for row in source_rows]),
+        "fallback_rate": _mean_optional([row.fallback_rate for row in source_rows]),
+        "oracle_failclosed_rate": _mean_optional([row.oracle_failclosed_rate for row in source_rows]),
+        "lp_net_auction_quote": sum(row.lp_net_auction_quote for row in source_rows) / count,
+        "lp_net_auction_vs_hook_quote": sum(row.lp_net_auction_vs_hook_quote for row in source_rows) / count,
+        "lp_net_auction_vs_fixed_fee_quote": (
+            sum(row.lp_net_auction_vs_fixed_fee_quote for row in source_rows) / count
+        ),
+        "mean_solver_surplus_quote": _mean_optional([row.mean_solver_surplus_quote for row in source_rows]),
+    }
 
 
 def compute_confirmed_label_rate(dataset_rows: list[dict[str, Any]]) -> float | None:
@@ -732,6 +965,20 @@ def rank_fee_policies(strategies: dict[str, dict[str, Any]]) -> tuple[str, ...]:
     return tuple(str(row["name"]) for row in ranked)
 
 
+def rank_dutch_auction_oracles(rows: list[OracleSourceAuctionRow]) -> tuple[str, ...] | None:
+    if not rows:
+        return None
+    ranked = sorted(
+        rows,
+        key=lambda row: (
+            *_descending_metric_key(row.lp_net_auction_quote),
+            *_descending_metric_key(row.fill_rate),
+            str(row.oracle_source),
+        ),
+    )
+    return tuple(row.oracle_source for row in ranked)
+
+
 def predictiveness_score(summary_row: dict[str, Any], horizons: list[int]) -> float | None:
     correlations = [
         float(summary_row[field])
@@ -753,6 +1000,8 @@ def summary_row_payload(row: AggregateManifestSummaryRow) -> dict[str, Any]:
     payload["oracle_sources"] = list(row.oracle_sources)
     payload["oracle_ranking"] = list(row.oracle_ranking)
     payload["fee_policy_ranking"] = list(row.fee_policy_ranking)
+    if row.dutch_auction_oracle_ranking is not None:
+        payload["dutch_auction_oracle_ranking"] = list(row.dutch_auction_oracle_ranking)
     return payload
 
 
@@ -798,6 +1047,43 @@ def _descending_metric_key(value: Any) -> tuple[int, float]:
     return (0, -float(value))
 
 
+def _parse_fee_identity_max_error(exc: AssertionError) -> float | None:
+    marker = "max_absolute_error_exact="
+    message = str(exc)
+    if marker not in message:
+        return None
+    raw_value = message.split(marker, 1)[1].strip().split()[0].rstrip(",")
+    try:
+        return float(raw_value)
+    except ValueError:
+        return None
+
+
+def _summary_bool(summary: dict[str, Any] | None, key: str) -> bool | None:
+    if summary is None:
+        return None
+    value = summary.get(key)
+    if value in (None, ""):
+        return None
+    return bool(value)
+
+
+def _summary_float(summary: dict[str, Any] | None, key: str) -> float | None:
+    if summary is None:
+        return None
+    value = summary.get(key)
+    if value in (None, ""):
+        return None
+    return float(value)
+
+
+def _mean_optional(values: list[float | None]) -> float | None:
+    filtered = [value for value in values if value is not None]
+    if not filtered:
+        return None
+    return sum(filtered) / len(filtered)
+
+
 def _validated_regime(payload: dict[str, Any]) -> str:
     regime = _required_str(payload, "regime")
     if regime not in {"normal", "stress"}:
@@ -824,6 +1110,16 @@ def _optional_float(payload: dict[str, Any], key: str) -> float | None:
     if value in (None, ""):
         return None
     return float(value)
+
+
+def _optional_nonnegative_int(payload: dict[str, Any], key: str) -> int | None:
+    value = payload.get(key)
+    if value in (None, ""):
+        return None
+    parsed = int(value)
+    if parsed < 0:
+        raise ValueError(f"Manifest field '{key}' must be non-negative.")
+    return parsed
 
 
 def _required_int(payload: dict[str, Any], key: str) -> int:

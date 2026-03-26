@@ -141,6 +141,10 @@ class StrategyState:
     max_gap_bps: float = 0.0
     total_fee_bps: float = 0.0
     max_fee_bps: float = 0.0
+    executed_benign_swaps: int = 0
+    toxic_capture_ratio_total: float = 0.0
+    toxic_capture_ratio_count: int = 0
+    benign_overcharge_bps_total: float = 0.0
 
     def finalize(self) -> Dict[str, Any]:
         average_gap_bps = self.total_gap_bps / self.swap_events if self.swap_events else 0.0
@@ -178,6 +182,22 @@ class StrategyState:
             "total_quote_notional": self.total_quote_notional,
             "toxic_quote_notional": self.toxic_quote_notional,
             "final_pool_price": self.pool_price,
+            "per_swap_diagnostics": {
+                "toxic_clip_rate": (
+                    self.rejected_fee_cap / self.toxic_swaps if self.toxic_swaps else 0.0
+                ),
+                "toxic_mean_capture_ratio": (
+                    self.toxic_capture_ratio_total / self.toxic_capture_ratio_count
+                    if self.toxic_capture_ratio_count
+                    else 0.0
+                ),
+                "benign_mean_overcharge_bps": (
+                    self.benign_overcharge_bps_total / self.executed_benign_swaps
+                    if self.executed_benign_swaps
+                    else 0.0
+                ),
+                "volume_loss_rate": self.rejected_swaps / self.swap_events if self.swap_events else 0.0,
+            },
         }
 
 
@@ -204,6 +224,12 @@ class ReplayPoint:
     cumulative_toxic_fee_revenue_quote: float
     cumulative_total_fee_revenue_quote: float
     cumulative_unrecaptured_toxic_lvr_quote: float
+    stale_loss_exact_quote: float
+    charged_fee_quote: float
+    capture_ratio: float
+    clip_hit: bool
+    gap_bp_bucket: str
+    flow_label: str
 
 
 # ADDED: exact-v3-replay — PR 1
@@ -574,7 +600,7 @@ def _sqrt_price_x96_to_tick(sqrt_price_x96: int) -> int:
 # ADDED: exact-v3-replay — PR 1
 def _next_initialized_tick(state: ExactV3ReplayState, zero_for_one: bool) -> Optional[int]:
     if zero_for_one:
-        candidates = [tick for tick in state.tick_map if tick < state.tick]
+        candidates = [tick for tick in state.tick_map if tick <= state.tick]
         return max(candidates) if candidates else None
     candidates = [tick for tick in state.tick_map if tick > state.tick]
     return min(candidates) if candidates else None
@@ -1228,6 +1254,20 @@ def gap_bps(reference_price: float, pool_price: float) -> float:
     return abs(math.log(reference_price / pool_price)) * 10_000.0
 
 
+def _gap_bp_bucket(gap_bps_value: float) -> str:
+    if gap_bps_value < 1.0:
+        return "<1"
+    if gap_bps_value < 2.0:
+        return "1-2"
+    if gap_bps_value < 5.0:
+        return "2-5"
+    if gap_bps_value < 10.0:
+        return "5-10"
+    if gap_bps_value <= 50.0:
+        return "10-50"
+    return ">50"
+
+
 def fee_premium(curve: str, reference_price: float, pool_price: float) -> float:
     ratio = max(reference_price / pool_price, pool_price / reference_price)
     if curve == "fixed":
@@ -1556,6 +1596,12 @@ def replay(args: argparse.Namespace) -> Dict[str, Any]:
                             cumulative_unrecaptured_toxic_lvr_quote=(
                                 state.toxic_gross_lvr_quote - state.toxic_fee_revenue_quote
                             ),
+                            stale_loss_exact_quote=0.0,
+                            charged_fee_quote=0.0,
+                            capture_ratio=0.0,
+                            clip_hit=False,
+                            gap_bp_bucket=_gap_bp_bucket(price_gap_bps),
+                            flow_label="rejected",
                         )
                     )
                     continue
@@ -1601,6 +1647,12 @@ def replay(args: argparse.Namespace) -> Dict[str, Any]:
                         cumulative_unrecaptured_toxic_lvr_quote=(
                             state.toxic_gross_lvr_quote - state.toxic_fee_revenue_quote
                         ),
+                        stale_loss_exact_quote=0.0,
+                        charged_fee_quote=0.0,
+                        capture_ratio=0.0,
+                        clip_hit=False,
+                        gap_bp_bucket=_gap_bp_bucket(price_gap_bps),
+                        flow_label="rejected",
                     )
                 )
                 continue
@@ -1664,10 +1716,22 @@ def replay(args: argparse.Namespace) -> Dict[str, Any]:
                 state.toxic_fee_revenue_quote += fee_revenue_quote
                 state.toxic_quote_notional += quote_notional
             else:
+                state.executed_benign_swaps += 1
+                state.benign_overcharge_bps_total += fee_bps_value - (
+                    state.config.base_fee_fraction * 10_000.0
+                )
                 state.benign_fee_revenue_quote += fee_revenue_quote
 
             pool_price_before = state.pool_price
             state.pool_price = updated_pool_price
+            stale_loss_exact_quote = gross_lvr_quote if toxic else 0.0
+            capture_ratio = (
+                fee_revenue_quote / stale_loss_exact_quote if stale_loss_exact_quote > 0.0 else 0.0
+            )
+            capture_ratio = min(max(capture_ratio, 0.0), 1.0)
+            if toxic and stale_loss_exact_quote > 0.0:
+                state.toxic_capture_ratio_total += capture_ratio
+                state.toxic_capture_ratio_count += 1
 
             series_points.append(
                 ReplayPoint(
@@ -1694,6 +1758,12 @@ def replay(args: argparse.Namespace) -> Dict[str, Any]:
                     cumulative_unrecaptured_toxic_lvr_quote=(
                         state.toxic_gross_lvr_quote - state.toxic_fee_revenue_quote
                     ),
+                    stale_loss_exact_quote=stale_loss_exact_quote,
+                    charged_fee_quote=fee_revenue_quote,
+                    capture_ratio=capture_ratio,
+                    clip_hit=False,
+                    gap_bp_bucket=_gap_bp_bucket(price_gap_bps),
+                    flow_label="toxic" if toxic else "benign",
                 )
             )
 

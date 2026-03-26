@@ -16,7 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from script.lvr_historical_replay import load_oracle_updates, load_rows
+from script.lvr_historical_replay import load_oracle_updates, load_rows, normalize_direction
 from script.lvr_validation import correction_trade
 
 
@@ -110,14 +110,14 @@ def run_fee_identity_pass(args: argparse.Namespace) -> dict[str, Any]:
     output_rows: list[FeeIdentityPassRow] = []
     max_absolute_error_observed = DECIMAL_ZERO
     max_absolute_error_exact = DECIMAL_ZERO
+    skipped_no_reference = 0
 
     for observed_row, exact_row, swap_row in zip(observed_rows, exact_rows, swap_rows, strict=True):
         ensure_matching_swap_identity(observed_row, exact_row, swap_row)
         reference_price = latest_reference_price(reference_updates, observed_row)
         if reference_price is None:
-            raise ValueError(
-                f"tx_hash={observed_row.tx_hash or 'unknown'}: no market reference update before swap."
-            )
+            skipped_no_reference += 1
+            continue
 
         observed_trade = correction_trade(
             observed_row.pool_price_before,
@@ -170,6 +170,9 @@ def run_fee_identity_pass(args: argparse.Namespace) -> dict[str, Any]:
             )
         )
 
+    if not output_rows:
+        raise ValueError("Fee identity pass requires at least one swap with a prior market reference update.")
+
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     write_rows_csv(
@@ -180,6 +183,7 @@ def run_fee_identity_pass(args: argparse.Namespace) -> dict[str, Any]:
 
     summary = {
         "row_count": len(output_rows),
+        "skipped_no_reference": skipped_no_reference,
         "base_fee_bps": str(args.base_fee_bps),
         "max_absolute_error_observed": decimal_to_str(max_absolute_error_observed),
         "max_absolute_error_exact": decimal_to_str(max_absolute_error_exact),
@@ -187,14 +191,15 @@ def run_fee_identity_pass(args: argparse.Namespace) -> dict[str, Any]:
         "identity_holds_exact": all(row.identity_holds_exact for row in output_rows),
         "output_path": str(output_path),
     }
+    summary_output = getattr(args, "summary_output", None)
+    if summary_output:
+        Path(summary_output).write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
+
     if max_absolute_error_exact >= DECIMAL_ONE_TEN_BPS:
         raise AssertionError(
             f"Exact replay fee identity failed: max_absolute_error_exact={max_absolute_error_exact}"
         )
 
-    summary_output = getattr(args, "summary_output", None)
-    if summary_output:
-        Path(summary_output).write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
     return summary
 
 
@@ -233,7 +238,11 @@ def load_swap_metadata_rows(path_str: str) -> list[SwapMetadataRow]:
                 block_number=optional_int(row, "block_number"),
                 tx_hash=optional_str(row, "tx_hash"),
                 log_index=optional_int(row, "log_index"),
-                direction=required_str(row, "direction"),
+                direction=normalize_direction(
+                    optional_str(row, "direction"),
+                    optional_float(row, "token0_in"),
+                    optional_float(row, "token1_in"),
+                ),
                 liquidity=liquidity,
                 token0_decimals=token0_decimals,
                 token1_decimals=token1_decimals,
@@ -340,6 +349,13 @@ def optional_int(row: dict[str, Any], key: str) -> int | None:
     if value in (None, ""):
         return None
     return int(value)
+
+
+def optional_float(row: dict[str, Any], key: str) -> float | None:
+    value = row.get(key)
+    if value in (None, ""):
+        return None
+    return float(value)
 
 
 def required_decimal(row: dict[str, Any], key: str) -> Decimal:

@@ -45,16 +45,18 @@ contract OracleAnchoredLVRHookInvariantTest is StdInvariant, Deployers {
         deployFreshManagerAndRouters();
         deployMintAndApprove2Currencies();
 
-        OracleAnchoredLVRHook implementation = new OracleAnchoredLVRHook(IPoolManager(manager));
         address hookAddress = _permissionedHookAddress();
-        vm.etch(hookAddress, address(implementation).code);
+        deployCodeTo(
+            "src/OracleAnchoredLVRHook.sol:OracleAnchoredLVRHook",
+            abi.encode(IPoolManager(manager), address(this)),
+            hookAddress
+        );
 
         hook = OracleAnchoredLVRHook(hookAddress);
-        hook.initializeOwner(address(this));
 
         baseFeed = new ManualAggregatorV3(18, int256(WAD), block.timestamp);
         quoteFeed = new ManualAggregatorV3(18, int256(WAD), block.timestamp);
-        oracle = new ChainlinkReferenceOracle(baseFeed, false, quoteFeed, false);
+        oracle = new ChainlinkReferenceOracle(baseFeed, false, quoteFeed, false, 18, 18);
 
         (key,) = initPool(
             currency0,
@@ -225,7 +227,7 @@ contract OracleAnchoredLVRHookInvariantTest is StdInvariant, Deployers {
     }
 
     function _currentReferenceTick() internal view returns (int24) {
-        (uint256 priceWad,) = oracle.latestPriceWad();
+        (uint256 priceWad,,) = oracle.latestPriceWad();
         return TickMath.getTickAtSqrtPrice(_priceWadToSqrtPriceX96(priceWad));
     }
 
