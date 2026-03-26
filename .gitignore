@@ -8,6 +8,7 @@ out/
 lvr_v4_hook_paper.pdf
 lvr_v4_hook_paper_dutch_auction.pdf
 AGENTS.md
+.agents/skills/
 .codex/
 
 # Local runtime / secrets
