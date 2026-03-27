@@ -117,6 +117,12 @@ class AggregateManifestSummaryRow:
     dutch_auction_lp_net_vs_hook_quote: float | None = None
     dutch_auction_lp_net_vs_fixed_fee_quote: float | None = None
     dutch_auction_mean_solver_surplus_quote: float | None = None
+    dutch_auction_trigger_mode: str | None = None
+    dutch_auction_reserve_mode: str | None = None
+    dutch_auction_min_stale_loss_quote: float | None = None
+    dutch_auction_min_lp_uplift_quote: float | None = None
+    dutch_auction_min_lp_uplift_stale_loss_bps: float | None = None
+    dutch_auction_solver_payment_hook_cap_multiple: float | None = None
 
 
 class DataSourceUnavailable(RuntimeError):
@@ -241,6 +247,48 @@ def parse_args() -> argparse.Namespace:
         help="Additional solver edge requirement, in toxic-notional bps, for the Dutch-auction branch.",
     )
     parser.add_argument(
+        "--auction-min-stale-loss-quote",
+        type=float,
+        default=1.0,
+        help="Minimum exact stale-loss threshold, in quote units, before the Dutch-auction branch triggers.",
+    )
+    parser.add_argument(
+        "--auction-trigger-mode",
+        choices=["all_toxic", "clip_hit_only", "auction_beats_hook"],
+        default="auction_beats_hook",
+        help="Trigger filter for the Dutch-auction branch.",
+    )
+    parser.add_argument(
+        "--auction-reserve-mode",
+        choices=["solver_cost", "hook_counterfactual"],
+        default="hook_counterfactual",
+        help="Reserve condition for Dutch-auction fills.",
+    )
+    parser.add_argument(
+        "--auction-reserve-hook-margin-bps",
+        type=float,
+        default=0.0,
+        help="Additional hook-counterfactual LP margin, in stale-loss bps, required for a Dutch-auction fill.",
+    )
+    parser.add_argument(
+        "--auction-min-lp-uplift-quote",
+        type=float,
+        default=0.0,
+        help="Minimum absolute LP uplift over hook, in quote units, required for a Dutch-auction fill.",
+    )
+    parser.add_argument(
+        "--auction-min-lp-uplift-stale-loss-bps",
+        type=float,
+        default=100.0,
+        help="Minimum LP uplift over hook, in stale-loss bps, required for a Dutch-auction fill.",
+    )
+    parser.add_argument(
+        "--auction-solver-payment-hook-cap-multiple",
+        type=float,
+        default=1.0,
+        help="Maximum solver payment as a multiple of hook fee revenue for a Dutch-auction fill.",
+    )
+    parser.add_argument(
         "--allow-toxic-overshoot",
         action="store_true",
         help="Allow toxic swaps to move the pool through the reference price during replay.",
@@ -343,6 +391,7 @@ def run_backtest_batch(
     }
     summary_path = output_dir / "aggregate_manifest_summary.json"
     summary_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    _maybe_write_v3_validation_artifacts(output_dir=output_dir, summary_rows=summary_rows, args=args)
     return payload
 
 
@@ -577,6 +626,22 @@ def run_window(
         dutch_auction_lp_net_vs_hook_quote=aggregated_auction_metrics["lp_net_auction_vs_hook_quote"],
         dutch_auction_lp_net_vs_fixed_fee_quote=aggregated_auction_metrics["lp_net_auction_vs_fixed_fee_quote"],
         dutch_auction_mean_solver_surplus_quote=aggregated_auction_metrics["mean_solver_surplus_quote"],
+        dutch_auction_trigger_mode=str(getattr(args, "auction_trigger_mode", "auction_beats_hook")),
+        dutch_auction_reserve_mode=str(
+            getattr(args, "auction_reserve_mode", "hook_counterfactual")
+        ),
+        dutch_auction_min_stale_loss_quote=float(
+            getattr(args, "auction_min_stale_loss_quote", 1.0)
+        ),
+        dutch_auction_min_lp_uplift_quote=float(
+            getattr(args, "auction_min_lp_uplift_quote", 0.0)
+        ),
+        dutch_auction_min_lp_uplift_stale_loss_bps=float(
+            getattr(args, "auction_min_lp_uplift_stale_loss_bps", 0.0)
+        ),
+        dutch_auction_solver_payment_hook_cap_multiple=float(
+            getattr(args, "auction_solver_payment_hook_cap_multiple", 999.0)
+        ),
     )
     (window_dir / "window_summary.json").write_text(
         json.dumps(summary_row_payload(summary_row), indent=2, sort_keys=True),
@@ -801,6 +866,15 @@ def run_auction_for_source(
             max_auction_duration_seconds=args.auction_max_duration_seconds,
             solver_gas_cost_quote=args.auction_solver_gas_cost_quote,
             solver_edge_bps=args.auction_solver_edge_bps,
+            min_auction_stale_loss_quote=getattr(args, "auction_min_stale_loss_quote", 1.0),
+            trigger_mode=getattr(args, "auction_trigger_mode", "auction_beats_hook"),
+            reserve_mode=getattr(args, "auction_reserve_mode", "hook_counterfactual"),
+            reserve_hook_margin_bps=getattr(args, "auction_reserve_hook_margin_bps", 0.0),
+            min_lp_uplift_quote=getattr(args, "auction_min_lp_uplift_quote", 0.0),
+            min_lp_uplift_stale_loss_bps=getattr(args, "auction_min_lp_uplift_stale_loss_bps", 0.0),
+            solver_payment_hook_cap_multiple=getattr(
+                args, "auction_solver_payment_hook_cap_multiple", 999.0
+            ),
             market_reference_updates=str(market_reference_path),
             label_config=args.label_config,
             latency_seconds=args.latency_seconds,
@@ -993,6 +1067,321 @@ def predictiveness_score(summary_row: dict[str, Any], horizons: list[int]) -> fl
 def count_csv_rows(path: Path) -> int:
     with path.open(encoding="utf-8") as handle:
         return max(sum(1 for _ in handle) - 1, 0)
+
+
+def _maybe_write_v3_validation_artifacts(
+    *,
+    output_dir: Path,
+    summary_rows: list[AggregateManifestSummaryRow],
+    args: argparse.Namespace,
+) -> None:
+    if Path(args.manifest).name != "backtest_manifest_2026-03-19_2p_stress.json":
+        return
+    if not output_dir.name.endswith("_v3"):
+        return
+
+    v1_dir = REPO_ROOT / "cache" / "backtest_results_20260326" / "batch"
+    v2_dir = REPO_ROOT / "cache" / "backtest_results_rerun_20260327_v2"
+    missing = [
+        str(path)
+        for path in [
+            v1_dir / "aggregate_manifest_summary.json",
+            v2_dir / "aggregate_manifest_summary.json",
+        ]
+        if not path.exists()
+    ]
+    if missing:
+        raise ValueError(
+            "Cannot build v3 comparison artifacts; missing reference summaries: "
+            + ", ".join(missing)
+        )
+
+    v1_windows = _load_aggregate_summary_windows(v1_dir / "aggregate_manifest_summary.json")
+    v2_windows = _load_aggregate_summary_windows(v2_dir / "aggregate_manifest_summary.json")
+
+    three_way_fieldnames = [
+        "window_id",
+        "v1_lp_vs_hook",
+        "v2_lp_vs_hook",
+        "v3_lp_vs_hook",
+        "v1_fill",
+        "v2_fill",
+        "v3_fill",
+        "v1_fallback",
+        "v2_fallback",
+        "v3_fallback",
+        "v3_trigger_count",
+        "v3_mean_lp_recovery_above_hook",
+        "v3_mean_solver_payment",
+        "v3_mean_hook_fee_on_triggered",
+    ]
+    per_swap_debug_fieldnames = [
+        "tx_hash",
+        "stale_loss",
+        "hook_fee_revenue",
+        "solver_payment",
+        "lp_recovery_above_hook",
+        "lp_net_auction",
+        "lp_net_hook",
+        "delta",
+        "triggered",
+        "filled",
+        "reason_not_triggered",
+        "accounting_error",
+    ]
+
+    three_way_rows: list[dict[str, Any]] = []
+    by_window: dict[str, dict[str, Any]] = {}
+    for summary_row in summary_rows:
+        window_id = summary_row.window_id
+        auction_summary = _load_json(output_dir / window_id / "replay" / "dutch_auction_summary.json")
+        swap_rows = _load_csv_rows(output_dir / window_id / "replay" / "dutch_auction_swaps.csv")
+        swap_stats = _summarize_v3_swap_rows(swap_rows)
+
+        v1_window = v1_windows.get(window_id, {})
+        v2_window = v2_windows.get(window_id, {})
+        v3_lp_vs_hook = summary_row.dutch_auction_lp_net_vs_hook_quote
+        trigger_count = int(swap_stats["trigger_count"])
+        fill_rate = summary_row.dutch_auction_fill_rate if trigger_count else None
+        fallback_rate = summary_row.dutch_auction_fallback_rate if trigger_count else None
+        oracle_failclosed_rate = summary_row.dutch_auction_oracle_failclosed_rate if trigger_count else None
+        lp_net_hook_quote = _optional_float(auction_summary, "lp_net_hook_quote")
+        lp_net_auction_vs_hook_pct = None
+        if lp_net_hook_quote not in (None, 0.0) and v3_lp_vs_hook is not None:
+            lp_net_auction_vs_hook_pct = v3_lp_vs_hook / abs(lp_net_hook_quote)
+
+        mean_clearing_concession_bps = _optional_float(auction_summary, "mean_clearing_concession_bps")
+        criteria = {
+            "go_fill_rate": fill_rate is not None and fill_rate > 0.80,
+            "go_fallback_rate": fallback_rate is not None and fallback_rate < 0.10,
+            "go_failclosed_rate": (
+                oracle_failclosed_rate is not None and oracle_failclosed_rate < 0.10
+            ),
+            "go_lp_improvement": (
+                trigger_count > 0
+                and v3_lp_vs_hook is not None
+                and v3_lp_vs_hook > 0.0
+                and lp_net_auction_vs_hook_pct is not None
+                and lp_net_auction_vs_hook_pct > 0.01
+            ),
+            "go_solver_concession": (
+                mean_clearing_concession_bps is not None and mean_clearing_concession_bps < 5000.0
+            ),
+        }
+
+        three_way_rows.append(
+            {
+                "window_id": window_id,
+                "v1_lp_vs_hook": _optional_float(v1_window, "dutch_auction_lp_net_vs_hook_quote"),
+                "v2_lp_vs_hook": _optional_float(v2_window, "dutch_auction_lp_net_vs_hook_quote"),
+                "v3_lp_vs_hook": v3_lp_vs_hook,
+                "v1_fill": _optional_float(v1_window, "dutch_auction_fill_rate"),
+                "v2_fill": _optional_float(v2_window, "dutch_auction_fill_rate"),
+                "v3_fill": fill_rate,
+                "v1_fallback": _optional_float(v1_window, "dutch_auction_fallback_rate"),
+                "v2_fallback": _optional_float(v2_window, "dutch_auction_fallback_rate"),
+                "v3_fallback": fallback_rate,
+                "v3_trigger_count": trigger_count,
+                "v3_mean_lp_recovery_above_hook": swap_stats["mean_lp_recovery_above_hook"],
+                "v3_mean_solver_payment": swap_stats["mean_solver_payment"],
+                "v3_mean_hook_fee_on_triggered": swap_stats["mean_hook_fee_on_triggered"],
+            }
+        )
+
+        by_window[window_id] = {
+            "go": all(criteria.values()),
+            "criteria": criteria,
+            "metrics": {
+                "lp_net_auction_vs_hook_quote": v3_lp_vs_hook,
+                "lp_net_auction_vs_hook_pct": lp_net_auction_vs_hook_pct,
+                "trigger_count": trigger_count,
+                "mean_lp_recovery_above_hook": swap_stats["mean_lp_recovery_above_hook"],
+                "mean_solver_payment": swap_stats["mean_solver_payment"],
+                "mean_hook_fee_on_triggered": swap_stats["mean_hook_fee_on_triggered"],
+                "fill_rate": fill_rate,
+                "fallback_rate": fallback_rate,
+            },
+        }
+
+        if not criteria["go_lp_improvement"]:
+            debug_rows = _build_per_swap_debug_rows(swap_rows)
+            write_rows_csv(
+                str(output_dir / window_id / "per_swap_debug.csv"),
+                per_swap_debug_fieldnames,
+                debug_rows,
+            )
+
+    write_rows_csv(
+        str(output_dir / "three_way_diff.csv"),
+        three_way_fieldnames,
+        three_way_rows,
+    )
+    (output_dir / "three_way_diff.json").write_text(
+        json.dumps({"rows": three_way_rows}, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+
+    overall_go_no_go = bool(by_window) and all(window_payload["go"] for window_payload in by_window.values())
+    passed_windows = sum(1 for window_payload in by_window.values() if window_payload["go"])
+    fill_rates = [
+        float(window_payload["metrics"]["fill_rate"])
+        for window_payload in by_window.values()
+        if window_payload["metrics"]["fill_rate"] is not None
+    ]
+    lp_deltas = [
+        float(window_payload["metrics"]["lp_net_auction_vs_hook_quote"])
+        for window_payload in by_window.values()
+        if window_payload["metrics"]["lp_net_auction_vs_hook_quote"] is not None
+    ]
+    mean_fill_rate = (sum(fill_rates) / len(fill_rates)) if fill_rates else 0.0
+    worst_lp_delta = min(lp_deltas) if lp_deltas else 0.0
+    best_lp_delta = max(lp_deltas) if lp_deltas else 0.0
+    paper_recommendation = "include_dutch_auction" if overall_go_no_go else "future_work_only"
+    rationale = (
+        f"{passed_windows}/{len(by_window)} windows pass go/no-go, mean fill rate is "
+        f"{mean_fill_rate:.3f}, best lp_net_auction_vs_hook_quote is {best_lp_delta:.2f}, "
+        f"and worst lp_net_auction_vs_hook_quote is {worst_lp_delta:.2f}."
+    )
+    go_no_go_payload = {
+        "overall_go_no_go": overall_go_no_go,
+        "params_used": _auction_params_used(args),
+        "lp_accounting_model": "hook_overlay",
+        "by_window": by_window,
+        "paper_recommendation": paper_recommendation,
+        "paper_recommendation_rationale": rationale,
+    }
+    (output_dir / "go_no_go_v3.json").write_text(
+        json.dumps(go_no_go_payload, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+
+
+def _load_aggregate_summary_windows(path: Path) -> dict[str, dict[str, Any]]:
+    payload = _load_json(path)
+    windows = payload.get("windows")
+    if not isinstance(windows, list):
+        raise ValueError(f"{path} does not contain a top-level 'windows' list.")
+    return {
+        str(window_payload["window_id"]): window_payload
+        for window_payload in windows
+        if isinstance(window_payload, dict) and window_payload.get("window_id") is not None
+    }
+
+
+def _load_json(path: Path) -> dict[str, Any]:
+    with path.open(encoding="utf-8") as handle:
+        payload = json.load(handle)
+    if not isinstance(payload, dict):
+        raise ValueError(f"{path} must contain a JSON object.")
+    return payload
+
+
+def _load_csv_rows(path: Path) -> list[dict[str, str]]:
+    with path.open(newline="", encoding="utf-8") as handle:
+        return list(csv.DictReader(handle))
+
+
+def _summarize_v3_swap_rows(rows: list[dict[str, str]]) -> dict[str, float | int | None]:
+    triggered_rows = [row for row in rows if _csv_bool(row.get("auction_triggered"))]
+    filled_rows = [row for row in triggered_rows if _csv_bool(row.get("filled"))]
+    return {
+        "trigger_count": len(triggered_rows),
+        "mean_lp_recovery_above_hook": _mean_optional(
+            [_csv_float(row.get("lp_recovery_quote")) for row in filled_rows]
+        ),
+        "mean_solver_payment": _mean_optional(
+            [_csv_float(row.get("solver_payment_quote")) for row in filled_rows]
+        ),
+        "mean_hook_fee_on_triggered": _mean_optional(
+            [_hook_fee_revenue_quote_from_swap_row(row) for row in triggered_rows]
+        ),
+    }
+
+
+def _build_per_swap_debug_rows(rows: list[dict[str, str]]) -> list[dict[str, Any]]:
+    debug_rows: list[dict[str, Any]] = []
+    for row in rows:
+        hook_fee_revenue = _hook_fee_revenue_quote_from_swap_row(row)
+        gross_lvr_quote = _csv_float(row.get("gross_lvr_quote"))
+        lp_net_auction = _csv_float(row.get("lp_fee_revenue_quote")) - gross_lvr_quote
+        lp_net_hook = hook_fee_revenue - gross_lvr_quote
+        delta = lp_net_auction - lp_net_hook
+        debug_rows.append(
+            {
+                "tx_hash": row.get("tx_hash") or "",
+                "stale_loss": _csv_float(row.get("exact_stale_loss_quote")),
+                "hook_fee_revenue": hook_fee_revenue,
+                "solver_payment": _csv_float(row.get("solver_payment_quote")),
+                "lp_recovery_above_hook": _csv_float(row.get("lp_recovery_quote")),
+                "lp_net_auction": lp_net_auction,
+                "lp_net_hook": lp_net_hook,
+                "delta": delta,
+                "triggered": _csv_bool(row.get("auction_triggered")),
+                "filled": _csv_bool(row.get("filled")),
+                "reason_not_triggered": _reason_not_triggered(row),
+                "accounting_error": (
+                    "ACCOUNTING_ERROR" if lp_net_auction < (lp_net_hook - 0.01) else ""
+                ),
+            }
+        )
+    debug_rows.sort(key=lambda row: abs(float(row["delta"])), reverse=True)
+    return debug_rows
+
+
+def _hook_fee_revenue_quote_from_swap_row(row: dict[str, str]) -> float:
+    return _csv_float(row.get("lp_base_fee_quote"))
+
+
+def _reason_not_triggered(row: dict[str, str]) -> str:
+    if _csv_bool(row.get("auction_triggered")):
+        if _csv_bool(row.get("filled")):
+            return ""
+        if _csv_bool(row.get("oracle_stale_at_fill")):
+            return "oracle_failclosed"
+        return "triggered_not_filled"
+    if not _csv_bool(row.get("oracle_available")):
+        return "no_oracle_reference"
+    if _csv_float(row.get("exact_stale_loss_quote")) <= 0.0:
+        return "non_toxic_or_no_stale_loss"
+    return "hook_fallback_or_gate_reject"
+
+
+def _auction_params_used(args: argparse.Namespace) -> dict[str, Any]:
+    return {
+        "min_auction_stale_loss_quote": float(getattr(args, "auction_min_stale_loss_quote", 1.0)),
+        "trigger_mode": str(getattr(args, "auction_trigger_mode", "auction_beats_hook")),
+        "reserve_mode": str(getattr(args, "auction_reserve_mode", "hook_counterfactual")),
+        "reserve_hook_margin_bps": float(getattr(args, "auction_reserve_hook_margin_bps", 0.0)),
+        "min_lp_uplift_quote": float(getattr(args, "auction_min_lp_uplift_quote", 0.0)),
+        "min_lp_uplift_stale_loss_bps": float(
+            getattr(args, "auction_min_lp_uplift_stale_loss_bps", 0.0)
+        ),
+        "solver_payment_hook_cap_multiple": float(
+            getattr(args, "auction_solver_payment_hook_cap_multiple", 999.0)
+        ),
+        "start_concession_bps": float(getattr(args, "auction_start_concession_bps", 5.0)),
+        "concession_growth_bps_per_second": float(
+            getattr(args, "auction_concession_growth_bps_per_second", 10.0)
+        ),
+        "max_concession_bps": float(getattr(args, "auction_max_concession_bps", 10_000.0)),
+        "max_duration_seconds": int(getattr(args, "auction_max_duration_seconds", 600)),
+        "solver_gas_cost_quote": float(getattr(args, "auction_solver_gas_cost_quote", 0.25)),
+        "solver_edge_bps": float(getattr(args, "auction_solver_edge_bps", 0.0)),
+    }
+
+
+def _csv_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() == "true"
+
+
+def _csv_float(value: Any) -> float:
+    if value in (None, ""):
+        return 0.0
+    return float(value)
 
 
 def summary_row_payload(row: AggregateManifestSummaryRow) -> dict[str, Any]:
