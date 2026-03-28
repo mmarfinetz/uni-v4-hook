@@ -1,0 +1,84 @@
+{
+  "ablation_csv": "policy_ablation.csv",
+  "bootstrap_summary": {
+    "bootstrap_samples": 5000,
+    "bootstrap_seed": 7,
+    "by_regime": {
+      "normal": {
+        "bootstrap_ci_delta_lp_uplift_vs_hook_quote": {
+          "lower": 0.6123795507362413,
+          "upper": 12.982681597334963
+        },
+        "bootstrap_ci_new_lp_uplift_vs_hook_quote": {
+          "lower": 0.0,
+          "upper": 6.937834158909905
+        },
+        "bootstrap_ci_old_lp_uplift_vs_hook_quote": {
+          "lower": -10.481821573945028,
+          "upper": 2.570881629943491
+        },
+        "mean_delta_lp_uplift_vs_hook_quote": 6.273732095655861,
+        "mean_new_lp_uplift_vs_hook_quote": 3.6047157047545917,
+        "mean_old_lp_uplift_vs_hook_quote": -2.669016390901269,
+        "positive_delta_windows": 18,
+        "window_count": 30
+      },
+      "stress": {
+        "bootstrap_ci_delta_lp_uplift_vs_hook_quote": {
+          "lower": 0.0,
+          "upper": 13.221437743140996
+        },
+        "bootstrap_ci_new_lp_uplift_vs_hook_quote": {
+          "lower": 0.0,
+          "upper": 6.5104207475863705
+        },
+        "bootstrap_ci_old_lp_uplift_vs_hook_quote": {
+          "lower": -8.587709869540973,
+          "upper": 0.0
+        },
+        "mean_delta_lp_uplift_vs_hook_quote": 8.303274307363353,
+        "mean_new_lp_uplift_vs_hook_quote": 2.9734927751139497,
+        "mean_old_lp_uplift_vs_hook_quote": -5.329781532249403,
+        "positive_delta_windows": 10,
+        "window_count": 14
+      }
+    },
+    "overall": {
+      "bootstrap_ci_delta_lp_uplift_vs_hook_quote": {
+        "lower": 2.418154156312926,
+        "upper": 11.718330253618598
+      },
+      "bootstrap_ci_new_lp_uplift_vs_hook_quote": {
+        "lower": 0.930060106798053,
+        "upper": 5.991808907652551
+      },
+      "bootstrap_ci_old_lp_uplift_vs_hook_quote": {
+        "lower": -8.639660155303886,
+        "upper": 0.7679238942703539
+      },
+      "mean_delta_lp_uplift_vs_hook_quote": 6.919495526653699,
+      "mean_new_lp_uplift_vs_hook_quote": 3.4038720453234785,
+      "mean_old_lp_uplift_vs_hook_quote": -3.5156234813302207,
+      "positive_delta_windows": 28,
+      "window_count": 44
+    }
+  },
+  "coverage_warnings": [],
+  "manifest_path": "extended_manifest.json",
+  "new_policy_output_dir": "new_policy",
+  "non_weth_usdc_pool_count": 3,
+  "old_policy_output_dir": "old_policy",
+  "omitted_sources": [],
+  "pools": [
+    "0x4585fe77225b41b697c938b018e2ac67ac5a20c0",
+    "0x5777d92f208679db4b9778590fa3cab3ac9e2168",
+    "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
+    "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+    "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16"
+  ],
+  "regimes": [
+    "normal",
+    "stress"
+  ],
+  "window_count": 44
+}

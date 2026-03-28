@@ -1,0 +1,2 @@
+block_number,timestamp,tx_hash,log_index,event_type,tick_lower,tick_upper,amount,amount0,amount1
+24690945,1773916211,0xf8fd6afee1a6968304a0063341d09d88a56bc06a792b270e43da2d5cdc0e9d10,760,burn,65600,66600,15675765052,28770722,0

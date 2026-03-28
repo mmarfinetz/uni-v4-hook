@@ -1,0 +1,14 @@
+{
+  "fee": 3000,
+  "from_block": 23543615,
+  "liquidity": 4417474788300013834,
+  "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+  "sqrtPriceX96": 1198165674820689329691014504099223,
+  "tick": 192489,
+  "tickSpacing": 60,
+  "to_block": 23545405,
+  "token0": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+  "token0_decimals": 6,
+  "token1": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+  "token1_decimals": 18
+}

@@ -23,7 +23,6 @@ from script.lvr_historical_replay import (
     load_rows,
     load_swap_samples,
     quoted_fee_fraction,
-    replay,
     simulate_swap,
     write_rows_csv,
 )
@@ -31,6 +30,7 @@ from script.lvr_validation import correction_trade
 
 
 BPS_DENOMINATOR = 10_000.0
+EFFECTIVELY_UNCAPPED_SOLVER_PAYMENT_HOOK_CAP_MULTIPLE = 999.0
 
 
 @dataclass(frozen=True)
@@ -42,12 +42,12 @@ class DutchAuctionConfig:
     solver_gas_cost_quote: float
     solver_edge_bps: float
     min_auction_stale_loss_quote: float = 0.0
-    trigger_mode: str = "all_toxic"
-    reserve_mode: str = "solver_cost"
+    trigger_mode: str = "auction_beats_hook"
+    reserve_mode: str = "hook_counterfactual"
     reserve_hook_margin_bps: float = 0.0
     min_lp_uplift_quote: float = 0.0
     min_lp_uplift_stale_loss_bps: float = 0.0
-    solver_payment_hook_cap_multiple: float = 999.0
+    solver_payment_hook_cap_multiple: float = EFFECTIVELY_UNCAPPED_SOLVER_PAYMENT_HOOK_CAP_MULTIPLE
 
 
 @dataclass(frozen=True)
@@ -92,7 +92,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--start-concession-bps",
         type=float,
-        default=5.0,
+        default=25.0,
         help="Starting solver concession, in bps of exact stale-loss recovery.",
     )
     parser.add_argument(
@@ -138,9 +138,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--trigger-mode",
         choices=["all_toxic", "clip_hit_only", "auction_beats_hook"],
-        default="all_toxic",
+        default="auction_beats_hook",
         help=(
-            "all_toxic: auction every toxic swap (current behavior). clip_hit_only: only auction swaps "
+            "all_toxic: auction every toxic swap. clip_hit_only: only auction swaps "
             "where the hook fee would be clipped (fee_fraction > max_fee_fraction before clip). "
             "auction_beats_hook: only auction swaps where hook leaves LP net-negative "
             "(gross_lvr > hook_fee_revenue ex ante)."
@@ -149,9 +149,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--reserve-mode",
         choices=["solver_cost", "hook_counterfactual"],
-        default="solver_cost",
+        default="hook_counterfactual",
         help=(
-            "solver_cost: fill when concession covers solver gas+edge (current behavior). "
+            "solver_cost: fill when concession covers solver gas+edge. "
             "hook_counterfactual: additionally require that LP net under auction exceeds LP net under "
             "hook by at least reserve_hook_margin_bps basis points of stale-loss recovery."
         ),
@@ -239,13 +239,17 @@ def run_dutch_auction_backtest(args: argparse.Namespace) -> dict[str, Any]:
         min_auction_stale_loss_quote=float(
             getattr(args, "min_auction_stale_loss_quote", 0.0)
         ),
-        trigger_mode=str(getattr(args, "trigger_mode", "all_toxic")),
-        reserve_mode=str(getattr(args, "reserve_mode", "solver_cost")),
+        trigger_mode=str(getattr(args, "trigger_mode", "auction_beats_hook")),
+        reserve_mode=str(getattr(args, "reserve_mode", "hook_counterfactual")),
         reserve_hook_margin_bps=float(getattr(args, "reserve_hook_margin_bps", 0.0)),
         min_lp_uplift_quote=float(getattr(args, "min_lp_uplift_quote", 0.0)),
         min_lp_uplift_stale_loss_bps=float(getattr(args, "min_lp_uplift_stale_loss_bps", 0.0)),
         solver_payment_hook_cap_multiple=float(
-            getattr(args, "solver_payment_hook_cap_multiple", 999.0)
+            getattr(
+                args,
+                "solver_payment_hook_cap_multiple",
+                EFFECTIVELY_UNCAPPED_SOLVER_PAYMENT_HOOK_CAP_MULTIPLE,
+            )
         ),
     )
     _validate_config(cfg)
@@ -271,33 +275,15 @@ def run_dutch_auction_backtest(args: argparse.Namespace) -> dict[str, Any]:
         )
         results.append(result)
 
-    baseline_report = replay(
-        argparse.Namespace(
-            oracle_updates=str(Path(args.oracle_updates).resolve()),
-            swap_samples=str(Path(args.swap_samples).resolve()),
-            curves="fixed,hook",
-            base_fee_bps=args.base_fee_bps,
-            max_fee_bps=args.max_fee_bps,
-            alpha_bps=args.alpha_bps,
-            max_oracle_age_seconds=args.max_oracle_age_seconds,
-            initial_pool_price=None,
-            allow_toxic_overshoot=args.allow_toxic_overshoot,
-            latency_seconds=args.latency_seconds,
-            lvr_budget=args.lvr_budget,
-            width_ticks=args.width_ticks,
-            series_json_out=None,
-            series_csv_out=None,
-            market_reference_updates=args.market_reference_updates,
-            pool_snapshot=None,
-            initialized_ticks=None,
-            liquidity_events=None,
-            replay_error_out=None,
-            label_config=args.label_config,
-            json=False,
-        )
+    hook_lp_net, fixed_lp_net = _same_snapshot_counterfactual_lp_nets(
+        series_rows=series_rows,
+        swap_samples=swap_samples,
+        oracle_updates=oracle_updates,
+        base_fee_bps=float(args.base_fee_bps),
+        max_fee_bps=float(args.max_fee_bps),
+        alpha_bps=float(args.alpha_bps),
+        allow_toxic_overshoot=bool(args.allow_toxic_overshoot),
     )
-    hook_lp_net = float(baseline_report["strategies"]["hook_fee"]["lp_net_all_flow_quote"])
-    fixed_lp_net = float(baseline_report["strategies"]["fixed_fee"]["lp_net_all_flow_quote"])
     auction_lp_net = _auction_lp_net_all_flow(results)
 
     output_path = Path(args.output)
@@ -333,6 +319,7 @@ def run_dutch_auction_backtest(args: argparse.Namespace) -> dict[str, Any]:
             if triggered_results
             else None
         ),
+        "baseline_basis": "same_snapshot_counterfactual",
         "lp_net_auction_quote": auction_lp_net,
         "lp_net_hook_quote": hook_lp_net,
         "lp_net_fixed_fee_quote": fixed_lp_net,
@@ -599,9 +586,32 @@ def _hook_fallback_outcome(
     alpha_bps: float,
     allow_toxic_overshoot: bool,
 ) -> dict[str, float]:
-    strategy = StrategyConfig(
-        name="hook_fee",
+    return _strategy_counterfactual_outcome(
         curve="hook",
+        swap=swap,
+        oracle_price=oracle_price,
+        pool_price_before=pool_price_before,
+        base_fee_bps=base_fee_bps,
+        max_fee_bps=max_fee_bps,
+        alpha_bps=alpha_bps,
+        allow_toxic_overshoot=allow_toxic_overshoot,
+    )
+
+
+def _strategy_counterfactual_outcome(
+    *,
+    curve: str,
+    swap: Any,
+    oracle_price: float,
+    pool_price_before: float,
+    base_fee_bps: float,
+    max_fee_bps: float,
+    alpha_bps: float,
+    allow_toxic_overshoot: bool,
+) -> dict[str, float]:
+    strategy = StrategyConfig(
+        name=f"{curve}_fee",
+        curve=curve,
         base_fee_fraction=base_fee_bps / BPS_DENOMINATOR,
         max_fee_fraction=max_fee_bps / BPS_DENOMINATOR,
         alpha_fraction=alpha_bps / BPS_DENOMINATOR,
@@ -694,6 +704,48 @@ def _swap_notional_quote(swap: Any, oracle_price: float) -> float:
     return float(swap.token0_in) * oracle_price
 
 
+def _same_snapshot_counterfactual_lp_nets(
+    *,
+    series_rows: list[dict[str, Any]],
+    swap_samples: list[Any],
+    oracle_updates: list[Any],
+    base_fee_bps: float,
+    max_fee_bps: float,
+    alpha_bps: float,
+    allow_toxic_overshoot: bool,
+) -> tuple[float, float]:
+    hook_lp_net = 0.0
+    fixed_lp_net = 0.0
+    for swap_row, series_row in zip(swap_samples, series_rows, strict=True):
+        oracle_update = _latest_oracle_before(oracle_updates, swap_row.timestamp)
+        if oracle_update is None:
+            continue
+        pool_price_before = float(series_row["pool_price_before"])
+        hook_outcome = _strategy_counterfactual_outcome(
+            curve="hook",
+            swap=swap_row,
+            oracle_price=oracle_update.price,
+            pool_price_before=pool_price_before,
+            base_fee_bps=base_fee_bps,
+            max_fee_bps=max_fee_bps,
+            alpha_bps=alpha_bps,
+            allow_toxic_overshoot=allow_toxic_overshoot,
+        )
+        fixed_outcome = _strategy_counterfactual_outcome(
+            curve="fixed",
+            swap=swap_row,
+            oracle_price=oracle_update.price,
+            pool_price_before=pool_price_before,
+            base_fee_bps=base_fee_bps,
+            max_fee_bps=max_fee_bps,
+            alpha_bps=alpha_bps,
+            allow_toxic_overshoot=allow_toxic_overshoot,
+        )
+        hook_lp_net += hook_outcome["fee_revenue_quote"] - hook_outcome["gross_lvr_quote"]
+        fixed_lp_net += fixed_outcome["fee_revenue_quote"] - fixed_outcome["gross_lvr_quote"]
+    return hook_lp_net, fixed_lp_net
+
+
 def _latest_oracle_before(oracle_updates: list[Any], timestamp: int) -> Any | None:
     candidate = None
     for update in oracle_updates:
@@ -738,7 +790,10 @@ def _time_to_fill(
             continue
         if recovery_above_hook < min_uplift_from_stale_loss_quote:
             continue
-        if solver_payment_quote > hook_fee_revenue_quote * solver_payment_hook_cap_multiple:
+        if (
+            solver_payment_hook_cap_multiple < EFFECTIVELY_UNCAPPED_SOLVER_PAYMENT_HOOK_CAP_MULTIPLE
+            and solver_payment_quote > hook_fee_revenue_quote * solver_payment_hook_cap_multiple
+        ):
             continue
         if reserve_mode == "hook_counterfactual":
             lp_net_auction_at_concession = (

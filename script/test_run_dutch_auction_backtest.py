@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from script.run_dutch_auction_backtest import run_dutch_auction_backtest
+from script.run_dutch_auction_backtest import _time_to_fill, run_dutch_auction_backtest
 
 
 class RunDutchAuctionBacktestTest(unittest.TestCase):
@@ -42,6 +42,10 @@ class RunDutchAuctionBacktestTest(unittest.TestCase):
             max_auction_duration_seconds=60,
             solver_gas_cost_quote=solver_gas_cost_quote,
             solver_edge_bps=0.0,
+            trigger_mode="auction_beats_hook",
+            reserve_mode="hook_counterfactual",
+            reserve_hook_margin_bps=0.0,
+            solver_payment_hook_cap_multiple=999.0,
             market_reference_updates=None,
             label_config="script/label_config.json",
             latency_seconds=60.0,
@@ -135,6 +139,9 @@ class RunDutchAuctionBacktestTest(unittest.TestCase):
             self.assertGreater(row["solver_payment_quote"], 0.0)
             self.assertEqual(result["summary"]["fill_rate"], 1.0)
             self.assertEqual(result["summary"]["fallback_rate"], 0.0)
+            self.assertEqual(result["summary"]["baseline_basis"], "same_snapshot_counterfactual")
+            self.assertLess(result["summary"]["lp_net_hook_quote"], 0.0)
+            self.assertLess(result["summary"]["lp_net_fixed_fee_quote"], 0.0)
 
     def test_run_dutch_auction_backtest_fail_closes_when_oracle_goes_stale_before_fill(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -356,6 +363,7 @@ def _make_append_only_args(
         trigger_mode=trigger_mode,
         reserve_mode=reserve_mode,
         reserve_hook_margin_bps=0.0,
+        solver_payment_hook_cap_multiple=999.0,
         market_reference_updates=None,
         label_config="script/label_config.json",
         latency_seconds=60.0,
@@ -560,3 +568,107 @@ def test_z_benign_no_auction_matches_hook_outcome() -> None:
     assert row["lp_fee_revenue_quote"] == hook_outcome["fee_revenue_quote"]
     assert row["gross_lvr_quote"] == hook_outcome["gross_lvr_quote"]
     assert row["residual_gap_bps"] == hook_outcome["residual_gap_bps"]
+
+
+def test_z_same_snapshot_baseline_uses_series_prices_not_replay_path() -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        oracle_path = _write_csv_append_only(
+            tmp_path,
+            "oracle.csv",
+            ["timestamp", "price"],
+            [{"timestamp": 0, "price": 1.02}],
+        )
+        swap_samples_path = _write_csv_append_only(
+            tmp_path,
+            "swap_samples.csv",
+            [
+                "timestamp",
+                "direction",
+                "notional_quote",
+                "liquidity",
+                "token0_decimals",
+                "token1_decimals",
+            ],
+            [
+                {
+                    "timestamp": 1,
+                    "direction": "one_for_zero",
+                    "notional_quote": 1000.0,
+                    "liquidity": 10**24,
+                    "token0_decimals": 18,
+                    "token1_decimals": 18,
+                }
+            ],
+        )
+        series_path = _write_csv_append_only(
+            tmp_path,
+            "series.csv",
+            [
+                "strategy",
+                "timestamp",
+                "block_number",
+                "tx_hash",
+                "log_index",
+                "direction",
+                "event_index",
+                "pool_price_before",
+                "pool_price_after",
+                "pool_sqrt_price_x96_before",
+                "pool_sqrt_price_x96_after",
+                "executed",
+                "reject_reason",
+            ],
+            [
+                {
+                    "strategy": "exact_replay",
+                    "timestamp": 1,
+                    "block_number": "",
+                    "tx_hash": "0xswap1",
+                    "log_index": 0,
+                    "direction": "one_for_zero",
+                    "event_index": 1,
+                    "pool_price_before": 1.0,
+                    "pool_price_after": 1.02,
+                    "pool_sqrt_price_x96_before": str(1 << 96),
+                    "pool_sqrt_price_x96_after": str(1 << 96),
+                    "executed": True,
+                    "reject_reason": "",
+                }
+            ],
+        )
+
+        result = run_dutch_auction_backtest(
+            _make_append_only_args(
+                series_path=series_path,
+                swap_samples_path=swap_samples_path,
+                oracle_path=oracle_path,
+                output_dir=tmp_path,
+                trigger_mode="auction_beats_hook",
+                reserve_mode="hook_counterfactual",
+            )
+        )
+
+        assert result["summary"]["baseline_basis"] == "same_snapshot_counterfactual"
+        assert result["summary"]["lp_net_hook_quote"] < 0.0
+        assert result["summary"]["lp_net_fixed_fee_quote"] < 0.0
+
+
+def test_z_solver_payment_cap_999_is_effectively_uncapped() -> None:
+    fill = _time_to_fill(
+        start_concession_bps=100.0,
+        concession_growth_bps_per_second=0.0,
+        max_concession_bps=100.0,
+        exact_stale_loss_quote=100.0,
+        solver_required_quote=1.0,
+        max_auction_duration_seconds=0,
+        reserve_mode="solver_cost",
+        hook_fee_revenue_quote=0.0,
+        hook_lp_net=-100.0,
+        reserve_hook_margin_bps=0.0,
+        min_lp_uplift_quote=0.0,
+        min_lp_uplift_stale_loss_bps=0.0,
+        solver_payment_hook_cap_multiple=999.0,
+    )
+
+    assert fill == (0, 100.0)

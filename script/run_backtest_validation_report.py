@@ -192,7 +192,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lvr-budget", type=float, default=0.01)
     parser.add_argument("--width-ticks", type=int, default=12_000)
     parser.add_argument("--max-oracle-age-seconds", type=int, default=3600)
-    parser.add_argument("--auction-start-concession-bps", type=float, default=5.0)
+    parser.add_argument("--auction-start-concession-bps", type=float, default=25.0)
     parser.add_argument("--auction-concession-growth-bps-per-second", type=float, default=10.0)
     parser.add_argument("--auction-max-concession-bps", type=float, default=10_000.0)
     parser.add_argument("--auction-max-duration-seconds", type=int, default=600)

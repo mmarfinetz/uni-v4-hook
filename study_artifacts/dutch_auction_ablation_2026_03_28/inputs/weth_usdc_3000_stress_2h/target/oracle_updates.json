@@ -1,0 +1,53 @@
+[
+  {
+    "base_answer": "437037092834",
+    "base_decimals": 8,
+    "base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+    "block_number": 23543396,
+    "block_timestamp": 1760051747,
+    "log_index": 738,
+    "quote_answer": "99972541",
+    "quote_decimals": 8,
+    "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+    "reference_price": "4371.57131810823934144",
+    "reference_price_wad": "4371571318108239341440",
+    "source_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+    "source_label": "base_feed",
+    "timestamp": 1760051747,
+    "tx_hash": "0x7c69c3a1a8c84b4b0b25c6e68ec846b65854742a6c3c144594867a0586e64b2e"
+  },
+  {
+    "base_answer": "437153000000",
+    "base_decimals": 8,
+    "base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+    "block_number": 23543696,
+    "block_timestamp": 1760055371,
+    "log_index": 423,
+    "quote_answer": "99972541",
+    "quote_decimals": 8,
+    "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+    "reference_price": "4372.730708125144083313",
+    "reference_price_wad": "4372730708125144083313",
+    "source_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+    "source_label": "base_feed",
+    "timestamp": 1760055371,
+    "tx_hash": "0x59bfabce5c872ec3c5f320968bcf7e86d28e7e45d1556e37351ef97681379521"
+  },
+  {
+    "base_answer": "438811343189",
+    "base_decimals": 8,
+    "base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+    "block_number": 23543993,
+    "block_timestamp": 1760059007,
+    "log_index": 276,
+    "quote_answer": "99972541",
+    "quote_decimals": 8,
+    "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+    "reference_price": "4389.318694910435456471",
+    "reference_price_wad": "4389318694910435456471",
+    "source_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+    "source_label": "base_feed",
+    "timestamp": 1760059007,
+    "tx_hash": "0x97a46a74fb7448afcecf9f899bf05c59d5742cd6e14b316d06889b305d3f2938"
+  }
+]

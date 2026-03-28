@@ -9,7 +9,7 @@ The core idea is simple:
 - reject stale oracle reads, and
 - require LP ranges to be centered and wide enough for a configured latency-risk budget.
 
-The repo now goes beyond a hook prototype plus a single replay script. It includes the Solidity hook, a Chainlink-backed reference oracle adapter, Foundry tests, and a real-data validation stack for normalized export, observed and exact replay, multi-oracle fee comparisons, fee-identity checks, Dutch-auction repricing, width/centering-guard backtests, deployable parameter sweeps, and frozen-manifest aggregate reporting.
+The repo now goes beyond a hook prototype plus a single replay script. It includes the Solidity hook, a Chainlink-backed reference oracle adapter, Foundry tests, analytical validation of the derived toxic-flow fee law, and a real-data validation stack for normalized export, observed and exact replay, multi-oracle fee comparisons, fee-identity checks, Dutch-auction repricing, width/centering-guard backtests, deployable parameter sweeps, and frozen-manifest aggregate reporting.
 
 ## Status
 
@@ -17,12 +17,40 @@ This is a research and validation repo, not a production deployment package. The
 
 - a working Uniswap v4 hook prototype in Solidity,
 - a Chainlink ratio oracle implementation for base/quote pricing,
+- deterministic exact-fee-identity validation of the derived toxic-flow fee law,
 - a historical-data export and replay stack with observed-pool and exact-replay paths,
 - a manifest-driven batch pipeline for multi-window and multi-oracle validation,
+- an expanded Dutch-auction ablation study with bootstrap confidence intervals and non-WETH/USDC normal and stress coverage,
+- committed frozen study inputs and headline outputs under `study_artifacts/dutch_auction_ablation_2026_03_28/`,
 - targeted backtests for fee identity, Dutch-auction repricing, and LP width/centering guards, and
 - a combined Foundry and Python test suite, including a Python/Solidity parity harness.
 
 Current research notes and backlog live in `Next_steps.md`.
+
+## Latest Analytical Validation
+
+The derived toxic-flow fee law `f*(z) = e^{|z|/2} - 1` is now validated in-repo. `script/test_lvr_validation.py` runs `10,000` deterministic random constant-product repricings and confirms that exact fee revenue matches one-step stale-price loss to machine precision, so the main remaining open question is execution policy rather than accounting identity.
+
+## Latest Dutch-Auction Results
+
+The latest replay-clean Dutch-auction ablation run covered `44` windows across `5` pools and `2` regimes, including three non-WETH/USDC pools and one replay-clean non-WETH/USDC stress family (`WBTC/USDC` 0.05%, 2h).
+
+Under the current production-oriented policy:
+
+- `trigger_mode=auction_beats_hook`
+- `reserve_mode=hook_counterfactual`
+- `start_concession_bps=25`
+
+the study found:
+
+- mean LP uplift vs hook of `+3.40`,
+- 95% bootstrap CI for mean LP uplift vs hook of `[+0.93, +5.99]`,
+- mean trigger rate of `1.21%`, and
+- mean fail-closed rate of `0%`.
+
+Across the full study, the Dutch auction is positive versus hook in `21` windows, zero in `23`, and negative in `0`. Versus the older `all_toxic` / `solver_cost` / `start_concession_bps=5` policy, the current policy improves mean LP uplift vs hook by `+6.92`, with 95% bootstrap CI `[+2.42, +11.72]`, and is positive / zero / negative in `28 / 16 / 0` windows. The non-WETH/USDC families still do not introduce any negative outcomes. DAI/USDC is neutral versus hook under the current policy but materially better than the older policy baseline, while the replay-clean WBTC families, including the added `WBTC/USDC` stress family, remain economically inert with zero trigger rate.
+
+Frozen inputs and minimal committed headline outputs for this study live under `study_artifacts/dutch_auction_ablation_2026_03_28/`.
 
 ## What the Hook Does
 
@@ -52,13 +80,17 @@ The research pipeline now has several distinct layers:
 
 - `script/export_historical_replay_data.py`: exports normalized oracle, swap, liquidity, and pool-state inputs from mainnet history.
 - `script/build_actual_series_from_swaps.py`: builds the observed pool path directly from `pool_snapshot.json` and `swap_samples.csv`.
+- `script/build_pool_reference_updates.py`, `script/export_pool_reference_updates_live.py`, `script/export_pyth_reference_updates.py`, and `script/export_binance_reference_updates.py`: build alternative reference updates for multi-oracle comparison and live-window diagnostics.
 - `script/run_backtest_batch.py`: runs the manifest-driven batch pipeline across one or more windows, emits exact replay artifacts when enabled, compares oracle sources, ranks fee policies, and writes per-window plus aggregate summaries.
+- `script/oracle_gap_predictiveness.py` and `script/run_oracle_gap_live_window.py`: score oracle-gap predictiveness offline and on live windows.
+- `script/run_backtest_validation_report.py` and `script/run_label_sensitivity.py`: generate validation reports and label-sensitivity slices from replay outputs.
 - `script/run_fee_identity_pass.py`: checks the fee-identity relationship on observed-pool and exact-replay series against market-reference updates.
 - `script/run_dutch_auction_backtest.py`: evaluates the internal repricer / Dutch-auction branch on historical flow.
+- `script/run_dutch_auction_ablation_study.py`: runs the expanded Dutch-auction ablation study and writes bootstrap confidence intervals.
 - `script/run_width_guard_backtest.py`: evaluates width and centering guards on historical liquidity events.
 - `script/run_parameter_sweep.py`: replays the hook across a deployable parameter grid.
 - `script/generate_aggregate_report.py`: turns a frozen manifest run into a cross-pool aggregate report.
-- `script/lvr_validation.py` and `script/lvr_validation_runner.py`: keep the Monte Carlo and analytical validation path for simulated environments.
+- `script/lvr_validation.py` and `script/lvr_validation_runner.py`: keep the Monte Carlo, exact-fee-identity, and analytical validation path for simulated environments.
 
 ## Repository Layout
 
@@ -124,7 +156,8 @@ The main research path is now:
 3. compare fee curves across one or more oracle sources
 4. run fee-identity validation on observed versus exact replay
 5. optionally run Dutch-auction and width-guard backtests
-6. aggregate results across frozen manifests and pools
+6. optionally run the expanded Dutch-auction ablation study
+7. aggregate results across frozen manifests and pools
 
 ### 1. Export normalized historical inputs
 
@@ -225,7 +258,7 @@ python3 -m script.run_fee_identity_pass \
   --summary-output backtests/<run>/<window>/fee_identity_summary.json
 ```
 
-This pass is central to the paper-validation story: it checks whether the exact replay preserves the intended fee identity and records the maximum residual error on both the observed and exact series.
+This pass checks whether the exact replay preserves the intended fee identity and records the maximum residual error on both the observed and exact series.
 
 ### 4. Optional backtest branches
 
@@ -249,6 +282,29 @@ python3 -m script.run_width_guard_backtest \
   --pool-snapshot replay-data/<dataset>/pool_snapshot.json \
   --output replay-data/<dataset>/width_guard_events.csv \
   --summary-output replay-data/<dataset>/width_guard_summary.json
+```
+
+Run the expanded Dutch-auction policy ablation study:
+
+```bash
+python3 -m script.run_dutch_auction_ablation_study \
+  --output-root .tmp/dutch_auction_ablation_study
+```
+
+This study builds a frozen prefix-window manifest, evaluates Dutch-auction policy configurations under the fixed comparator, and writes:
+
+- `extended_manifest.json`
+- `policy_ablation.csv`
+- `policy_ablation.json`
+- `bootstrap_lp_uplift_vs_hook.json`
+- `study_summary.json`
+
+The script now defaults to the committed inputs under `study_artifacts/dutch_auction_ablation_2026_03_28/`, so a fresh clone can rerun the headline study without relying on `cache/` or an RPC provider.
+
+Targeted verification for the ablation-study helper tests:
+
+```bash
+python3 -m pytest script/test_run_dutch_auction_ablation_study.py
 ```
 
 Run a deployable parameter sweep over the hook curve:
@@ -291,11 +347,16 @@ The Foundry suite covers:
 The Python tests cover:
 
 - Chainlink and pool export normalization,
+- pool/deep-reference update builders and exchange-oracle exporters,
 - observed-pool and exact-replay series construction,
 - historical replay metrics, label generation, and replay-error summaries,
+- analytical fee-law validation and exact-fee-identity sampling,
 - manifest-driven batch execution and aggregate-report generation,
+- backtest validation report generation,
 - fee-identity validation,
 - Dutch-auction backtests,
+- Dutch-auction ablation-study generation,
+- oracle-gap predictiveness, live-window diagnostics, and label-sensitivity analysis,
 - width-guard backtests,
 - deployable parameter sweeps, and
 - Python/Solidity parity via `script/test_python_solidity_parity.py` and `test/helpers/PythonParityHarness.sol`.
@@ -307,10 +368,17 @@ The Python tests cover:
 - `script/export_historical_replay_data.py`: historical data exporter.
 - `script/backtest_manifest.json`: checked-in manifest stub for batch runs.
 - `script/build_actual_series_from_swaps.py`: observed-pool series builder.
+- `script/build_pool_reference_updates.py`: deep-pool reference update builder.
+- `script/export_pool_reference_updates_live.py`, `script/export_pyth_reference_updates.py`, `script/export_binance_reference_updates.py`: alternate reference-feed exporters.
 - `script/lvr_historical_replay.py`: replay engine, labels, and width diagnostics.
+- `script/oracle_gap_predictiveness.py`: oracle-gap predictive-power analysis.
 - `script/run_backtest_batch.py`: manifest-driven batch runner.
+- `script/run_backtest_validation_report.py`: batch-run validation report builder.
 - `script/run_fee_identity_pass.py`: observed/exact fee-identity validation.
 - `script/run_dutch_auction_backtest.py`: Dutch-auction backtest runner.
+- `script/run_dutch_auction_ablation_study.py`: expanded Dutch-auction ablation runner.
+- `script/run_label_sensitivity.py`: label-sensitivity analysis.
+- `script/run_oracle_gap_live_window.py`: live-window oracle-gap diagnostic runner.
 - `script/run_width_guard_backtest.py`: width and centering guard backtest runner.
 - `script/run_parameter_sweep.py`: deployable parameter-grid replay tool.
 - `script/generate_aggregate_report.py`: frozen-manifest aggregate report builder.

@@ -7,6 +7,7 @@ import argparse
 import csv
 import itertools
 import json
+import shutil
 import sys
 import warnings
 from dataclasses import asdict, dataclass
@@ -58,6 +59,15 @@ OBSERVED_POOL_SERIES_FIELDNAMES = [
     "flow_label",
 ]
 
+MARKET_REFERENCE_FIELDNAMES = [
+    "timestamp",
+    "block_number",
+    "tx_hash",
+    "log_index",
+    "price_wad",
+    "price",
+]
+
 
 @dataclass(frozen=True)
 class OracleSourceConfig:
@@ -80,6 +90,7 @@ class BacktestWindow:
     markout_extension_blocks: int
     require_exact_replay: bool
     replay_error_tolerance: float
+    input_dir: str | None
     oracle_sources: tuple[OracleSourceConfig, ...]
 
 
@@ -213,7 +224,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--auction-start-concession-bps",
         type=float,
-        default=5.0,
+        default=25.0,
         help="Starting solver concession for the Dutch-auction branch, in stale-loss bps.",
     )
     parser.add_argument(
@@ -341,6 +352,7 @@ def load_backtest_manifest(path_str: str) -> BacktestManifest:
             markout_extension_blocks=_required_nonnegative_int(item, "markout_extension_blocks"),
             require_exact_replay=_required_bool(item, "require_exact_replay"),
             replay_error_tolerance=_optional_float(item, "replay_error_tolerance") or 0.001,
+            input_dir=_optional_str(item, "input_dir"),
             oracle_sources=_parse_oracle_sources(item),
         )
         if window.window_id in seen_window_ids:
@@ -413,31 +425,13 @@ def run_window(
     window_dir.mkdir(parents=True, exist_ok=True)
     replay_dir.mkdir(parents=True, exist_ok=True)
 
-    export_summary = export_historical_replay_data(
-        argparse.Namespace(
-            rpc_url=args.rpc_url,
-            from_block=window.from_block,
-            to_block=window.to_block,
-            base_feed=window.base_feed,
-            quote_feed=window.quote_feed,
-            pool=window.pool,
-            output_dir=str(export_dir),
-            blocks_per_request=args.blocks_per_request,
-            base_label=args.base_label,
-            quote_label=args.quote_label,
-            market_base_feed=window.market_base_feed,
-            market_quote_feed=window.market_quote_feed,
-            market_base_label=args.market_base_label,
-            market_quote_label=args.market_quote_label,
-            oracle_lookback_blocks=window.oracle_lookback_blocks,
-            market_to_block=window.to_block + window.markout_extension_blocks,
-            max_oracle_age_seconds=args.max_oracle_age_seconds,
-            rpc_timeout=args.rpc_timeout,
-            rpc_cache_dir=args.rpc_cache_dir,
-            max_retries=args.max_retries,
-            retry_backoff_seconds=args.retry_backoff_seconds,
-        ),
-        client=rpc_client,
+    export_summary = prepare_window_inputs(
+        window=window,
+        args=args,
+        rpc_client=rpc_client,
+        manifest_dir=manifest_dir,
+        export_dir=export_dir,
+        window_dir=window_dir,
     )
 
     if export_summary["oracle_updates"] == 0:
@@ -650,6 +644,251 @@ def run_window(
     return summary_row
 
 
+def prepare_window_inputs(
+    *,
+    window: BacktestWindow,
+    args: argparse.Namespace,
+    rpc_client: RpcClient,
+    manifest_dir: Path,
+    export_dir: Path,
+    window_dir: Path,
+) -> dict[str, Any]:
+    if window.input_dir:
+        return materialize_cached_window_inputs(
+            window=window,
+            manifest_dir=manifest_dir,
+            export_dir=export_dir,
+            window_dir=window_dir,
+        )
+
+    return export_historical_replay_data(
+        argparse.Namespace(
+            rpc_url=args.rpc_url,
+            from_block=window.from_block,
+            to_block=window.to_block,
+            base_feed=window.base_feed,
+            quote_feed=window.quote_feed,
+            pool=window.pool,
+            output_dir=str(export_dir),
+            blocks_per_request=args.blocks_per_request,
+            base_label=args.base_label,
+            quote_label=args.quote_label,
+            market_base_feed=window.market_base_feed,
+            market_quote_feed=window.market_quote_feed,
+            market_base_label=args.market_base_label,
+            market_quote_label=args.market_quote_label,
+            oracle_lookback_blocks=window.oracle_lookback_blocks,
+            market_to_block=window.to_block + window.markout_extension_blocks,
+            max_oracle_age_seconds=args.max_oracle_age_seconds,
+            rpc_timeout=args.rpc_timeout,
+            rpc_cache_dir=args.rpc_cache_dir,
+            max_retries=args.max_retries,
+            retry_backoff_seconds=args.retry_backoff_seconds,
+        ),
+        client=rpc_client,
+    )
+
+
+def materialize_cached_window_inputs(
+    *,
+    window: BacktestWindow,
+    manifest_dir: Path,
+    export_dir: Path,
+    window_dir: Path,
+) -> dict[str, Any]:
+    if not window.input_dir:
+        raise ValueError(f"window_id={window.window_id}: input_dir is required for cached inputs.")
+
+    source_dir = resolve_cached_input_dir(window.input_dir, manifest_dir)
+    snapshot_path = resolve_cached_input_file(
+        source_dir=source_dir,
+        relative_path="pool_snapshot.json",
+        window_id=window.window_id,
+    )
+    snapshot_payload = _load_json(snapshot_path)
+    snapshot_from_block = int(snapshot_payload.get("from_block") or window.from_block)
+    snapshot_to_block = int(snapshot_payload.get("to_block") or window.to_block)
+    if window.from_block != snapshot_from_block:
+        raise DataSourceUnavailable(
+            f"window_id={window.window_id}: cached input_dir windows currently only support "
+            f"from_block == source snapshot.from_block ({snapshot_from_block})."
+        )
+    if window.to_block > snapshot_to_block:
+        raise DataSourceUnavailable(
+            f"window_id={window.window_id}: to_block={window.to_block} exceeds cached "
+            f"snapshot to_block={snapshot_to_block}."
+        )
+
+    export_dir.mkdir(parents=True, exist_ok=True)
+    markout_to_block = window.to_block + window.markout_extension_blocks
+
+    swap_samples_source = resolve_cached_input_file(
+        source_dir=source_dir,
+        relative_path="swap_samples.csv",
+        window_id=window.window_id,
+    )
+    swap_fieldnames, swap_rows = _read_csv_rows(swap_samples_source)
+    filtered_swap_rows = [
+        row
+        for row in swap_rows
+        if _row_block_in_closed_interval(row, "block_number", window.from_block, window.to_block)
+    ]
+    if not filtered_swap_rows:
+        raise DataSourceUnavailable(
+            f"window_id={window.window_id}: cached input_dir produced zero swap_samples rows."
+        )
+    write_rows_csv(str(export_dir / "swap_samples.csv"), swap_fieldnames, filtered_swap_rows)
+    _copy_optional_filtered_json_array(
+        source_path=swap_samples_source.with_suffix(".json"),
+        output_path=export_dir / "swap_samples.json",
+        from_block=window.from_block,
+        to_block=window.to_block,
+    )
+
+    oracle_updates_source = resolve_cached_input_file(
+        source_dir=source_dir,
+        relative_path="oracle_updates.csv",
+        window_id=window.window_id,
+    )
+    oracle_fieldnames, oracle_rows = _read_csv_rows(oracle_updates_source)
+    filtered_oracle_rows = [
+        row
+        for row in oracle_rows
+        if _row_block_at_most(row, "block_number", window.to_block)
+    ]
+    if not filtered_oracle_rows:
+        raise DataSourceUnavailable(
+            f"window_id={window.window_id}: cached input_dir produced zero oracle_updates rows."
+        )
+    write_rows_csv(str(export_dir / "oracle_updates.csv"), oracle_fieldnames, filtered_oracle_rows)
+    _copy_optional_filtered_json_array(
+        source_path=oracle_updates_source.with_suffix(".json"),
+        output_path=export_dir / "oracle_updates.json",
+        from_block=None,
+        to_block=window.to_block,
+    )
+
+    liquidity_events_source = resolve_cached_input_file(
+        source_dir=source_dir,
+        relative_path="liquidity_events.csv",
+        window_id=window.window_id,
+    )
+    liquidity_fieldnames, liquidity_rows = _read_csv_rows(liquidity_events_source)
+    filtered_liquidity_rows = [
+        row
+        for row in liquidity_rows
+        if _row_block_at_most(row, "block_number", window.to_block)
+    ]
+    write_rows_csv(str(export_dir / "liquidity_events.csv"), liquidity_fieldnames, filtered_liquidity_rows)
+
+    initialized_ticks_source = resolve_cached_input_file(
+        source_dir=source_dir,
+        relative_path="initialized_ticks.csv",
+        window_id=window.window_id,
+    )
+    shutil.copy2(initialized_ticks_source, export_dir / "initialized_ticks.csv")
+
+    stale_windows_source = resolve_cached_input_file(
+        source_dir=source_dir,
+        relative_path="oracle_stale_windows.csv",
+        window_id=window.window_id,
+    )
+    stale_fieldnames, stale_rows = _read_csv_rows(stale_windows_source)
+    filtered_stale_rows = [
+        row
+        for row in stale_rows
+        if _interval_intersects_window(
+            row,
+            start_key="start_block",
+            end_key="end_block",
+            window_start=window.from_block,
+            window_end=window.to_block,
+        )
+    ]
+    write_rows_csv(str(export_dir / "oracle_stale_windows.csv"), stale_fieldnames, filtered_stale_rows)
+
+    snapshot_payload["to_block"] = window.to_block
+    (export_dir / "pool_snapshot.json").write_text(
+        json.dumps(snapshot_payload, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+
+    market_reference_source = None
+    for candidate in (source_dir / "market_reference_updates.csv", source_dir / "target" / "market_reference_updates.csv"):
+        if candidate.exists():
+            market_reference_source = candidate
+            break
+    if market_reference_source is not None and count_csv_rows(market_reference_source) > 0:
+        market_fieldnames, market_rows = _read_csv_rows(market_reference_source)
+        filtered_market_rows = [
+            row
+            for row in market_rows
+            if _row_block_at_most(row, "block_number", markout_to_block)
+        ]
+        write_rows_csv(
+            str(export_dir / "market_reference_updates.csv"),
+            market_fieldnames,
+            filtered_market_rows,
+        )
+    else:
+        _write_market_reference_updates_from_oracle_rows(
+            oracle_rows=oracle_rows,
+            output_path=export_dir / "market_reference_updates.csv",
+            max_block=markout_to_block,
+        )
+
+    for source in window.oracle_sources:
+        if source.name == "chainlink" or Path(source.oracle_updates_path).is_absolute():
+            continue
+        source_input_path = resolve_cached_input_file(
+            source_dir=source_dir,
+            relative_path=source.oracle_updates_path,
+            window_id=window.window_id,
+        )
+        materialized_source_path = window_dir / source.oracle_updates_path
+        materialized_source_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            source_fieldnames, source_rows = _read_csv_rows(source_input_path)
+        except ValueError:
+            shutil.copy2(source_input_path, materialized_source_path)
+            continue
+        filtered_source_rows = _filter_optional_block_rows(
+            rows=source_rows,
+            block_key="block_number",
+            max_block=markout_to_block,
+        )
+        write_rows_csv(str(materialized_source_path), source_fieldnames, filtered_source_rows)
+
+    return {
+        "oracle_updates": len(filtered_oracle_rows),
+        "swap_samples": len(filtered_swap_rows),
+    }
+
+
+def resolve_cached_input_dir(path_str: str, manifest_dir: Path) -> Path:
+    raw_path = Path(path_str)
+    candidates = [raw_path] if raw_path.is_absolute() else [manifest_dir / raw_path, REPO_ROOT / raw_path]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    raise DataSourceUnavailable(f"Cached input_dir does not exist: {path_str}")
+
+
+def resolve_cached_input_file(
+    *,
+    source_dir: Path,
+    relative_path: str,
+    window_id: str,
+) -> Path:
+    relative = Path(relative_path)
+    for candidate in (source_dir / relative, source_dir / "target" / relative):
+        if candidate.exists():
+            return candidate
+    raise DataSourceUnavailable(
+        f"window_id={window_id}: cached input file does not exist: {relative_path}"
+    )
+
+
 def normalize_chainlink_updates(input_path: Path, output_path: Path) -> None:
     with input_path.open(newline="", encoding="utf-8") as infile, output_path.open(
         "w",
@@ -680,6 +919,121 @@ def normalize_chainlink_updates(input_path: Path, output_path: Path) -> None:
                     "source": f"chainlink:{row.get('source_label') or row.get('source_feed') or 'reference'}",
                 }
             )
+
+
+def _read_csv_rows(path: Path) -> tuple[list[str], list[dict[str, str]]]:
+    with path.open(newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        fieldnames = list(reader.fieldnames or [])
+        if not fieldnames:
+            raise ValueError(f"{path} does not contain a CSV header.")
+        return fieldnames, list(reader)
+
+
+def _copy_optional_filtered_json_array(
+    *,
+    source_path: Path,
+    output_path: Path,
+    from_block: int | None,
+    to_block: int | None,
+) -> None:
+    if not source_path.exists():
+        return
+    payload = json.loads(source_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, list):
+        output_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        return
+    filtered_payload = [
+        item
+        for item in payload
+        if isinstance(item, dict) and _json_item_block_in_closed_interval(item, from_block, to_block)
+    ]
+    output_path.write_text(json.dumps(filtered_payload, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _json_item_block_in_closed_interval(
+    item: dict[str, Any],
+    from_block: int | None,
+    to_block: int | None,
+) -> bool:
+    value = item.get("block_number")
+    if value in (None, ""):
+        return True
+    block_number = int(value)
+    if from_block is not None and block_number < from_block:
+        return False
+    if to_block is not None and block_number > to_block:
+        return False
+    return True
+
+
+def _row_block_in_closed_interval(
+    row: dict[str, str],
+    block_key: str,
+    start_block: int,
+    end_block: int,
+) -> bool:
+    value = row.get(block_key)
+    if value in (None, ""):
+        return False
+    block_number = int(value)
+    return start_block <= block_number <= end_block
+
+
+def _row_block_at_most(row: dict[str, str], block_key: str, max_block: int) -> bool:
+    value = row.get(block_key)
+    if value in (None, ""):
+        return True
+    return int(value) <= max_block
+
+
+def _interval_intersects_window(
+    row: dict[str, str],
+    *,
+    start_key: str,
+    end_key: str,
+    window_start: int,
+    window_end: int,
+) -> bool:
+    start_value = row.get(start_key)
+    end_value = row.get(end_key)
+    if start_value in (None, "") or end_value in (None, ""):
+        return True
+    start_block = int(start_value)
+    end_block = int(end_value)
+    return start_block <= window_end and end_block >= window_start
+
+
+def _write_market_reference_updates_from_oracle_rows(
+    *,
+    oracle_rows: list[dict[str, str]],
+    output_path: Path,
+    max_block: int,
+) -> None:
+    market_rows = [
+        {
+            "timestamp": row["timestamp"],
+            "block_number": row["block_number"],
+            "tx_hash": row["tx_hash"],
+            "log_index": row["log_index"],
+            "price_wad": row["reference_price_wad"],
+            "price": row["reference_price"],
+        }
+        for row in oracle_rows
+        if _row_block_at_most(row, "block_number", max_block)
+    ]
+    write_rows_csv(str(output_path), MARKET_REFERENCE_FIELDNAMES, market_rows)
+
+
+def _filter_optional_block_rows(
+    *,
+    rows: list[dict[str, str]],
+    block_key: str,
+    max_block: int,
+) -> list[dict[str, str]]:
+    if any(row.get(block_key) not in (None, "") for row in rows):
+        return [row for row in rows if _row_block_at_most(row, block_key, max_block)]
+    return rows
 
 
 def emit_exact_replay_artifacts(
@@ -1359,7 +1713,7 @@ def _auction_params_used(args: argparse.Namespace) -> dict[str, Any]:
         "solver_payment_hook_cap_multiple": float(
             getattr(args, "auction_solver_payment_hook_cap_multiple", 999.0)
         ),
-        "start_concession_bps": float(getattr(args, "auction_start_concession_bps", 5.0)),
+        "start_concession_bps": float(getattr(args, "auction_start_concession_bps", 25.0)),
         "concession_growth_bps_per_second": float(
             getattr(args, "auction_concession_growth_bps_per_second", 10.0)
         ),

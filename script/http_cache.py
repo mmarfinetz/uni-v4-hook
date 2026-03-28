@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import time
 import urllib.error
 import urllib.parse
@@ -94,6 +95,6 @@ class CachedHttpClient:
         cache_path = self._cache_path(full_url)
         if cache_path is None:
             return
-        tmp_path = cache_path.with_suffix(".tmp")
+        tmp_path = cache_path.with_name(f"{cache_path.name}.{os.getpid()}.tmp")
         tmp_path.write_bytes(payload)
         tmp_path.replace(cache_path)

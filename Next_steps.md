@@ -17,17 +17,17 @@ The core LP-protection question is whether an oracle-anchored dynamic fee can im
 
 If the fee is too low, LPs donate value to arbitrageurs during toxic repricing trades. If the fee is too high, benign order flow is overcharged or pushed away. The design also depends heavily on oracle quality and staleness handling, so replaying real swaps against real oracle updates is the right next validation step.
 
-## Logic 
+## Logic
 
-- The exact toxic-flow fee formula `f*(z) = e^{|z|/2} - 1` is consistent with the production hook implementation.
+- The exact toxic-flow fee formula `f*(z) = e^{|z|/2} - 1` is consistent with the production hook implementation and is now validated in-repo by deterministic exact-fee-identity tests.
 - The width guard formula `Wmin = -4 log(1 - sigma^2 Delta / (8 epsilon))` is consistent with the hook's minimum-width logic.
 - The main caveat also checks out: **exact fee neutralization with only public arbitrage leaves zero external arbitrage profit**, so production needs either:
   - a fee haircut `alpha < 1`, or
   - an internal repricer / custom-accounting branch.
 
-One claim is now automated in-repo:
+One analytical claim is now automated in-repo:
 
-- **Exact fee identity:** 10,000 deterministic random constant-product repricings now run in CI-style Python tests, and exact fee revenue matches one-step stale-price loss to machine precision.
+- **Validated fee law / exact fee identity:** 10,000 deterministic random constant-product repricings now run in CI-style Python tests, and exact fee revenue matches one-step stale-price loss to machine precision.
 - The GBM-style Monte Carlo path logic is for the separate `sigma^2/8` daily sanity check and the concentrated-liquidity width-amplification simulations.
 - Current measured result in this repo: `max_absolute_error = 6.16911036144252e-17`.
 
@@ -36,7 +36,12 @@ One claim is now automated in-repo:
 
 - OCR-aware exporter for real Chainlink feeds, including modern `NewTransmission` logs.
 - Storage-backed Uniswap v3 initialized tick extraction at exact `from_block`.
-- Historical replay harness with toxic/benign labeling and markout generation.
+- Exact Uniswap v3 replay backend with replay-error gating, toxic/benign labeling, and markout generation.
+- Manifest-driven multi-window, multi-oracle batch validation.
+- Deterministic exact-fee-identity tests for the derived toxic-flow fee law.
+- Dutch-auction backtest with a fixed-comparator baseline and policy ablation support.
+- Expanded Dutch-auction ablation study with bootstrap confidence intervals and replay-clean non-WETH/USDC windows.
+- Frozen reproducible study inputs and headline outputs for the current `44`-window Dutch-auction result under `study_artifacts/dutch_auction_ablation_2026_03_28/`.
 - Solidity unit, fuzz, property, and fork coverage for:
   - toxic-direction fee logic,
   - oracle staleness handling,
@@ -70,15 +75,27 @@ Data needed for the replay pipeline:
 - fee-cap rejection rate,
 - uncertain-label rate,
 - post-trade markouts across multiple horizons,
-- replay error once exact concentrated-liquidity replay is wired in.
+- exact-replay error and reliability-gated analysis basis.
 
-## Initial Findings / Working Hypotheses
+## Current Findings / Working Hypotheses
 
-- Key fee result: for toxic repricing flow, `f*(z) = e^{|z|/2} - 1`, where `z = log(Pref / Ppool)` is the oracle-pool log gap. For small gaps, this is approximately the half-gap rule `f*(z) ~= |z| / 2`. That derivation is anchored in the equations and geometric LVR argument from Jason Milionis, Ciamac C. Moallemi, Tim Roughgarden, and Anthony Lee Zhang, *Automated Market Making and Loss-Versus-Rebalancing*, `arXiv:2208.06046`, version dated May 27, 2024.
+- Key fee result: for toxic repricing flow, `f*(z) = e^{|z|/2} - 1`, where `z = log(Pref / Ppool)` is the oracle-pool log gap. For small gaps, this is approximately the half-gap rule `f*(z) ~= |z| / 2`. That derivation is anchored in the equations and geometric LVR argument from Jason Milionis, Ciamac C. Moallemi, Tim Roughgarden, and Anthony Lee Zhang, *Automated Market Making and Loss-Versus-Rebalancing*, `arXiv:2208.06046`, version dated May 27, 2024, and is now supported by in-repo deterministic identity tests.
 - Fee intuition: the Milionis et al. framework says LVR is driven by volatility and marginal liquidity. Specializing that logic to a finite-gap constant-product repricing event gives a toxic-flow premium of `e^{|z|/2} - 1`, which makes fee revenue line up with the one-step stale-price loss that would otherwise be donated to the arbitrageur.
-- The biggest remaining issue is **execution**, not accounting.
-- I expect the historical replay to show that oracle-anchored hook fees outperform fixed fees on clearly toxic flow, but that large-gap events will still expose the execution caveat that motivates `alpha < 1` or an internal repricer.
-- The Dutch-auction branch in the design is meant to solve that execution problem: when the pool is materially stale or in stress mode, the hook would auction off exclusive repricing rights to a solver for a short window.
+- The fee law itself is no longer a live open question in this repo. The biggest remaining issue is **execution**, not accounting: the fee identity and replay machinery now work; the remaining execution question is how broadly the current Dutch-auction trigger and reserve policy generalizes across pools, regimes, and reference sources.
+- The current production-oriented Dutch-auction policy is:
+  - `trigger_mode=auction_beats_hook`
+  - `reserve_mode=hook_counterfactual`
+  - `start_concession_bps=25`
+- The fixed-comparator Dutch-auction study now covers `44` replay-clean windows across `5` pools and `2` regimes, including three non-WETH/USDC pools and one replay-clean non-WETH/USDC stress family: `WBTC/USDC` 0.05%, 2h.
+- On that expanded study, the current Dutch-auction policy delivers mean LP uplift vs hook of `+3.40`, with 95% bootstrap CI `[+0.93, +5.99]`.
+- The same study shows mean trigger rate `1.21%` and mean fail-closed rate `0%`.
+- Relative to the older `all_toxic` / `solver_cost` / `start_concession_bps=5` policy, the current policy improves mean LP uplift vs hook by `+6.92`, with 95% bootstrap CI `[+2.42, +11.72]`.
+- The non-WETH/USDC evidence is mixed but useful:
+  - DAI/USDC is neutral versus hook under the current setting, but materially better than the older policy baseline.
+  - WBTC/USDC and WBTC/WETH are replay-clean but inert in the tested windows, including the added `WBTC/USDC` 2h stress family: the current policy stayed at zero triggers and zero uplift.
+- Across the full `44`-window study, the Dutch auction is positive versus hook in `21` windows, zero in `23`, and negative in `0`.
+- Relative to the older policy baseline, the current policy is positive in `28` windows, zero in `16`, and negative in `0`.
+- The Dutch-auction branch is no longer just a design proposal. It is implemented, backtested, and now supported by a replay-clean ablation table. The remaining question is how broadly the current positive result generalizes.
 - The reason for the auction is that **exact fee neutralization by itself does not guarantee fast repricing**. If LPs charge the full stale-loss-recovery fee through the public path, outside arbitrage profit goes to roughly zero, so there may be no one left with a strong incentive to spend gas and inventory to move the pool back to the reference price.
 - The Dutch auction is therefore **not** trying to discover the market price. The oracle snapshot already sets the target repricing state. The auction is discovering the minimum solver compensation needed to get the repricing trade executed quickly.
 - The winning solver would settle the repricing trade against the snapped reference-aligned state, receive a concession `q`, and leave LPs with the remaining `(1 - q)` share of the stale-loss recovery.
@@ -89,23 +106,26 @@ Data needed for the replay pipeline:
 
 ## Current Blockers / Open Questions
 
-- The exact Uniswap v3 replay backend is not implemented yet, so current replay still uses the approximate path.
-- The Dutch-auction repricer is still a design proposal, not an implemented or empirically validated mechanism.
-- We still need automated regression tests for the remaining paper validation claims beyond the exact-fee identity.
-- We need to decide whether the reference market for markouts should stay Chainlink-only or also include a highly liquid external pool.
+- The current empirical coverage is better, but still narrow:
+  - active stress uplift remains concentrated in WETH/USDC,
+  - the only replay-clean non-WETH/USDC stress family so far is `WBTC/USDC` 2h and it is economically inert,
+  - and the replay-clean WBTC families remain zero-trigger / zero-uplift in the tested windows.
+- Some otherwise interesting alt-token pools still fail exact replay on the first prefix windows, notably LINK/WETH and UNI/WETH. That is either a replay edge case or a pool-selection problem, and it needs to be resolved before adding those families to the main study table.
+- Deep-reference quality is pool-dependent. For some alt pools, the chosen deeper pool produced almost no reference updates in-window, which weakens multi-oracle ranking quality even when exact replay succeeds.
+- Binance coverage is not universal. For example, `DAIUSDT` 1-second archive data was not available for the tested window, so DAI/USDC currently enters the study as a replay-clean 3-oracle family rather than a full 4-oracle family.
+- We still need automated regression tests for the remaining analytical validation claims beyond the now-validated fee law / exact-fee identity and Dutch-auction accounting fixes.
 
 ## Next Steps
 
-1. Finish the exact Uniswap v3 replay backend and validate replayed end-state accuracy against observed swaps.
-2. Promote the remaining paper validation claims into automated tests:
-   - half-gap recovery,
+1. Add more replay-clean non-WETH/USDC **stress** families beyond the current inert `WBTC/USDC` 2h family, so the stress evidence does not rest entirely on WETH/USDC.
+2. Investigate the exact-replay failures on LINK/WETH and UNI/WETH and either:
+   - fix the replay edge case, or
+   - replace those pools with replay-clean alternatives.
+3. Improve external-reference selection for alt pools so the multi-oracle comparisons use genuinely active deep-pool comparators.
+4. Promote the remaining analytical validation claims into automated tests while keeping the validated fee law explicit in repo summaries:
    - `sigma^2/8` Monte Carlo sanity check,
-   - centered-range width amplification check.
-3. Run the historical replay on at least one liquid mainnet pool over a larger real window and collect:
-   - toxic vs benign flow labels,
-   - recapture ratios,
-   - false-positive / false-negative behavior,
-   - stale-oracle rejection behavior.
-4. Compare the target pool against a more liquid external reference pool to test whether price gaps can improve fee setting or rebalance logic.
-5. Decide whether the Dutch-auction / internal repricer branch is worth carrying forward as future work.
-
+   - centered-range width amplification check,
+   - optional hook-level regression around the already-validated fee surface if we want tighter implementation coverage than the current identity tests.
+5. Decide how strongly to emphasize the current Dutch-auction result in repo summaries and future writeups:
+   - supporting evidence if coverage stays narrow,
+   - or a headline result if broader out-of-sample coverage lands cleanly.

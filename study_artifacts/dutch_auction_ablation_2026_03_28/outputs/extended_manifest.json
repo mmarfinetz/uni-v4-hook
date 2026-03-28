@@ -1,0 +1,1619 @@
+{
+  "omitted_sources": [],
+  "study_name": "dutch_auction_ablation_prefix_windows",
+  "window_generation": "prefix_windows_from_cached_exports",
+  "windows": [
+    {
+      "base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/weth_usdc_3000_normal_4h/target",
+      "market_base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24690330,
+      "window_family": "weth_usdc_3000_normal_4h",
+      "window_id": "weth_usdc_3000_normal_4h_p01",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 12
+    },
+    {
+      "base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/weth_usdc_3000_normal_4h/target",
+      "market_base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24690606,
+      "window_family": "weth_usdc_3000_normal_4h",
+      "window_id": "weth_usdc_3000_normal_4h_p02",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 32
+    },
+    {
+      "base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/weth_usdc_3000_normal_4h/target",
+      "market_base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24690816,
+      "window_family": "weth_usdc_3000_normal_4h",
+      "window_id": "weth_usdc_3000_normal_4h_p03",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 52
+    },
+    {
+      "base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/weth_usdc_3000_normal_4h/target",
+      "market_base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24691081,
+      "window_family": "weth_usdc_3000_normal_4h",
+      "window_id": "weth_usdc_3000_normal_4h_p04",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 73
+    },
+    {
+      "base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/weth_usdc_3000_normal_4h/target",
+      "market_base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24691212,
+      "window_family": "weth_usdc_3000_normal_4h",
+      "window_id": "weth_usdc_3000_normal_4h_p05",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 93
+    },
+    {
+      "base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/weth_usdc_3000_normal_4h/target",
+      "market_base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24691306,
+      "window_family": "weth_usdc_3000_normal_4h",
+      "window_id": "weth_usdc_3000_normal_4h_p06",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 113
+    },
+    {
+      "base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/weth_usdc_500_normal_4h/target",
+      "market_base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24690207,
+      "window_family": "weth_usdc_500_normal_4h",
+      "window_id": "weth_usdc_500_normal_4h_p01",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 60
+    },
+    {
+      "base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/weth_usdc_500_normal_4h/target",
+      "market_base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24690348,
+      "window_family": "weth_usdc_500_normal_4h",
+      "window_id": "weth_usdc_500_normal_4h_p02",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 190
+    },
+    {
+      "base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/weth_usdc_500_normal_4h/target",
+      "market_base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24690506,
+      "window_family": "weth_usdc_500_normal_4h",
+      "window_id": "weth_usdc_500_normal_4h_p03",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 319
+    },
+    {
+      "base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/weth_usdc_500_normal_4h/target",
+      "market_base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24690617,
+      "window_family": "weth_usdc_500_normal_4h",
+      "window_id": "weth_usdc_500_normal_4h_p04",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 449
+    },
+    {
+      "base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/weth_usdc_500_normal_4h/target",
+      "market_base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24690789,
+      "window_family": "weth_usdc_500_normal_4h",
+      "window_id": "weth_usdc_500_normal_4h_p05",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 578
+    },
+    {
+      "base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/weth_usdc_500_normal_4h/target",
+      "market_base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24690955,
+      "window_family": "weth_usdc_500_normal_4h",
+      "window_id": "weth_usdc_500_normal_4h_p06",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 708
+    },
+    {
+      "base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/weth_usdc_500_normal_4h/target",
+      "market_base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24691149,
+      "window_family": "weth_usdc_500_normal_4h",
+      "window_id": "weth_usdc_500_normal_4h_p07",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 837
+    },
+    {
+      "base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/weth_usdc_500_normal_4h/target",
+      "market_base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24691337,
+      "window_family": "weth_usdc_500_normal_4h",
+      "window_id": "weth_usdc_500_normal_4h_p08",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 967
+    },
+    {
+      "base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "from_block": 23543615,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/weth_usdc_3000_stress_2h/target",
+      "market_base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 23543685,
+      "window_family": "weth_usdc_3000_stress_2h",
+      "window_id": "weth_usdc_3000_stress_2h_p01",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 12
+    },
+    {
+      "base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "from_block": 23543615,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/weth_usdc_3000_stress_2h/target",
+      "market_base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 23543925,
+      "window_family": "weth_usdc_3000_stress_2h",
+      "window_id": "weth_usdc_3000_stress_2h_p02",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 25
+    },
+    {
+      "base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "from_block": 23543615,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/weth_usdc_3000_stress_2h/target",
+      "market_base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 23544017,
+      "window_family": "weth_usdc_3000_stress_2h",
+      "window_id": "weth_usdc_3000_stress_2h_p03",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 38
+    },
+    {
+      "base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "from_block": 23543615,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/weth_usdc_3000_stress_2h/target",
+      "market_base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 23544190,
+      "window_family": "weth_usdc_3000_stress_2h",
+      "window_id": "weth_usdc_3000_stress_2h_p04",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 51
+    },
+    {
+      "base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "from_block": 23543615,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/weth_usdc_3000_stress_6h/target",
+      "market_base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 23543769,
+      "window_family": "weth_usdc_3000_stress_6h",
+      "window_id": "weth_usdc_3000_stress_6h_p01",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 18
+    },
+    {
+      "base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "from_block": 23543615,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/weth_usdc_3000_stress_6h/target",
+      "market_base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 23544056,
+      "window_family": "weth_usdc_3000_stress_6h",
+      "window_id": "weth_usdc_3000_stress_6h_p02",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 45
+    },
+    {
+      "base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "from_block": 23543615,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/weth_usdc_3000_stress_6h/target",
+      "market_base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 23544542,
+      "window_family": "weth_usdc_3000_stress_6h",
+      "window_id": "weth_usdc_3000_stress_6h_p03",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 73
+    },
+    {
+      "base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "from_block": 23543615,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/weth_usdc_3000_stress_6h/target",
+      "market_base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 23544782,
+      "window_family": "weth_usdc_3000_stress_6h",
+      "window_id": "weth_usdc_3000_stress_6h_p04",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 100
+    },
+    {
+      "base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "from_block": 23543615,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/weth_usdc_3000_stress_6h/target",
+      "market_base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 23545229,
+      "window_family": "weth_usdc_3000_stress_6h",
+      "window_id": "weth_usdc_3000_stress_6h_p05",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 128
+    },
+    {
+      "base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "from_block": 23543615,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/weth_usdc_3000_stress_6h/target",
+      "market_base_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 23545401,
+      "window_family": "weth_usdc_3000_stress_6h",
+      "window_id": "weth_usdc_3000_stress_6h_p06",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 155
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/wbtc_usdc_500_normal_4h/target",
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24690227,
+      "window_family": "wbtc_usdc_500_normal_4h",
+      "window_id": "wbtc_usdc_500_normal_4h_p01",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 24
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/wbtc_usdc_500_normal_4h/target",
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24690498,
+      "window_family": "wbtc_usdc_500_normal_4h",
+      "window_id": "wbtc_usdc_500_normal_4h_p02",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 59
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/wbtc_usdc_500_normal_4h/target",
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24690672,
+      "window_family": "wbtc_usdc_500_normal_4h",
+      "window_id": "wbtc_usdc_500_normal_4h_p03",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 95
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/wbtc_usdc_500_normal_4h/target",
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24690880,
+      "window_family": "wbtc_usdc_500_normal_4h",
+      "window_id": "wbtc_usdc_500_normal_4h_p04",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 130
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/wbtc_usdc_500_normal_4h/target",
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24691081,
+      "window_family": "wbtc_usdc_500_normal_4h",
+      "window_id": "wbtc_usdc_500_normal_4h_p05",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 166
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/wbtc_usdc_500_normal_4h/target",
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24691325,
+      "window_family": "wbtc_usdc_500_normal_4h",
+      "window_id": "wbtc_usdc_500_normal_4h_p06",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 201
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23543615,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/wbtc_usdc_500_stress_2h/target",
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 23543731,
+      "window_family": "wbtc_usdc_500_stress_2h",
+      "window_id": "wbtc_usdc_500_stress_2h_p01",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 12
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23543615,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/wbtc_usdc_500_stress_2h/target",
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 23543876,
+      "window_family": "wbtc_usdc_500_stress_2h",
+      "window_id": "wbtc_usdc_500_stress_2h_p02",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 41
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23543615,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/wbtc_usdc_500_stress_2h/target",
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 23544076,
+      "window_family": "wbtc_usdc_500_stress_2h",
+      "window_id": "wbtc_usdc_500_stress_2h_p03",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 71
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23543615,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/wbtc_usdc_500_stress_2h/target",
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 23544195,
+      "window_family": "wbtc_usdc_500_stress_2h",
+      "window_id": "wbtc_usdc_500_stress_2h_p04",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 100
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/wbtc_weth_500_normal_4h/target",
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x4585fe77225b41b697c938b018e2ac67ac5a20c0",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24690229,
+      "window_family": "wbtc_weth_500_normal_4h",
+      "window_id": "wbtc_weth_500_normal_4h_p01",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 30
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/wbtc_weth_500_normal_4h/target",
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x4585fe77225b41b697c938b018e2ac67ac5a20c0",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24690393,
+      "window_family": "wbtc_weth_500_normal_4h",
+      "window_id": "wbtc_weth_500_normal_4h_p02",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 80
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/wbtc_weth_500_normal_4h/target",
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x4585fe77225b41b697c938b018e2ac67ac5a20c0",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24690610,
+      "window_family": "wbtc_weth_500_normal_4h",
+      "window_id": "wbtc_weth_500_normal_4h_p03",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 131
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/wbtc_weth_500_normal_4h/target",
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x4585fe77225b41b697c938b018e2ac67ac5a20c0",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24690790,
+      "window_family": "wbtc_weth_500_normal_4h",
+      "window_id": "wbtc_weth_500_normal_4h_p04",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 181
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/wbtc_weth_500_normal_4h/target",
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x4585fe77225b41b697c938b018e2ac67ac5a20c0",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24691111,
+      "window_family": "wbtc_weth_500_normal_4h",
+      "window_id": "wbtc_weth_500_normal_4h_p05",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 232
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/wbtc_weth_500_normal_4h/target",
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        },
+        {
+          "name": "binance",
+          "oracle_updates_path": "binance_reference_updates.csv"
+        }
+      ],
+      "pool": "0x4585fe77225b41b697c938b018e2ac67ac5a20c0",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24691335,
+      "window_family": "wbtc_weth_500_normal_4h",
+      "window_id": "wbtc_weth_500_normal_4h_p06",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 282
+    },
+    {
+      "base_feed": "0x709783ab12b65fD6cd948214EEe6448f3BdD72A3",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/dai_usdc_100_normal_4h/target",
+      "market_base_feed": "0x709783ab12b65fD6cd948214EEe6448f3BdD72A3",
+      "market_quote_feed": "0xc9E1a09622afdB659913fefE800fEaE5DBbFe9d7",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        }
+      ],
+      "pool": "0x5777d92f208679db4b9778590fa3cab3ac9e2168",
+      "quote_feed": "0xc9E1a09622afdB659913fefE800fEaE5DBbFe9d7",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24690673,
+      "window_family": "dai_usdc_100_normal_4h",
+      "window_id": "dai_usdc_100_normal_4h_p01",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 8
+    },
+    {
+      "base_feed": "0x709783ab12b65fD6cd948214EEe6448f3BdD72A3",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/dai_usdc_100_normal_4h/target",
+      "market_base_feed": "0x709783ab12b65fD6cd948214EEe6448f3BdD72A3",
+      "market_quote_feed": "0xc9E1a09622afdB659913fefE800fEaE5DBbFe9d7",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        }
+      ],
+      "pool": "0x5777d92f208679db4b9778590fa3cab3ac9e2168",
+      "quote_feed": "0xc9E1a09622afdB659913fefE800fEaE5DBbFe9d7",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24690711,
+      "window_family": "dai_usdc_100_normal_4h",
+      "window_id": "dai_usdc_100_normal_4h_p02",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 10
+    },
+    {
+      "base_feed": "0x709783ab12b65fD6cd948214EEe6448f3BdD72A3",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/dai_usdc_100_normal_4h/target",
+      "market_base_feed": "0x709783ab12b65fD6cd948214EEe6448f3BdD72A3",
+      "market_quote_feed": "0xc9E1a09622afdB659913fefE800fEaE5DBbFe9d7",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        }
+      ],
+      "pool": "0x5777d92f208679db4b9778590fa3cab3ac9e2168",
+      "quote_feed": "0xc9E1a09622afdB659913fefE800fEaE5DBbFe9d7",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24691052,
+      "window_family": "dai_usdc_100_normal_4h",
+      "window_id": "dai_usdc_100_normal_4h_p03",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 12
+    },
+    {
+      "base_feed": "0x709783ab12b65fD6cd948214EEe6448f3BdD72A3",
+      "from_block": 24690145,
+      "input_dir": "../../study_artifacts/dutch_auction_ablation_2026_03_28/inputs/dai_usdc_100_normal_4h/target",
+      "market_base_feed": "0x709783ab12b65fD6cd948214EEe6448f3BdD72A3",
+      "market_quote_feed": "0xc9E1a09622afdB659913fefE800fEaE5DBbFe9d7",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 0,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        },
+        {
+          "name": "deep_pool",
+          "oracle_updates_path": "deep_pool_reference_updates.csv"
+        },
+        {
+          "name": "pyth",
+          "oracle_updates_path": "pyth_reference_updates.csv"
+        }
+      ],
+      "pool": "0x5777d92f208679db4b9778590fa3cab3ac9e2168",
+      "quote_feed": "0xc9E1a09622afdB659913fefE800fEaE5DBbFe9d7",
+      "regime": "normal",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": true,
+      "to_block": 24691204,
+      "window_family": "dai_usdc_100_normal_4h",
+      "window_id": "dai_usdc_100_normal_4h_p04",
+      "window_kind": "prefix",
+      "window_prefix_swap_count": 14
+    }
+  ]
+}

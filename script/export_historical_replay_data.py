@@ -32,6 +32,7 @@ import argparse
 import csv
 import hashlib
 import json
+import os
 import time
 import urllib.error
 import urllib.request
@@ -64,6 +65,7 @@ UNISWAP_V3_MIN_TICK = -887272
 UNISWAP_V3_MAX_TICK = 887272
 UNISWAP_V3_TICKS_MAPPING_SLOT = 5
 UNISWAP_V3_TICK_BITMAP_MAPPING_SLOT = 6
+ETH_GET_STORAGE_BATCH_SIZE = 100
 
 
 @dataclass(frozen=True)
@@ -217,7 +219,7 @@ class RpcClient:
             "params": params,
             "result": result,
         }
-        tmp_path = cache_path.with_suffix(".tmp")
+        tmp_path = cache_path.with_name(f"{cache_path.name}.{os.getpid()}.tmp")
         with tmp_path.open("w", encoding="utf-8") as handle:
             json.dump(payload, handle, sort_keys=True, separators=(",", ":"))
         tmp_path.replace(cache_path)
@@ -527,7 +529,7 @@ def _eth_get_storage_many(client: RpcClient, to: str, slots: list[int], block_ta
 
     if hasattr(client, "batch_call"):
         results: list[str] = []
-        chunk_size = 200
+        chunk_size = ETH_GET_STORAGE_BATCH_SIZE
         for offset in range(0, len(slots), chunk_size):
             chunk = slots[offset:offset + chunk_size]
             requests = [("eth_getStorageAt", [to, hex(slot), block_tag]) for slot in chunk]

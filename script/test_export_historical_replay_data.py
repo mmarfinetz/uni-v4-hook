@@ -12,6 +12,7 @@ from script.export_historical_replay_data import (
     ANSWER_UPDATED_TOPIC,
     BURN_TOPIC,
     DECIMALS_SELECTOR,
+    ETH_GET_STORAGE_BATCH_SIZE,
     FEE_SELECTOR,
     LIQUIDITY_SELECTOR,
     MINT_TOPIC,
@@ -26,6 +27,7 @@ from script.export_historical_replay_data import (
     UNISWAP_V3_TICK_BITMAP_MAPPING_SLOT,
     UNISWAP_V3_TICKS_MAPPING_SLOT,
     _build_oracle_stale_windows,
+    _eth_get_storage_many,
     _load_feed_updates,
     _mapping_storage_slot,
     export_historical_replay_data,
@@ -110,6 +112,15 @@ class FakeRpcClient:
             return {"timestamp": hex(self.block_timestamps[block_number])}
 
         raise AssertionError(f"Unexpected RPC method {method}")
+
+
+class FakeBatchRpcClient:
+    def __init__(self) -> None:
+        self.batch_sizes: list[int] = []
+
+    def batch_call(self, requests: list[tuple[str, list]]) -> list[str]:
+        self.batch_sizes.append(len(requests))
+        return ["0x0"] * len(requests)
 
 
 class ExportHistoricalReplayDataTest(unittest.TestCase):
@@ -750,6 +761,15 @@ class ExportHistoricalReplayDataTest(unittest.TestCase):
         self.assertEqual(updates[0].round_id, 11)
         self.assertEqual(updates[0].answer, 2_030_000_00000)
         self.assertEqual(updates[0].updated_at, 29)
+
+    def test_eth_get_storage_many_chunks_batches_to_provider_limit(self) -> None:
+        client = FakeBatchRpcClient()
+        slots = list(range(ETH_GET_STORAGE_BATCH_SIZE * 2 + 7))
+
+        results = _eth_get_storage_many(client, self.pool, slots, "0x123")
+
+        self.assertEqual(len(results), len(slots))
+        self.assertEqual(client.batch_sizes, [ETH_GET_STORAGE_BATCH_SIZE, ETH_GET_STORAGE_BATCH_SIZE, 7])
 
 
 if __name__ == "__main__":
