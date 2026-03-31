@@ -29,7 +29,8 @@ One analytical claim is now automated in-repo:
 
 - **Validated fee law / exact fee identity:** 10,000 deterministic random constant-product repricings now run in CI-style Python tests, and exact fee revenue matches one-step stale-price loss to machine precision.
 - The GBM-style Monte Carlo path logic is for the separate `sigma^2/8` daily sanity check and the concentrated-liquidity width-amplification simulations.
-- Current measured result in this repo: `max_absolute_error = 6.16911036144252e-17`.
+- Current deterministic harness result in this repo: `max_absolute_error = 7.48e-81` for `sample_count=10_000`, `seed=7`, `gap_std=0.02`.
+- Current frozen real-data proof in this repo: `44` replay-clean windows, `7,019` swaps, and `max_residual_error_exact = 1.0e-64` under `study_artifacts/one_page_proof_2026_03_31/`.
 
 
 ## What Is Already Implemented
@@ -42,6 +43,7 @@ One analytical claim is now automated in-repo:
 - Dutch-auction backtest with a fixed-comparator baseline and policy ablation support.
 - Expanded Dutch-auction ablation study with bootstrap confidence intervals and replay-clean non-WETH/USDC windows.
 - Frozen reproducible study inputs and headline outputs for the current `44`-window Dutch-auction result under `study_artifacts/dutch_auction_ablation_2026_03_28/`.
+- Frozen one-page proof artifacts for the fee-identity claim and stale-loss split under `study_artifacts/one_page_proof_2026_03_31/`.
 - Solidity unit, fuzz, property, and fork coverage for:
   - toxic-direction fee logic,
   - oracle staleness handling,
@@ -96,6 +98,9 @@ Data needed for the replay pipeline:
 - Across the full `44`-window study, the Dutch auction is positive versus hook in `21` windows, zero in `23`, and negative in `0`.
 - Relative to the older policy baseline, the current policy is positive in `28` windows, zero in `16`, and negative in `0`.
 - The Dutch-auction branch is no longer just a design proposal. It is implemented, backtested, and now supported by a replay-clean ablation table. The remaining question is how broadly the current positive result generalizes.
+- The repo now also carries a frozen one-page proof showing both sides of the argument:
+  - the fee identity holds to machine precision on exact replay, and
+  - the stale-loss split chart shows how much value a flat fee leaves with arbitrageurs across toxic swap sizes relative to the exact hook benchmark.
 - The reason for the auction is that **exact fee neutralization by itself does not guarantee fast repricing**. If LPs charge the full stale-loss-recovery fee through the public path, outside arbitrage profit goes to roughly zero, so there may be no one left with a strong incentive to spend gas and inventory to move the pool back to the reference price.
 - The Dutch auction is therefore **not** trying to discover the market price. The oracle snapshot already sets the target repricing state. The auction is discovering the minimum solver compensation needed to get the repricing trade executed quickly.
 - The winning solver would settle the repricing trade against the snapped reference-aligned state, receive a concession `q`, and leave LPs with the remaining `(1 - q)` share of the stale-loss recovery.
@@ -110,9 +115,10 @@ Data needed for the replay pipeline:
   - active stress uplift remains concentrated in WETH/USDC,
   - the only replay-clean non-WETH/USDC stress family so far is `WBTC/USDC` 2h and it is economically inert,
   - and the replay-clean WBTC families remain zero-trigger / zero-uplift in the tested windows.
-- Some otherwise interesting alt-token pools still fail exact replay on the first prefix windows, notably LINK/WETH and UNI/WETH. That is either a replay edge case or a pool-selection problem, and it needs to be resolved before adding those families to the main study table.
-- Deep-reference quality is pool-dependent. For some alt pools, the chosen deeper pool produced almost no reference updates in-window, which weakens multi-oracle ranking quality even when exact replay succeeds.
-- Binance coverage is not universal. For example, `DAIUSDT` 1-second archive data was not available for the tested window, so DAI/USDC currently enters the study as a replay-clean 3-oracle family rather than a full 4-oracle family.
+- Current local workbench issues, not frozen headline artifacts:
+  - some otherwise interesting alt-token pools have failed exact replay on the first prefix windows, notably LINK/WETH and UNI/WETH; that is either a replay edge case or a pool-selection problem
+  - deep-reference quality is pool-dependent, and some alt-pool comparators produced too few in-window reference updates to make multi-oracle ranking very informative
+  - Binance coverage is not universal; for example, `DAIUSDT` 1-second archive data was unavailable for the tested DAI/USDC window, so that family currently enters the study as replay-clean 3-oracle coverage rather than full 4-oracle coverage
 - We still need automated regression tests for the remaining analytical validation claims beyond the now-validated fee law / exact-fee identity and Dutch-auction accounting fixes.
 
 ## Next Steps
