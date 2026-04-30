@@ -1,0 +1,22 @@
+{
+  "policy_name": "manual_usd_floor_launch_policy",
+  "scope": "October 2025 month-scale Dutch-auction launch-policy sweep",
+  "trigger_condition": "oracle_volatility_threshold",
+  "oracle_volatility_threshold_bps": 0.0,
+  "min_stale_loss_usd": 0.5,
+  "min_stale_loss_quote": "derived per pool/window from quote/USD reference",
+  "base_fee_bps": 0.0,
+  "alpha_bps": 0.0,
+  "max_fee_bps": 500.0,
+  "start_concession_bps": 0.001,
+  "concession_growth_bps_per_second": 0.0,
+  "max_concession_bps": 10000.0,
+  "max_duration_seconds": 0,
+  "solver_gas_cost_quote": 0.0,
+  "solver_edge_bps": 0.0,
+  "reserve_margin_bps": 0.0,
+  "auction_accounting_mode": "hook_fee_floor",
+  "auction_expiry_policy": "fallback_to_hook",
+  "fallback_alpha_bps": 5000.0,
+  "interpretation": "Manual benchmark. This is a zero gas/edge counterfactual, not production solver economics."
+}

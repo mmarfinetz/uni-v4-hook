@@ -3,11 +3,15 @@
 .bin/
 cache/
 out/
+.tmp/
 
 # Local docs / working notes
 lvr_v4_hook_paper.pdf
 lvr_v4_hook_paper_dutch_auction.pdf
 AGENTS.md
+docs/maxfee_semantic_decision.md
+docs/paper_revision_notes_2026_04_26.md
+docs/publication_checklist.md
 .agents/skills/
 .codex/
 
@@ -18,3 +22,17 @@ AGENTS.md
 # Generated Python artifacts
 script/__pycache__/
 .worktale/
+
+# Generated LaTeX artifacts
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.toc
+
+# Local exploratory figures not used by the paper/readme
+study_artifacts/month_2025_10_usd_floor/figures/lvr_per_trigger_cdf.*
+study_artifacts/month_2025_10_usd_floor/figures/lvr_split_waterfall_by_pool.*
+study_artifacts/month_2025_10_usd_floor/figures/recapture_vs_solver_share_frontier.*
+study_artifacts/one_page_proof_2026_03_31/fee_law_curvature_vs_half_gap.svg

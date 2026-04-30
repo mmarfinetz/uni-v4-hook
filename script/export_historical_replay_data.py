@@ -31,8 +31,10 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import http.client
 import json
 import os
+import subprocess
 import time
 import urllib.error
 import urllib.request
@@ -66,6 +68,7 @@ UNISWAP_V3_MAX_TICK = 887272
 UNISWAP_V3_TICKS_MAPPING_SLOT = 5
 UNISWAP_V3_TICK_BITMAP_MAPPING_SLOT = 6
 ETH_GET_STORAGE_BATCH_SIZE = 100
+ETH_GET_LOGS_BATCH_SIZE = 50
 
 
 @dataclass(frozen=True)
@@ -172,14 +175,16 @@ class RpcClient:
         self,
         rpc_url: str,
         timeout: int,
-        max_retries: int = 5,
+        max_retries: int = 10,
         retry_backoff_seconds: float = 1.0,
+        max_retry_sleep_seconds: float = 30.0,
         cache_dir: str | None = None,
     ) -> None:
         self.rpc_url = rpc_url
         self.timeout = timeout
         self.max_retries = max_retries
         self.retry_backoff_seconds = retry_backoff_seconds
+        self.max_retry_sleep_seconds = max_retry_sleep_seconds
         self._next_id = 1
         self.cache_dir = Path(cache_dir) if cache_dir else None
         if self.cache_dir is not None:
@@ -255,12 +260,16 @@ class RpcClient:
                     result = json.load(response)
             except urllib.error.HTTPError as exc:
                 detail = exc.read().decode(errors="replace")
-                if exc.code == 429 and attempt < self.max_retries:
-                    time.sleep(self.retry_backoff_seconds * (2 ** attempt))
+                if _retryable_http_status(exc.code) and attempt < self.max_retries:
+                    self._sleep_before_retry(attempt)
                     attempt += 1
                     continue
                 raise RuntimeError(f"RPC HTTP error {exc.code}: {detail}") from exc
-            except urllib.error.URLError as exc:
+            except (urllib.error.URLError, http.client.IncompleteRead, TimeoutError, ConnectionError) as exc:
+                if attempt < self.max_retries:
+                    self._sleep_before_retry(attempt)
+                    attempt += 1
+                    continue
                 raise RuntimeError(f"RPC transport error: {exc}") from exc
 
             error = result.get("error")
@@ -268,8 +277,8 @@ class RpcClient:
                 self._store_cached_result(method, params, result["result"])
                 return result["result"]
 
-            if error.get("code") == 429 and attempt < self.max_retries:
-                time.sleep(self.retry_backoff_seconds * (2 ** attempt))
+            if _retryable_rpc_error(error) and attempt < self.max_retries:
+                self._sleep_before_retry(attempt)
                 attempt += 1
                 continue
             raise RuntimeError(f"RPC error for {method}: {error}")
@@ -324,12 +333,16 @@ class RpcClient:
                     result = json.load(response)
             except urllib.error.HTTPError as exc:
                 detail = exc.read().decode(errors="replace")
-                if exc.code == 429 and attempt < self.max_retries:
-                    time.sleep(self.retry_backoff_seconds * (2 ** attempt))
+                if _retryable_http_status(exc.code) and attempt < self.max_retries:
+                    self._sleep_before_retry(attempt)
                     attempt += 1
                     continue
                 raise RuntimeError(f"RPC HTTP error {exc.code}: {detail}") from exc
-            except urllib.error.URLError as exc:
+            except (urllib.error.URLError, http.client.IncompleteRead, TimeoutError, ConnectionError) as exc:
+                if attempt < self.max_retries:
+                    self._sleep_before_retry(attempt)
+                    attempt += 1
+                    continue
                 raise RuntimeError(f"RPC transport error: {exc}") from exc
 
             if not isinstance(result, list):
@@ -353,16 +366,44 @@ class RpcClient:
                     cached_results[position] = item["result"]
                     self._store_cached_result(method, params, item["result"])
                     continue
-                if error.get("code") == 429 and attempt < self.max_retries:
+                if _retryable_rpc_error(error) and attempt < self.max_retries:
                     retry_needed = True
                     break
                 raise RuntimeError(f"RPC error for {method}: {error}")
 
             if retry_needed:
-                time.sleep(self.retry_backoff_seconds * (2 ** attempt))
+                self._sleep_before_retry(attempt)
                 attempt += 1
                 continue
             return [item for item in cached_results]
+
+    def _sleep_before_retry(self, attempt: int) -> None:
+        sleep_seconds = self.retry_backoff_seconds * (2 ** attempt)
+        if self.max_retry_sleep_seconds >= 0:
+            sleep_seconds = min(sleep_seconds, self.max_retry_sleep_seconds)
+        time.sleep(sleep_seconds)
+
+
+def _retryable_http_status(status_code: int) -> bool:
+    return status_code in {408, 409, 425, 429, 500, 502, 503, 504}
+
+
+def _retryable_rpc_error(error: Any) -> bool:
+    code = error.get("code") if isinstance(error, dict) else None
+    if code == 429:
+        return True
+    message = str(error.get("message", "") if isinstance(error, dict) else error).lower()
+    retryable_fragments = (
+        "rate limit",
+        "too many",
+        "timeout",
+        "internal error",
+        "temporarily",
+        "try again",
+        "overloaded",
+        "capacity",
+    )
+    return any(fragment in message for fragment in retryable_fragments)
 
 
 def parse_args() -> argparse.Namespace:
@@ -429,14 +470,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--max-retries",
         type=int,
-        default=5,
-        help="Max retries for rate-limited RPC requests. Default: 5.",
+        default=10,
+        help="Max retries for transient/rate-limited RPC requests. Default: 10.",
     )
     parser.add_argument(
         "--retry-backoff-seconds",
         type=float,
         default=1.0,
         help="Initial exponential backoff in seconds for retried RPC requests. Default: 1.0.",
+    )
+    parser.add_argument(
+        "--max-retry-sleep-seconds",
+        type=float,
+        default=30.0,
+        help="Cap per-retry RPC sleep in seconds. Use a negative value for no cap. Default: 30.",
     )
     return parser.parse_args()
 
@@ -464,7 +511,7 @@ def _hex_to_int256(value: str) -> int:
 
 
 def _hex_to_int24(value: str) -> int:
-    raw = int(value, 16)
+    raw = int(value, 16) & ((1 << 24) - 1)
     if raw >= 1 << 23:
         raw -= 1 << 24
     return raw
@@ -545,11 +592,23 @@ def _keccak256(payload: bytes) -> bytes:
 
         return keccak(payload)
     except ImportError:
-        from Crypto.Hash import keccak as crypto_keccak
+        try:
+            from Crypto.Hash import keccak as crypto_keccak
 
-        digest = crypto_keccak.new(digest_bits=256)
-        digest.update(payload)
-        return digest.digest()
+            digest = crypto_keccak.new(digest_bits=256)
+            digest.update(payload)
+            return digest.digest()
+        except ImportError:
+            result = subprocess.run(
+                ["cast", "keccak", "0x" + payload.hex()],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            digest_hex = result.stdout.strip()
+            if not digest_hex.startswith("0x"):
+                raise RuntimeError(f"cast keccak returned an unexpected payload: {digest_hex}")
+            return bytes.fromhex(digest_hex.removeprefix("0x"))
 
 
 def _encode_mapping_key(value: int) -> bytes:
@@ -574,18 +633,35 @@ def _get_logs(
     if blocks_per_request <= 0:
         raise ValueError("--blocks-per-request must be > 0")
 
-    logs: list[dict[str, Any]] = []
+    requests: list[tuple[str, list[Any]]] = []
     cursor = from_block
     while cursor <= to_block:
         window_end = min(cursor + blocks_per_request - 1, to_block)
-        params = [{
-            "fromBlock": hex(cursor),
-            "toBlock": hex(window_end),
-            "address": address,
-            "topics": [topic0],
-        }]
-        logs.extend(client.call("eth_getLogs", params))
+        requests.append(
+            (
+                "eth_getLogs",
+                [
+                    {
+                        "fromBlock": hex(cursor),
+                        "toBlock": hex(window_end),
+                        "address": address,
+                        "topics": [topic0],
+                    }
+                ],
+            )
+        )
         cursor = window_end + 1
+
+    logs: list[dict[str, Any]] = []
+    if hasattr(client, "batch_call"):
+        for offset in range(0, len(requests), ETH_GET_LOGS_BATCH_SIZE):
+            for result in client.batch_call(requests[offset:offset + ETH_GET_LOGS_BATCH_SIZE]):
+                logs.extend(result)
+        return logs
+
+    for method, params in requests:
+        assert method == "eth_getLogs"
+        logs.extend(client.call(method, params))
     return logs
 
 
@@ -1159,8 +1235,9 @@ def export_historical_replay_data(
     rpc_client = client or RpcClient(
         args.rpc_url,
         timeout=args.rpc_timeout,
-        max_retries=getattr(args, "max_retries", 5),
+        max_retries=getattr(args, "max_retries", 10),
         retry_backoff_seconds=getattr(args, "retry_backoff_seconds", 1.0),
+        max_retry_sleep_seconds=getattr(args, "max_retry_sleep_seconds", 30.0),
         cache_dir=getattr(args, "rpc_cache_dir", None),
     )
     output_dir = Path(args.output_dir)

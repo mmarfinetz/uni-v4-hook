@@ -28,8 +28,10 @@ from script.export_historical_replay_data import (
     UNISWAP_V3_TICKS_MAPPING_SLOT,
     _build_oracle_stale_windows,
     _eth_get_storage_many,
+    _hex_to_int24,
     _load_feed_updates,
     _mapping_storage_slot,
+    _retryable_rpc_error,
     export_historical_replay_data,
 )
 
@@ -155,6 +157,14 @@ class ExportHistoricalReplayDataTest(unittest.TestCase):
                 self.assertEqual(client.call("eth_blockNumber", []), "0x1")
 
             self.assertEqual(len(urlopen_calls), 1)
+
+    def test_hex_to_int24_decodes_sign_extended_topic_words(self) -> None:
+        self.assertEqual(_hex_to_int24(_hex_signed_word(-1)), -1)
+        self.assertEqual(_hex_to_int24(_hex_signed_word(-887220)), -887220)
+        self.assertEqual(_hex_to_int24(_hex_signed_word(887220)), 887220)
+
+    def test_rpc_internal_error_is_retryable(self) -> None:
+        self.assertTrue(_retryable_rpc_error({"code": -32000, "message": "Internal error"}))
 
     def make_args(
         self,

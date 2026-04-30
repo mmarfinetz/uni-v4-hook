@@ -11,6 +11,7 @@ from script.export_historical_replay_data import export_historical_replay_data
 from script.lvr_historical_replay import (
     ExactReplayBackend,
     ExactV3ReplayState,
+    ReplayExcludedError,
     _event_position,
     _execute_exact_v3_swap,
     _raw_swap_input_amount,
@@ -706,6 +707,161 @@ class ExactV3ReplayTest(unittest.TestCase):
 
             self.assertIsNone(report["replay_error"])
             self.assertIn(report["depth_calibration"]["mode"], {"unit_liquidity", "swap_active_liquidity"})
+
+    def test_link_weth_excluded_with_reason(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        exclusions_path = repo_root / "script" / "replay_exclusions.json"
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            pool_snapshot_path = self.write_json(
+                tmp_path,
+                "pool_snapshot.json",
+                {
+                    "pool": "0xa6Cc3C2531FdaA6Ae1A3CA84c2855806728693e8",
+                    "token0": "0x514910771AF9Ca656af840dff83E8264EcF986CA",
+                    "token1": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+                    "sqrtPriceX96": str(Q96),
+                    "tick": 0,
+                    "liquidity": str(10**18),
+                    "fee": 3000,
+                    "tickSpacing": 60,
+                    "token0_decimals": 18,
+                    "token1_decimals": 18,
+                    "from_block": 24690145,
+                    "to_block": 24690645,
+                },
+            )
+            initialized_ticks_path = self.write_csv(
+                tmp_path,
+                "initialized_ticks.csv",
+                ["tick_index", "liquidity_net", "liquidity_gross"],
+                [],
+            )
+
+            with self.assertWarnsRegex(RuntimeWarning, "Diagnostic command: python3 -m script.export_historical_replay_data"):
+                with self.assertRaisesRegex(ReplayExcludedError, "LINK/WETH 3000 exact replay remains blocked"):
+                    ExactReplayBackend.from_paths(
+                        pool_snapshot_path=str(pool_snapshot_path),
+                        initialized_ticks_path=str(initialized_ticks_path),
+                        exclusions_path=str(exclusions_path),
+                    )
+
+    def test_uni_weth_excluded_with_reason(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        exclusions_path = repo_root / "script" / "replay_exclusions.json"
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            pool_snapshot_path = self.write_json(
+                tmp_path,
+                "pool_snapshot.json",
+                {
+                    "pool": "0x1d42064Fc4Beb5F8aAF85F4617AE8b3b5B8Bd801",
+                    "token0": "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984",
+                    "token1": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+                    "sqrtPriceX96": str(Q96),
+                    "tick": 0,
+                    "liquidity": str(10**18),
+                    "fee": 3000,
+                    "tickSpacing": 60,
+                    "token0_decimals": 18,
+                    "token1_decimals": 18,
+                    "from_block": 24690145,
+                    "to_block": 24690645,
+                },
+            )
+            initialized_ticks_path = self.write_csv(
+                tmp_path,
+                "initialized_ticks.csv",
+                ["tick_index", "liquidity_net", "liquidity_gross"],
+                [],
+            )
+
+            with self.assertWarnsRegex(RuntimeWarning, "Diagnostic command: python3 -m script.export_historical_replay_data"):
+                with self.assertRaisesRegex(ReplayExcludedError, "UNI/WETH 3000 exact replay remains blocked"):
+                    ExactReplayBackend.from_paths(
+                        pool_snapshot_path=str(pool_snapshot_path),
+                        initialized_ticks_path=str(initialized_ticks_path),
+                        exclusions_path=str(exclusions_path),
+                    )
+
+    def test_link_weth_committed_real_fixtures_replay_clean(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        roots = [
+            repo_root / "study_artifacts" / "replay_diagnostics" / "link_weth_3000_normal_500block" / "target",
+            repo_root / "study_artifacts" / "replay_diagnostics" / "link_weth_3000_stress_500block" / "target",
+        ]
+        for root in roots:
+            if not (root / "pool_snapshot.json").exists():
+                self.skipTest(f"Real fixture is not available in this checkout: {root}")
+
+            backend = ExactReplayBackend.from_paths(
+                pool_snapshot_path=str(root / "pool_snapshot.json"),
+                initialized_ticks_path=str(root / "initialized_ticks.csv"),
+                liquidity_events_path=str(root / "liquidity_events.csv"),
+            )
+            _, replay_error_rows = backend.build_series(
+                str(root / "swap_samples.csv"),
+                strategy="exact_replay",
+                invert_price=True,
+            )
+            replay_error_stats = summarize_replay_error_rows(replay_error_rows)
+
+            self.assertIsNotNone(replay_error_stats["replay_error_p99"])
+            self.assertLessEqual(replay_error_stats["replay_error_p99"], 0.001)
+
+    def test_uni_weth_committed_real_fixtures_replay_clean(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        roots = [
+            repo_root / "study_artifacts" / "replay_diagnostics" / "uni_weth_3000_normal_500block" / "target",
+            repo_root / "study_artifacts" / "replay_diagnostics" / "uni_weth_3000_stress_500block" / "target",
+        ]
+        for root in roots:
+            if not (root / "pool_snapshot.json").exists():
+                self.skipTest(f"Real fixture is not available in this checkout: {root}")
+
+            backend = ExactReplayBackend.from_paths(
+                pool_snapshot_path=str(root / "pool_snapshot.json"),
+                initialized_ticks_path=str(root / "initialized_ticks.csv"),
+                liquidity_events_path=str(root / "liquidity_events.csv"),
+            )
+            _, replay_error_rows = backend.build_series(
+                str(root / "swap_samples.csv"),
+                strategy="exact_replay",
+                invert_price=True,
+            )
+            replay_error_stats = summarize_replay_error_rows(replay_error_rows)
+
+            self.assertIsNotNone(replay_error_stats["replay_error_p99"])
+            self.assertLessEqual(replay_error_stats["replay_error_p99"], 0.001)
+
+    def test_link_weth_materialized_copy_can_bypass_exclusion_with_source_fixture_dir(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        source_fixture_dir = (
+            repo_root / "study_artifacts" / "replay_diagnostics" / "link_weth_3000_normal_500block" / "target"
+        )
+        if not (source_fixture_dir / "pool_snapshot.json").exists():
+            self.skipTest(f"Real fixture is not available in this checkout: {source_fixture_dir}")
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            pool_snapshot_payload = json.loads((source_fixture_dir / "pool_snapshot.json").read_text(encoding="utf-8"))
+            pool_snapshot_path = self.write_json(tmp_path, "pool_snapshot.json", pool_snapshot_payload)
+            initialized_ticks_path = self.write_csv(
+                tmp_path,
+                "initialized_ticks.csv",
+                ["tick_index", "liquidity_net", "liquidity_gross"],
+                [{"tick_index": "0", "liquidity_net": "0", "liquidity_gross": "1"}],
+            )
+
+            backend = ExactReplayBackend.from_paths(
+                pool_snapshot_path=str(pool_snapshot_path),
+                initialized_ticks_path=str(initialized_ticks_path),
+                source_fixture_dir=str(source_fixture_dir),
+            )
+
+            self.assertEqual(backend.snapshot.pool.lower(), pool_snapshot_payload["pool"].lower())
 
 
 if __name__ == "__main__":

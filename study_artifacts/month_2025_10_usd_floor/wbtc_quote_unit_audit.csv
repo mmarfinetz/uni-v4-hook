@@ -1,0 +1,14 @@
+check,value,status
+pool,WBTC/USDC 0.05%,ok
+token0_decimals,8,ok
+token1_decimals,6,ok
+first_swap_token1_in_raw,2443881944,raw USDC units
+first_swap_token1_in_human_usdc,2443.881944,raw/1e6
+replay_hook_total_quote_notional_usdc,185319689.49364,decimal-normalized
+replay_hook_toxic_gross_lvr_usdc,2045380.6098430892,decimal-normalized
+agent_launch_policy_gross_lvr_usdc_threshold0_floor0,92842.88415305228,decimal-normalized
+agent_launch_policy_fee_revenue_usdc_threshold0_floor0,85480.57566506065,decimal-normalized
+agent_launch_policy_recapture_pct_threshold0_floor0,92.07014241839494,decimal-normalized
+agent_launch_policy_trigger_clear_trade_counts,947/947/983,ok
+legacy_window_summary_dutch_auction_lp_net_quote_raw_sum,-3.2462475955264708e+16,unsafe for publication
+legacy_window_summary_dutch_auction_lp_net_quote_div_1e6,-32462475955.26471,"still legacy observed-flow path, exclude"

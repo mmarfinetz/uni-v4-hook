@@ -1,0 +1,9 @@
+{
+  "complete": true,
+  "completed_window_count": 124,
+  "launch_policy_rows": 5208,
+  "manifest_window_count": 124,
+  "mixed_flow_table": "study_artifacts/month_2025_10_usd_floor/month_mixed_flow_usability_summary.csv",
+  "selected_launch_policy_table": "study_artifacts/month_2025_10_usd_floor/month_launch_policy_selected_by_pool.csv",
+  "top_launch_policy_table": "study_artifacts/month_2025_10_usd_floor/month_launch_policy_top.csv"
+}

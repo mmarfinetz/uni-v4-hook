@@ -8,6 +8,7 @@ import hashlib
 import json
 import sys
 from dataclasses import asdict, dataclass
+from decimal import Decimal, getcontext
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +17,9 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from script.run_backtest_batch import load_backtest_manifest, ranking_stability_rows
+
+
+getcontext().prec = 80
 
 
 @dataclass(frozen=True)
@@ -142,6 +146,7 @@ def generate_aggregate_report(args: argparse.Namespace) -> dict[str, Any]:
         "replay_error_stats": replay_error_stats,
         "fee_identity_stats": fee_identity_stats,
         "fee_identity_aggregate": build_fee_identity_aggregate(fee_identity_stats),
+        "collateral_damage_summary": build_collateral_damage_summary(window_summaries),
         "regime_breakdown": build_regime_breakdown(window_summaries),
         "oracle_ranking_stability": oracle_ranking_stability,
         "fee_policy_ranking_stability": fee_policy_ranking_stability,
@@ -245,6 +250,26 @@ def build_fee_identity_aggregate(fee_identity_stats: list[dict[str, Any]]) -> di
     }
 
 
+def build_collateral_damage_summary(window_summaries: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "mean_benign_overcharge_bps": _decimal_mean(
+            _optional_decimal_values(window_summaries, "hook_benign_mean_overcharge_bps")
+        ),
+        "total_rejected_stale_oracle": sum(
+            _optional_int(row.get("hook_rejected_stale_oracle")) or 0 for row in window_summaries
+        ),
+        "total_rejected_fee_cap": sum(
+            _optional_int(row.get("hook_rejected_fee_cap")) or 0 for row in window_summaries
+        ),
+        "mean_volume_loss_rate": _decimal_mean(
+            _optional_decimal_values(window_summaries, "hook_volume_loss_rate")
+        ),
+        "mean_toxic_clip_rate": _decimal_mean(
+            _optional_decimal_values(window_summaries, "hook_toxic_clip_rate")
+        ),
+    }
+
+
 def build_regime_breakdown(window_summaries: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     grouped: dict[str, list[dict[str, Any]]] = {}
     for summary in window_summaries:
@@ -326,6 +351,28 @@ def _optional_float(value: Any) -> float | None:
     if value in (None, ""):
         return None
     return float(value)
+
+
+def _optional_int(value: Any) -> int | None:
+    if value in (None, ""):
+        return None
+    return int(value)
+
+
+def _optional_decimal_values(rows: list[dict[str, Any]], key: str) -> list[Decimal]:
+    values: list[Decimal] = []
+    for row in rows:
+        value = row.get(key)
+        if value in (None, ""):
+            continue
+        values.append(Decimal(str(value)))
+    return values
+
+
+def _decimal_mean(values: list[Decimal]) -> float | None:
+    if not values:
+        return None
+    return float(sum(values) / Decimal(len(values)))
 
 
 def _optional_bool(value: Any) -> bool | None:

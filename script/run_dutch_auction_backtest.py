@@ -86,7 +86,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", required=True, help="Per-swap CSV output path.")
     parser.add_argument("--summary-output", required=True, help="Summary JSON output path.")
     parser.add_argument("--base-fee-bps", type=float, default=5.0, help="Base LP fee in bps.")
-    parser.add_argument("--max-fee-bps", type=float, default=500.0, help="Hook max fee in bps.")
+    parser.add_argument(
+        "--max-fee-bps",
+        type=float,
+        default=500.0,
+        help="Maximum configured hook fee in bps; swaps fail closed above this threshold.",
+    )
     parser.add_argument("--alpha-bps", type=float, default=10_000.0, help="Hook alpha in bps.")
     parser.add_argument("--max-oracle-age-seconds", type=int, default=3600, help="Hook oracle freshness limit.")
     parser.add_argument(
@@ -141,7 +146,7 @@ def parse_args() -> argparse.Namespace:
         default="auction_beats_hook",
         help=(
             "all_toxic: auction every toxic swap. clip_hit_only: only auction swaps "
-            "where the hook fee would be clipped (fee_fraction > max_fee_fraction before clip). "
+            "where the hook would fail closed because fee_fraction > max_fee_fraction. "
             "auction_beats_hook: only auction swaps where hook leaves LP net-negative "
             "(gross_lvr > hook_fee_revenue ex ante)."
         ),

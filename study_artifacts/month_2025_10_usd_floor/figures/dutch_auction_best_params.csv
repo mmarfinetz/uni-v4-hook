@@ -1,0 +1,4 @@
+selection,base_fee_bps,alpha_bps,start_concession_bps,concession_growth_bps_per_second,min_stale_loss_quote,max_concession_bps,max_duration_seconds,solver_gas_cost_quote,solver_edge_bps,reserve_margin_bps,recapture_pct,reprice_execution_pct,no_trade_pct,stale_time_pct,auction_clear_pct
+Execution constrained,0.0,0.0,0.001,0.0,0.5,5000.0,0,0.0,0.0,0.0,99.99999000000001,100.0,0.0,0.0,100.0
+LP-only stale optimum,5.0,10000.0,0.001,0.0,0.5,5000.0,0,0.0,0.0,0.0,,0.0,100.0,100.0,0.0
+LP net with delay budget,0.0,10000.0,0.001,0.0,0.5,5000.0,0,0.0,0.0,0.0,99.99999999999535,1.866466258629038,38.2716049382716,39.69933184855234,100.0

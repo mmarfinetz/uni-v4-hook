@@ -1,0 +1,16 @@
+{
+  "excluded_pools": [
+    {
+      "pool": "0xa6Cc3C2531FdaA6Ae1A3CA84c2855806728693e8",
+      "reason": "manual_input_guard",
+      "detail": "LINK/WETH 3000 exact replay remains blocked when callers force the legacy exclusions file on ad hoc temp inputs. Default replay now bypasses this override for the committed real fixture directories under study_artifacts/replay_diagnostics, where both the normal and stress 500-block windows replay clean with replay_error_p99 = 0.0.",
+      "export_command": "python3 -m script.export_historical_replay_data --rpc-url cached://real-onchain --from-block 24690145 --to-block 24690645 --base-feed 0x2c1d072e956AFFC0D435Cb7AC38EF18d24d9127c --quote-feed 0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419 --pool 0xa6Cc3C2531FdaA6Ae1A3CA84c2855806728693e8 --output-dir study_artifacts/replay_diagnostics/link_weth_3000_normal_500block/target --rpc-cache-dir cache/rpc_cache --blocks-per-request 10"
+    },
+    {
+      "pool": "0x1d42064Fc4Beb5F8aAF85F4617AE8b3b5B8Bd801",
+      "reason": "manual_input_guard",
+      "detail": "UNI/WETH 3000 exact replay remains blocked when callers force the legacy exclusions file on ad hoc temp inputs. Default replay now bypasses this override for the committed real fixture directories under study_artifacts/replay_diagnostics, where both the normal and stress 500-block windows replay clean with replay_error_p99 = 0.0.",
+      "export_command": "python3 -m script.export_historical_replay_data --rpc-url cached://real-onchain --from-block 24690145 --to-block 24690645 --base-feed 0x553303d460EE0afB37EdFf9bE42922D8FF63220e --quote-feed 0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419 --pool 0x1d42064Fc4Beb5F8aAF85F4617AE8b3b5B8Bd801 --output-dir study_artifacts/replay_diagnostics/uni_weth_3000_normal_500block/target --rpc-cache-dir cache/rpc_cache --blocks-per-request 10"
+    }
+  ]
+}

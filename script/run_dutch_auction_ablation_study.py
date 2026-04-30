@@ -23,6 +23,7 @@ from script.run_backtest_batch import run_backtest_batch
 
 FROZEN_STUDY_ROOT = REPO_ROOT / "study_artifacts" / "dutch_auction_ablation_2026_03_28"
 FROZEN_INPUTS_ROOT = FROZEN_STUDY_ROOT / "inputs"
+REPLAY_DIAGNOSTICS_ROOT = REPO_ROOT / "study_artifacts" / "replay_diagnostics"
 
 
 ETH_USD_CHAINLINK = "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419"
@@ -34,6 +35,10 @@ USDC_USD_CHAINLINK_REGISTRY = "0xc9E1a09622afdB659913fefE800fEaE5DBbFe9d7"
 
 def _frozen_input_dir(family: str) -> str:
     return str(FROZEN_INPUTS_ROOT / family / "target")
+
+
+def _replay_diagnostic_input_dir(family: str) -> str:
+    return str(REPLAY_DIAGNOSTICS_ROOT / family / "target")
 
 
 @dataclass(frozen=True)
@@ -187,6 +192,65 @@ DEFAULT_SOURCE_SPECS = (
     ),
 )
 
+REPLAY_DIAGNOSTIC_SOURCE_SPECS = (
+    StudySourceSpec(
+        source_id="link_weth_3000_normal_500block",
+        regime="normal",
+        input_dir=_replay_diagnostic_input_dir("link_weth_3000_normal_500block"),
+        window_count=3,
+        min_swaps=4,
+        oracle_sources=(
+            {"name": "chainlink", "oracle_updates_path": "chainlink_reference_updates.csv"},
+        ),
+        base_feed="0x2c1d072e956AFFC0D435Cb7AC38EF18d24d9127c",
+        quote_feed=ETH_USD_CHAINLINK,
+        market_base_feed="0x2c1d072e956AFFC0D435Cb7AC38EF18d24d9127c",
+        market_quote_feed=ETH_USD_CHAINLINK,
+    ),
+    StudySourceSpec(
+        source_id="link_weth_3000_stress_500block",
+        regime="stress",
+        input_dir=_replay_diagnostic_input_dir("link_weth_3000_stress_500block"),
+        window_count=3,
+        min_swaps=4,
+        oracle_sources=(
+            {"name": "chainlink", "oracle_updates_path": "chainlink_reference_updates.csv"},
+        ),
+        base_feed="0x2c1d072e956AFFC0D435Cb7AC38EF18d24d9127c",
+        quote_feed=ETH_USD_CHAINLINK,
+        market_base_feed="0x2c1d072e956AFFC0D435Cb7AC38EF18d24d9127c",
+        market_quote_feed=ETH_USD_CHAINLINK,
+    ),
+    StudySourceSpec(
+        source_id="uni_weth_3000_normal_500block",
+        regime="normal",
+        input_dir=_replay_diagnostic_input_dir("uni_weth_3000_normal_500block"),
+        window_count=3,
+        min_swaps=4,
+        oracle_sources=(
+            {"name": "chainlink", "oracle_updates_path": "chainlink_reference_updates.csv"},
+        ),
+        base_feed="0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+        quote_feed=ETH_USD_CHAINLINK,
+        market_base_feed="0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+        market_quote_feed=ETH_USD_CHAINLINK,
+    ),
+    StudySourceSpec(
+        source_id="uni_weth_3000_stress_500block",
+        regime="stress",
+        input_dir=_replay_diagnostic_input_dir("uni_weth_3000_stress_500block"),
+        window_count=1,
+        min_swaps=3,
+        oracle_sources=(
+            {"name": "chainlink", "oracle_updates_path": "chainlink_reference_updates.csv"},
+        ),
+        base_feed="0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+        quote_feed=ETH_USD_CHAINLINK,
+        market_base_feed="0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+        market_quote_feed=ETH_USD_CHAINLINK,
+    ),
+)
+
 OLD_POLICY = PolicyConfig(
     name="old_policy",
     start_concession_bps=5.0,
@@ -246,7 +310,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rpc-timeout", type=int, default=45)
     parser.add_argument("--max-retries", type=int, default=5)
     parser.add_argument("--retry-backoff-seconds", type=float, default=1.0)
+    parser.add_argument(
+        "--include-replay-diagnostics",
+        action="store_true",
+        help=(
+            "Include the replay-clean LINK/WETH and UNI/WETH diagnostic fixture families under "
+            "study_artifacts/replay_diagnostics in addition to the frozen ablation-study sources."
+        ),
+    )
     return parser.parse_args()
+
+
+def selected_source_specs(*, include_replay_diagnostics: bool) -> tuple[StudySourceSpec, ...]:
+    if not include_replay_diagnostics:
+        return DEFAULT_SOURCE_SPECS
+    return DEFAULT_SOURCE_SPECS + REPLAY_DIAGNOSTIC_SOURCE_SPECS
 
 
 def run_study(args: argparse.Namespace) -> dict[str, Any]:
@@ -254,7 +332,9 @@ def run_study(args: argparse.Namespace) -> dict[str, Any]:
     output_root.mkdir(parents=True, exist_ok=True)
     manifest_path = Path(args.manifest_output) if args.manifest_output else output_root / "extended_manifest.json"
 
-    manifest_payload = build_extended_manifest(DEFAULT_SOURCE_SPECS)
+    manifest_payload = build_extended_manifest(
+        selected_source_specs(include_replay_diagnostics=bool(args.include_replay_diagnostics))
+    )
     manifest_payload = relativize_manifest_paths(manifest_payload, manifest_path.parent)
     manifest_path.write_text(json.dumps(manifest_payload, indent=2, sort_keys=True), encoding="utf-8")
 

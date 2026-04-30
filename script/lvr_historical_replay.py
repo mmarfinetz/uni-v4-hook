@@ -73,6 +73,8 @@ UNISWAP_V3_FEE_DENOMINATOR = Decimal(1_000_000)
 DECIMAL_ONE = Decimal(1)
 DECIMAL_ZERO = Decimal(0)
 DECIMAL_1_0001 = Decimal("1.0001")
+DEFAULT_REPLAY_EXCLUSIONS_PATH = Path(__file__).with_name("replay_exclusions.json")
+DEFAULT_REPLAY_DIAGNOSTICS_ROOT = Path(__file__).resolve().parents[1] / "study_artifacts" / "replay_diagnostics"
 
 
 @dataclass
@@ -243,6 +245,18 @@ class PoolSnapshot:
     token0_decimals: int
     token1_decimals: int
     from_block: int
+    pool: str | None = None
+    token0: str | None = None
+    token1: str | None = None
+    to_block: int | None = None
+
+
+@dataclass(frozen=True)
+class ReplayExclusion:
+    pool: str
+    reason: str
+    detail: str
+    export_command: str
 
 
 # ADDED: exact-v3-replay — PR 1
@@ -276,7 +290,76 @@ def load_pool_snapshot(path_str: str) -> PoolSnapshot:
         token0_decimals=int(payload["token0_decimals"]),
         token1_decimals=int(payload["token1_decimals"]),
         from_block=int(payload["from_block"]),
+        pool=str(payload["pool"]).lower() if payload.get("pool") not in (None, "") else None,
+        token0=str(payload["token0"]).lower() if payload.get("token0") not in (None, "") else None,
+        token1=str(payload["token1"]).lower() if payload.get("token1") not in (None, "") else None,
+        to_block=int(payload["to_block"]) if payload.get("to_block") not in (None, "") else None,
     )
+
+
+# ADDED: exact-v3-replay — PR 1
+def load_replay_exclusions(path_str: str) -> Dict[str, ReplayExclusion]:
+    path = Path(path_str)
+    if not path.exists():
+        raise ValueError(f"Replay exclusions file does not exist: {path}")
+
+    with path.open(encoding="utf-8") as handle:
+        payload = json.load(handle)
+
+    rows = payload.get("excluded_pools")
+    if not isinstance(rows, list):
+        raise ValueError(f"{path} must contain an 'excluded_pools' list.")
+
+    exclusions: Dict[str, ReplayExclusion] = {}
+    for index, row in enumerate(rows):
+        if not isinstance(row, dict):
+            raise ValueError(f"{path} excluded_pools[{index}] must be an object.")
+        missing = [
+            field for field in ("pool", "reason", "detail", "export_command") if row.get(field) in (None, "")
+        ]
+        if missing:
+            raise ValueError(f"{path} excluded_pools[{index}] is missing required fields: {', '.join(missing)}")
+
+        exclusion = ReplayExclusion(
+            pool=str(row["pool"]).lower(),
+            reason=str(row["reason"]),
+            detail=str(row["detail"]),
+            export_command=str(row["export_command"]),
+        )
+        exclusions[exclusion.pool] = exclusion
+    return exclusions
+
+
+def _load_default_replay_exclusions() -> Dict[str, ReplayExclusion]:
+    if not DEFAULT_REPLAY_EXCLUSIONS_PATH.exists():
+        return {}
+    return load_replay_exclusions(str(DEFAULT_REPLAY_EXCLUSIONS_PATH))
+
+
+def _lookup_replay_exclusion(
+    pool: str | None,
+    *,
+    exclusions_path: str | None = None,
+) -> ReplayExclusion | None:
+    if pool in (None, ""):
+        return None
+
+    exclusions = (
+        load_replay_exclusions(exclusions_path)
+        if exclusions_path is not None
+        else _load_default_replay_exclusions()
+    )
+    return exclusions.get(str(pool).lower())
+
+
+class ReplayExcludedError(ValueError):
+    def __init__(self, exclusion: ReplayExclusion) -> None:
+        self.exclusion = exclusion
+        super().__init__(
+            "Exact replay excluded for pool "
+            f"{exclusion.pool}: {exclusion.reason}. {exclusion.detail} "
+            f"Diagnostic command: {exclusion.export_command}"
+        )
 
 
 # ADDED: exact-v3-replay — PR 1
@@ -343,6 +426,42 @@ def load_liquidity_events(path_str: str) -> List[Dict[str, Any]]:
     return events
 
 
+def _is_committed_replay_fixture_input(
+    *,
+    pool_snapshot_path: str,
+    initialized_ticks_path: str,
+    initialized_ticks: Dict[int, InitializedTick],
+    source_fixture_dir: str | None = None,
+) -> bool:
+    if not initialized_ticks:
+        return False
+
+    if not DEFAULT_REPLAY_DIAGNOSTICS_ROOT.exists():
+        return False
+    if source_fixture_dir is not None:
+        fixture_dir = Path(source_fixture_dir).resolve()
+        return (
+            fixture_dir.is_relative_to(DEFAULT_REPLAY_DIAGNOSTICS_ROOT)
+            and fixture_dir.name == "target"
+        )
+
+    snapshot_path = Path(pool_snapshot_path).resolve()
+    ticks_path = Path(initialized_ticks_path).resolve()
+    if not snapshot_path.is_relative_to(DEFAULT_REPLAY_DIAGNOSTICS_ROOT):
+        return False
+    if not ticks_path.is_relative_to(DEFAULT_REPLAY_DIAGNOSTICS_ROOT):
+        return False
+    if snapshot_path.parent != ticks_path.parent:
+        return False
+    if snapshot_path.parent.name != "target":
+        return False
+    if snapshot_path.name != "pool_snapshot.json":
+        return False
+    if ticks_path.name != "initialized_ticks.csv":
+        return False
+    return True
+
+
 # ADDED: exact-v3-replay — PR 1
 @dataclass
 class ExactV3ReplayState:
@@ -402,11 +521,30 @@ class ExactReplayBackend:
         pool_snapshot_path: str,
         initialized_ticks_path: str,
         liquidity_events_path: str | None = None,
+        exclusions_path: str | None = None,
+        source_fixture_dir: str | None = None,
     ) -> "ExactReplayBackend":
+        snapshot = load_pool_snapshot(pool_snapshot_path)
+        initialized_ticks = load_initialized_ticks(initialized_ticks_path)
+        exclusion = None
+        if not (
+            exclusions_path is None
+            and _is_committed_replay_fixture_input(
+                pool_snapshot_path=pool_snapshot_path,
+                initialized_ticks_path=initialized_ticks_path,
+                initialized_ticks=initialized_ticks,
+                source_fixture_dir=source_fixture_dir,
+            )
+        ):
+            exclusion = _lookup_replay_exclusion(snapshot.pool, exclusions_path=exclusions_path)
+        if exclusion is not None:
+            warnings.warn(str(ReplayExcludedError(exclusion)), RuntimeWarning, stacklevel=2)
+            raise ReplayExcludedError(exclusion)
+
         liquidity_events = load_liquidity_events(liquidity_events_path) if liquidity_events_path else []
         return cls(
-            snapshot=load_pool_snapshot(pool_snapshot_path),
-            initialized_ticks=load_initialized_ticks(initialized_ticks_path),
+            snapshot=snapshot,
+            initialized_ticks=initialized_ticks,
             liquidity_events=liquidity_events,
         )
 

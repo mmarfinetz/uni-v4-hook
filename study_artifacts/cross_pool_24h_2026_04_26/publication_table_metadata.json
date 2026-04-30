@@ -1,0 +1,69 @@
+{
+  "rows": [
+    {
+      "auction_lp_loss_native": 0.08309818552615082,
+      "auction_lp_loss_usd": 0.08309818552615082,
+      "auction_recapture_pct": 99.99999000000001,
+      "auction_recapture_ratio": 0.9999999,
+      "fixed_fee_lp_loss_native": 531201.8461690432,
+      "fixed_fee_lp_loss_usd": 531201.8461690432,
+      "hook_only_reprice_execution_rate_by_quote": 0.0,
+      "hook_only_stale_time_share": 0.7068412985927268,
+      "observed_blocks": 956,
+      "pool": "WETH/USDC",
+      "quote_asset": "USDC",
+      "unprotected_lp_loss_native": 830981.8552615083,
+      "unprotected_lp_loss_usd": 830981.8552615083
+    },
+    {
+      "auction_lp_loss_native": 0.07996793846141569,
+      "auction_lp_loss_usd": 0.07996793846141569,
+      "auction_recapture_pct": 99.99962691860995,
+      "auction_recapture_ratio": 0.9999962691860995,
+      "fixed_fee_lp_loss_native": 10788.227051912258,
+      "fixed_fee_lp_loss_usd": 10788.227051912258,
+      "hook_only_reprice_execution_rate_by_quote": 0.0,
+      "hook_only_stale_time_share": 0.707412042831317,
+      "observed_blocks": 1168,
+      "pool": "WBTC/USDC",
+      "quote_asset": "USDC",
+      "unprotected_lp_loss_native": 21434.44851322093,
+      "unprotected_lp_loss_usd": 21434.44851322093
+    },
+    {
+      "auction_lp_loss_native": 44.55319727735662,
+      "auction_lp_loss_usd": 187809.67024497947,
+      "auction_recapture_pct": 97.06678251961675,
+      "auction_recapture_ratio": 0.9706678251961676,
+      "fixed_fee_lp_loss_native": 1302.6207419917212,
+      "fixed_fee_lp_loss_usd": 5491071.055680937,
+      "hook_only_reprice_execution_rate_by_quote": 0.0,
+      "hook_only_stale_time_share": 1.0,
+      "observed_blocks": 1183,
+      "pool": "LINK/WETH",
+      "quote_asset": "WETH",
+      "unprotected_lp_loss_native": 1518.9189882891117,
+      "unprotected_lp_loss_usd": 6402855.277558233
+    },
+    {
+      "auction_lp_loss_native": 10.735368226507717,
+      "auction_lp_loss_usd": 45253.90072517974,
+      "auction_recapture_pct": 81.46438869106456,
+      "auction_recapture_ratio": 0.8146438869106456,
+      "fixed_fee_lp_loss_native": 50.2904222300793,
+      "fixed_fee_lp_loss_usd": 211994.38407784593,
+      "hook_only_reprice_execution_rate_by_quote": 0.0,
+      "hook_only_stale_time_share": 0.9900469216550547,
+      "observed_blocks": 642,
+      "pool": "UNI/WETH",
+      "quote_asset": "WETH",
+      "unprotected_lp_loss_native": 57.91752992431672,
+      "unprotected_lp_loss_usd": 244145.71481310812
+    }
+  ],
+  "source_summary_csv": "/Users/mitch/uni-v4-hook/uni-v4-hook/study_artifacts/cross_pool_24h_2026_04_26/source_summaries/cross_pool_24h_summary.csv",
+  "weth_usd_end_ts": 1760140799,
+  "weth_usd_reference": "/Users/mitch/uni-v4-hook/uni-v4-hook/study_artifacts/cross_pool_24h_2026_04_26/reference_inputs/weth_usdc_market_reference_updates.csv",
+  "weth_usd_start_ts": 1760054411,
+  "weth_usd_time_weighted_price": 4215.4027482205065
+}

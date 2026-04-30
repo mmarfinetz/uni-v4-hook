@@ -1,0 +1,21 @@
+\begin{table}[t]
+\centering
+\tiny
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}lrrrrrrrrrrrrrr@{}}
+\toprule
+floor mode & oracle volatility threshold bps & min stale loss usd & median min stale loss quote & processed windows & lp uplift vs baseline quote & recapture pct & trigger count & clear count & trade count & clear rate pct & reprice execution pct & no trade pct & fail closed pct & better rows \\
+\midrule
+usd & 0 & 0 & 0 & 124 & 3,240,997.86 & 91.8351 & 8183 & 8183 & 8292 & 100.00 & 100.00 & 2.6671 & 2.6671 & 124 \\
+usd & 0 & 0.5 & 0.250074 & 124 & 3,240,985.37 & 91.8347 & 7940 & 7940 & 8292 & 100.00 & 100.00 & 2.6671 & 2.6671 & 124 \\
+usd & 0 & 1.0000 & 0.500147 & 124 & 3,240,964.36 & 91.8341 & 7855 & 7855 & 8292 & 100.00 & 100.00 & 2.6671 & 2.6671 & 124 \\
+usd & 0 & 5.0000 & 2.5007 & 124 & 3,240,634.25 & 91.8248 & 7508 & 7508 & 8292 & 100.00 & 100.00 & 2.6671 & 2.6671 & 124 \\
+usd & 0 & 25.0000 & 12.5037 & 124 & 3,237,898.32 & 91.7472 & 6826 & 6826 & 8292 & 100.00 & 100.00 & 2.6671 & 2.6671 & 122 \\
+usd & 0 & 100.00 & 50.0147 & 124 & 3,222,504.36 & 91.3110 & 5423 & 5423 & 8292 & 100.00 & 100.00 & 2.6671 & 2.6671 & 115 \\
+usd & 5.0000 & 0 & 0 & 124 & 3,172,518.58 & 89.8947 & 7717 & 7717 & 8292 & 100.00 & 100.00 & 2.6671 & 2.6671 & 124 \\
+usd & 5.0000 & 0.5 & 0.250074 & 124 & 3,172,517.33 & 89.8946 & 7671 & 7671 & 8292 & 100.00 & 100.00 & 2.6671 & 2.6671 & 124 \\
+\bottomrule
+\end{tabular}}
+\caption{Top October 2025 Dutch-auction launch rules ranked by aggregate native-quote LP uplift versus the no-auction baseline. This aggregate mixes USDC- and WETH-quoted pools and should be read as a ranking diagnostic, not a cross-asset welfare total.}
+\label{tab:month-launch-policy}
+\end{table}

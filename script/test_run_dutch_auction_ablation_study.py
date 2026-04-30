@@ -4,6 +4,7 @@ from script.run_dutch_auction_ablation_study import (
     build_ablation_rows,
     build_bootstrap_summary,
     percentile_interval,
+    selected_source_specs,
     select_prefix_indices,
 )
 
@@ -98,6 +99,16 @@ class DutchAuctionAblationStudyTest(unittest.TestCase):
         interval = percentile_interval([1.0, 2.0, 3.0, 4.0, 5.0])
         self.assertEqual(interval["lower"], 1.0)
         self.assertEqual(interval["upper"], 4.0)
+
+    def test_selected_source_specs_optionally_include_replay_diagnostics(self) -> None:
+        default_ids = [spec.source_id for spec in selected_source_specs(include_replay_diagnostics=False)]
+        expanded_ids = [spec.source_id for spec in selected_source_specs(include_replay_diagnostics=True)]
+
+        self.assertNotIn("link_weth_3000_stress_500block", default_ids)
+        self.assertNotIn("uni_weth_3000_stress_500block", default_ids)
+        self.assertIn("link_weth_3000_stress_500block", expanded_ids)
+        self.assertIn("uni_weth_3000_stress_500block", expanded_ids)
+        self.assertGreater(len(expanded_ids), len(default_ids))
 
 
 if __name__ == "__main__":

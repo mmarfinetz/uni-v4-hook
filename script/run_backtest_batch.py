@@ -25,6 +25,7 @@ from script.lvr_historical_replay import (
     ExactReplayBackend,
     ExactReplaySeriesRow,
     ReplayErrorRow,
+    ReplayExcludedError,
     load_oracle_updates,
     replay,
     summarize_replay_error_rows,
@@ -134,6 +135,11 @@ class AggregateManifestSummaryRow:
     dutch_auction_min_lp_uplift_quote: float | None = None
     dutch_auction_min_lp_uplift_stale_loss_bps: float | None = None
     dutch_auction_solver_payment_hook_cap_multiple: float | None = None
+    hook_benign_mean_overcharge_bps: float | None = None
+    hook_toxic_clip_rate: float | None = None
+    hook_volume_loss_rate: float | None = None
+    hook_rejected_stale_oracle: int | None = None
+    hook_rejected_fee_cap: int | None = None
 
 
 class DataSourceUnavailable(RuntimeError):
@@ -311,12 +317,18 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--rpc-timeout", type=int, default=45, help="RPC timeout in seconds.")
     parser.add_argument("--rpc-cache-dir", default=None, help="Optional directory for persistent RPC caching.")
-    parser.add_argument("--max-retries", type=int, default=5, help="RPC retry budget for rate limits.")
+    parser.add_argument("--max-retries", type=int, default=10, help="RPC retry budget for transient/rate-limit errors.")
     parser.add_argument(
         "--retry-backoff-seconds",
         type=float,
         default=1.0,
         help="Initial exponential backoff in seconds for RPC retries.",
+    )
+    parser.add_argument(
+        "--max-retry-sleep-seconds",
+        type=float,
+        default=30.0,
+        help="Cap per-retry RPC sleep in seconds. Use a negative value for no cap.",
     )
     return parser.parse_args()
 
@@ -381,6 +393,7 @@ def run_backtest_batch(
         timeout=args.rpc_timeout,
         max_retries=args.max_retries,
         retry_backoff_seconds=args.retry_backoff_seconds,
+        max_retry_sleep_seconds=args.max_retry_sleep_seconds,
         cache_dir=args.rpc_cache_dir,
     )
 
@@ -475,6 +488,7 @@ def run_window(
             window_id=window.window_id,
             export_dir=export_dir,
             window_dir=window_dir,
+            source_fixture_dir=_optional_str(export_summary, "source_fixture_dir"),
         )
         replay_error_stats = exact_replay_output["replay_error_stats"]
         replay_error_p99 = replay_error_stats["replay_error_p99"]
@@ -589,6 +603,11 @@ def run_window(
 
     aggregated_curve_metrics = aggregate_curve_metrics(source_reports)
     aggregated_auction_metrics = aggregate_auction_metrics(auction_rows)
+    primary_hook_metrics = _hook_strategy_metrics(
+        source_reports[primary_oracle_source],
+        window_id=window.window_id,
+    )
+    primary_hook_diagnostics = dict(primary_hook_metrics.get("per_swap_diagnostics") or {})
 
     confirmed_label_rate = compute_confirmed_label_rate(oracle_gap_result["dataset"])
     label_horizons = [int(value) for value in load_label_config(args.label_config)["markout_horizons_seconds"]]
@@ -635,6 +654,21 @@ def run_window(
         ),
         dutch_auction_solver_payment_hook_cap_multiple=float(
             getattr(args, "auction_solver_payment_hook_cap_multiple", 999.0)
+        ),
+        hook_benign_mean_overcharge_bps=_summary_float(
+            primary_hook_diagnostics, "benign_mean_overcharge_bps"
+        ),
+        hook_toxic_clip_rate=_summary_float(primary_hook_diagnostics, "toxic_clip_rate"),
+        hook_volume_loss_rate=_summary_float(primary_hook_diagnostics, "volume_loss_rate"),
+        hook_rejected_stale_oracle=(
+            int(primary_hook_metrics["rejected_stale_oracle"])
+            if primary_hook_metrics.get("rejected_stale_oracle") is not None
+            else None
+        ),
+        hook_rejected_fee_cap=(
+            int(primary_hook_metrics["rejected_fee_cap"])
+            if primary_hook_metrics.get("rejected_fee_cap") is not None
+            else None
         ),
     )
     (window_dir / "window_summary.json").write_text(
@@ -684,6 +718,7 @@ def prepare_window_inputs(
             rpc_cache_dir=args.rpc_cache_dir,
             max_retries=args.max_retries,
             retry_backoff_seconds=args.retry_backoff_seconds,
+            max_retry_sleep_seconds=args.max_retry_sleep_seconds,
         ),
         client=rpc_client,
     )
@@ -862,6 +897,7 @@ def materialize_cached_window_inputs(
     return {
         "oracle_updates": len(filtered_oracle_rows),
         "swap_samples": len(filtered_swap_rows),
+        "source_fixture_dir": str(source_dir),
     }
 
 
@@ -1041,12 +1077,17 @@ def emit_exact_replay_artifacts(
     window_id: str,
     export_dir: Path,
     window_dir: Path,
+    source_fixture_dir: str | None = None,
 ) -> dict[str, Any]:
-    backend = ExactReplayBackend.from_paths(
-        pool_snapshot_path=str(export_dir / "pool_snapshot.json"),
-        initialized_ticks_path=str(export_dir / "initialized_ticks.csv"),
-        liquidity_events_path=str(export_dir / "liquidity_events.csv"),
-    )
+    try:
+        backend = ExactReplayBackend.from_paths(
+            pool_snapshot_path=str(export_dir / "pool_snapshot.json"),
+            initialized_ticks_path=str(export_dir / "initialized_ticks.csv"),
+            liquidity_events_path=str(export_dir / "liquidity_events.csv"),
+            source_fixture_dir=source_fixture_dir,
+        )
+    except ReplayExcludedError as exc:
+        raise DataSourceUnavailable(f"window_id={window_id}: {exc}") from exc
     series_rows, replay_error_rows = backend.build_series(
         str(export_dir / "swap_samples.csv"),
         strategy="exact_replay",
@@ -1245,16 +1286,7 @@ def summarize_oracle_source_replay(
     oracle_source: str,
     replay_report: dict[str, Any],
 ) -> OracleSourceReplayRow:
-    hook_metrics = next(
-        (
-            metrics
-            for metrics in replay_report["strategies"].values()
-            if str(metrics.get("curve")) == "hook"
-        ),
-        replay_report["strategies"].get("hook_fee"),
-    )
-    if hook_metrics is None:
-        raise ValueError(f"window_id={window_id}: replay report is missing the hook strategy.")
+    hook_metrics = _hook_strategy_metrics(replay_report, window_id=window_id)
 
     total_quote_notional = float(hook_metrics.get("total_quote_notional") or 0.0)
     toxic_quote_notional = float(hook_metrics.get("toxic_quote_notional") or 0.0)
@@ -1293,6 +1325,20 @@ def summarize_oracle_source_auction(
         lp_net_auction_vs_fixed_fee_quote=float(summary.get("lp_net_auction_vs_fixed_fee_quote") or 0.0),
         mean_solver_surplus_quote=_optional_float(summary, "mean_solver_surplus_quote"),
     )
+
+
+def _hook_strategy_metrics(replay_report: dict[str, Any], *, window_id: str) -> dict[str, Any]:
+    hook_metrics = next(
+        (
+            metrics
+            for metrics in replay_report["strategies"].values()
+            if str(metrics.get("curve")) == "hook"
+        ),
+        replay_report["strategies"].get("hook_fee"),
+    )
+    if hook_metrics is None:
+        raise ValueError(f"window_id={window_id}: replay report is missing the hook strategy.")
+    return hook_metrics
 
 
 def aggregate_curve_metrics(source_reports: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:

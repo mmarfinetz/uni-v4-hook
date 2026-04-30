@@ -90,6 +90,24 @@ class RunWidthGuardBacktestTest(unittest.TestCase):
             self.assertEqual(len(result["rows"]), 1)
             self.assertEqual(result["rows"][0]["classification"], "would_accept")
 
+    def test_min_width_rounds_up_to_tick_spacing(self) -> None:
+        import math
+
+        from script.lvr_validation import required_min_width_ticks
+        from script.run_width_guard_backtest import _required_min_width_ticks_with_spacing
+
+        result = _required_min_width_ticks_with_spacing(
+            sigma2_per_second=4e-14,
+            latency_seconds=60,
+            lvr_budget=0.01,
+            tick_spacing=60,
+        )
+        unrounded = required_min_width_ticks(math.sqrt(4e-14), 60, 0.01)
+
+        self.assertEqual(result % 60, 0)
+        assert unrounded is not None
+        self.assertGreaterEqual(result, unrounded)
+
 
 if __name__ == "__main__":
     unittest.main()

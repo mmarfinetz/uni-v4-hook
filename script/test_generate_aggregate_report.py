@@ -233,6 +233,60 @@ class GenerateAggregateReportTest(unittest.TestCase):
             self.assertEqual(report["fee_identity_aggregate"]["all_fee_identity_holds"], True)
             self.assertEqual(report["fee_identity_aggregate"]["max_fee_identity_max_error_exact"], 1.6849e-71)
 
+    def test_aggregate_report_includes_collateral_damage_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            batch_output_dir = tmp_path / "out"
+            windows = [
+                self.make_window_manifest(window_id="pool-a", pool="0xaaa"),
+                self.make_window_manifest(window_id="pool-b", pool="0xbbb"),
+            ]
+            manifest_path = self.write_manifest(tmp_path, windows)
+            window_summaries = [
+                {
+                    **self.make_window_summary(
+                        window_id="pool-a",
+                        pool="0xaaa",
+                        oracle_ranking=["chainlink", "deep_pool"],
+                    ),
+                    "hook_benign_mean_overcharge_bps": 0.25,
+                    "hook_toxic_clip_rate": 0.10,
+                    "hook_volume_loss_rate": 0.05,
+                    "hook_rejected_stale_oracle": 2,
+                    "hook_rejected_fee_cap": 3,
+                },
+                {
+                    **self.make_window_summary(
+                        window_id="pool-b",
+                        pool="0xbbb",
+                        oracle_ranking=["chainlink", "deep_pool"],
+                    ),
+                    "hook_benign_mean_overcharge_bps": 0.75,
+                    "hook_toxic_clip_rate": 0.30,
+                    "hook_volume_loss_rate": 0.15,
+                    "hook_rejected_stale_oracle": 1,
+                    "hook_rejected_fee_cap": 4,
+                },
+            ]
+            for summary in window_summaries:
+                self.write_window_summary(batch_output_dir, summary)
+
+            (batch_output_dir / "aggregate_manifest_summary.json").write_text(
+                json.dumps({"windows": window_summaries}, indent=2, sort_keys=True),
+                encoding="utf-8",
+            )
+
+            report = generate_aggregate_report(
+                self.make_args(manifest_path, batch_output_dir, tmp_path / "report.json")
+            )
+
+            collateral = report["collateral_damage_summary"]
+            self.assertEqual(collateral["total_rejected_stale_oracle"], 3)
+            self.assertEqual(collateral["total_rejected_fee_cap"], 7)
+            self.assertAlmostEqual(collateral["mean_benign_overcharge_bps"], 0.50)
+            self.assertAlmostEqual(collateral["mean_volume_loss_rate"], 0.10)
+            self.assertAlmostEqual(collateral["mean_toxic_clip_rate"], 0.20)
+
 
 if __name__ == "__main__":
     unittest.main()
