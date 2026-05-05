@@ -8,7 +8,10 @@ out/
 # Local docs / working notes
 lvr_v4_hook_paper.pdf
 lvr_v4_hook_paper_dutch_auction.pdf
+lvr_v4_hook_paper_dutch_auction_v2.tex
 AGENTS.md
+prompt.md
+system_flow.svg
 docs/maxfee_semantic_decision.md
 docs/paper_revision_notes_2026_04_26.md
 docs/publication_checklist.md
@@ -20,7 +23,10 @@ docs/publication_checklist.md
 .env.*
 
 # Generated Python artifacts
+__pycache__/
+*.py[cod]
 script/__pycache__/
+.pytest_cache/
 .worktale/
 
 # Generated LaTeX artifacts

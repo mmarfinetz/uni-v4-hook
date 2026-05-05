@@ -27,6 +27,12 @@ from script.lvr_historical_replay import (
     write_rows_csv,
 )
 from script.lvr_validation import correction_trade
+from script.oracle_gap_policy import (
+    AuctionEligibilityState,
+    build_eligibility_state,
+    is_auction_eligible,
+    stale_loss_bps,
+)
 
 
 getcontext().prec = 80
@@ -57,12 +63,13 @@ class AgentSimulationConfig:
     reserve_margin_bps: float
     trigger_condition: str
     auction_accounting_mode: str
-    oracle_volatility_threshold_bps: float
+    trigger_gap_bps: float
     start_concession_bps: float
     concession_growth_bps_per_second: float
     max_concession_bps: float
     max_duration_seconds: int
     min_stale_loss_quote: float
+    min_stale_loss_bps: float
     block_source: str
     reference_update_policy: str
     auction_expiry_policy: str
@@ -113,6 +120,8 @@ class AgentSimulationRow:
     pool_price_before: float
     pool_price_after: float
     stale_gap_bps_before: float | None
+    stale_gap_sign: int | None
+    stale_loss_bps: float | None
     stale_gap_bps_after: float | None
     residual_gap_bps_after_trade: float | None
     strategy: str
@@ -126,6 +135,7 @@ class AgentSimulationRow:
     delay_blocks_if_trade: int | None
     delay_seconds_if_trade: int | None
     agent_profit_quote: float
+    solver_payment_quote: float
     lp_fee_revenue_quote: float
     gross_lvr_quote: float
     potential_gross_lvr_quote: float
@@ -209,10 +219,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--trigger-condition",
         choices=[
-            "oracle_volatility_threshold",
             "hook_lp_net_negative",
             "fee_too_high_or_unprofitable",
             "all_toxic",
+            "stale_gap_bps_before",
         ],
         default="fee_too_high_or_unprofitable",
         help="When Dutch auction mode replaces the hook-only baseline.",
@@ -228,10 +238,10 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
-        "--oracle-volatility-threshold-bps",
+        "--trigger-gap-bps",
         type=float,
-        default=0.0,
-        help="Absolute latest real oracle move threshold used by trigger_condition=oracle_volatility_threshold.",
+        default=25.0,
+        help="Auction eligibility threshold on stale_gap_bps_before.",
     )
     parser.add_argument(
         "--start-concession-bps",
@@ -264,6 +274,12 @@ def parse_args() -> argparse.Namespace:
         help="Minimum exact stale-loss quote required before Dutch auction can trigger.",
     )
     parser.add_argument(
+        "--min-stale-loss-bps",
+        type=float,
+        default=0.0,
+        help="Minimum stale-loss bps of toxic input notional required before Dutch auction can trigger.",
+    )
+    parser.add_argument(
         "--reference-update-policy",
         choices=[UPDATE_IN_PLACE],
         default=UPDATE_IN_PLACE,
@@ -288,7 +304,7 @@ def parse_args() -> argparse.Namespace:
         default=5_000.0,
         help=(
             "Alpha used by the public-searcher fallback path after an auction expires, in bps. "
-            "Joel's intended fallback is alpha < 1, so the default is 5_000 bps = 0.5."
+            "The conservative fallback uses alpha < 1, so the default is 5_000 bps = 0.5."
         ),
     )
     parser.add_argument(
@@ -320,12 +336,13 @@ def run_agent_simulation(args: argparse.Namespace) -> dict[str, Any]:
         reserve_margin_bps=float(getattr(args, "reserve_margin_bps", 0.0)),
         trigger_condition=str(args.trigger_condition),
         auction_accounting_mode=str(getattr(args, "auction_accounting_mode", "auto")),
-        oracle_volatility_threshold_bps=float(args.oracle_volatility_threshold_bps),
+        trigger_gap_bps=float(getattr(args, "trigger_gap_bps", 25.0)),
         start_concession_bps=float(args.start_concession_bps),
         concession_growth_bps_per_second=float(args.concession_growth_bps_per_second),
         max_concession_bps=float(args.max_concession_bps),
         max_duration_seconds=int(args.max_duration_seconds),
         min_stale_loss_quote=float(args.min_stale_loss_quote),
+        min_stale_loss_bps=float(getattr(args, "min_stale_loss_bps", 0.0)),
         block_source=str(args.block_source),
         reference_update_policy=str(args.reference_update_policy),
         auction_expiry_policy=str(args.auction_expiry_policy),
@@ -470,12 +487,15 @@ def _simulate_strategy_block(
     fee_revenue_quote = DECIMAL_ZERO
     gross_lvr_quote = DECIMAL_ZERO
     agent_profit_quote = DECIMAL_ZERO
+    solver_payment_quote = DECIMAL_ZERO
     residual_gap_after_trade: float | None = None
     decision_reason = "no_reference"
     auction_trigger_block: int | None = state.pending_auction.trigger_block if state.pending_auction else None
     auction_clear_block: int | None = None
     reference_price_value: float | None = None
     stale_gap_bps_before: float | None = None
+    stale_gap_sign_value: int | None = None
+    stale_loss_bps_value: float | None = None
     stale_gap_bps_after: float | None = None
     expired_pending_auction: PendingAuction | None = None
 
@@ -490,6 +510,8 @@ def _simulate_strategy_block(
             pool_price_before=float(pool_price_before),
             pool_price_after=float(pool_price_after),
             stale_gap_bps_before=None,
+            stale_gap_sign=None,
+            stale_loss_bps=None,
             stale_gap_bps_after=None,
             residual_gap_bps_after_trade=None,
             strategy=state.strategy,
@@ -503,6 +525,7 @@ def _simulate_strategy_block(
             delay_blocks_if_trade=None,
             delay_seconds_if_trade=None,
             agent_profit_quote=0.0,
+            solver_payment_quote=0.0,
             lp_fee_revenue_quote=0.0,
             gross_lvr_quote=0.0,
             potential_gross_lvr_quote=0.0,
@@ -543,6 +566,8 @@ def _simulate_strategy_block(
             pool_price_before=float(pool_price_before),
             pool_price_after=float(pool_price_after),
             stale_gap_bps_before=stale_gap_bps_before,
+            stale_gap_sign=0,
+            stale_loss_bps=None,
             stale_gap_bps_after=stale_gap_bps_after,
             residual_gap_bps_after_trade=None,
             strategy=state.strategy,
@@ -556,6 +581,7 @@ def _simulate_strategy_block(
             delay_blocks_if_trade=None,
             delay_seconds_if_trade=None,
             agent_profit_quote=0.0,
+            solver_payment_quote=0.0,
             lp_fee_revenue_quote=0.0,
             gross_lvr_quote=0.0,
             potential_gross_lvr_quote=0.0,
@@ -573,9 +599,12 @@ def _simulate_strategy_block(
         )
 
     state.stale_gap_blocks += 1
-    stale_gap_bps_before = gap_bps(reference_price_value, float(pool_price_before))
+    eligibility_state = build_eligibility_state(reference_price, pool_price_before)
+    stale_gap_bps_before = float(eligibility_state.stale_gap_bps_before)
+    stale_gap_sign_value = eligibility_state.stale_gap_sign
     gross_lvr_quote = _decimal(correction["gross_lvr"])
     toxic_input_notional = _decimal(correction["toxic_input_notional"])
+    stale_loss_bps_value = float(stale_loss_bps(gross_lvr_quote, toxic_input_notional))
     solver_required_quote = _solver_required_quote(
         toxic_input_notional=toxic_input_notional,
         config=config,
@@ -697,6 +726,8 @@ def _simulate_strategy_block(
                 hook_agent_profit_quote=hook_agent_profit_quote,
                 hook_fail_closed=hook_fail_closed,
                 latest_oracle_move_bps=latest_oracle_move_bps,
+                eligibility_state=eligibility_state,
+                stale_loss_bps_value=Decimal(str(stale_loss_bps_value)),
                 config=config,
             ):
                 state.pending_auction = PendingAuction(
@@ -720,6 +751,7 @@ def _simulate_strategy_block(
                 )
             else:
                 concession_quote = gross_lvr_quote * Decimal(str(concession_bps / 10_000.0))
+                solver_payment_quote = concession_quote
                 effective_fee_quote = max(fee_quote - concession_quote, DECIMAL_ZERO)
                 auction_lp_fee_quote = effective_fee_quote
                 auction_agent_profit_quote = gross_lvr_quote - effective_fee_quote
@@ -799,6 +831,8 @@ def _simulate_strategy_block(
         pool_price_before=float(pool_price_before),
         pool_price_after=float(pool_price_after),
         stale_gap_bps_before=stale_gap_bps_before,
+        stale_gap_sign=stale_gap_sign_value,
+        stale_loss_bps=stale_loss_bps_value,
         stale_gap_bps_after=stale_gap_bps_after,
         residual_gap_bps_after_trade=residual_gap_after_trade,
         strategy=state.strategy,
@@ -812,6 +846,7 @@ def _simulate_strategy_block(
         delay_blocks_if_trade=trade_delay_blocks,
         delay_seconds_if_trade=trade_delay_seconds,
         agent_profit_quote=float(agent_profit_quote),
+        solver_payment_quote=float(solver_payment_quote) if auction_cleared_this_block else 0.0,
         lp_fee_revenue_quote=float(fee_revenue_quote),
         gross_lvr_quote=float(gross_lvr_quote) if agent_traded else 0.0,
         potential_gross_lvr_quote=float(gross_lvr_quote),
@@ -909,20 +944,22 @@ def _should_trigger_auction(
     hook_agent_profit_quote: Decimal,
     hook_fail_closed: bool,
     latest_oracle_move_bps: float | None,
+    eligibility_state: AuctionEligibilityState,
+    stale_loss_bps_value: Decimal,
     config: AgentSimulationConfig,
 ) -> bool:
     if gross_lvr_quote < Decimal(str(config.min_stale_loss_quote)):
         return False
+    if stale_loss_bps_value < Decimal(str(config.min_stale_loss_bps)):
+        return False
+    if config.trigger_condition == "stale_gap_bps_before":
+        return is_auction_eligible(eligibility_state, Decimal(str(config.trigger_gap_bps)))
     if config.trigger_condition == "all_toxic":
         return True
     if config.trigger_condition == "hook_lp_net_negative":
         return hook_lp_net_quote < DECIMAL_ZERO
     if config.trigger_condition == "fee_too_high_or_unprofitable":
         return hook_fail_closed or hook_agent_profit_quote <= DECIMAL_ZERO
-    if config.trigger_condition == "oracle_volatility_threshold":
-        if latest_oracle_move_bps is None:
-            return False
-        return latest_oracle_move_bps >= config.oracle_volatility_threshold_bps
     raise AssertionError(f"Unsupported trigger_condition={config.trigger_condition}.")
 
 
@@ -1236,8 +1273,8 @@ def _validate_config(config: AgentSimulationConfig) -> None:
         raise ValueError("solver_edge_bps must be non-negative.")
     if config.reserve_margin_bps < 0.0:
         raise ValueError("reserve_margin_bps must be non-negative.")
-    if config.oracle_volatility_threshold_bps < 0.0:
-        raise ValueError("oracle_volatility_threshold_bps must be non-negative.")
+    if config.trigger_gap_bps < 0.0:
+        raise ValueError("trigger_gap_bps must be non-negative.")
     if config.start_concession_bps < 0.0:
         raise ValueError("start_concession_bps must be non-negative.")
     if config.concession_growth_bps_per_second < 0.0:
@@ -1250,6 +1287,8 @@ def _validate_config(config: AgentSimulationConfig) -> None:
         raise ValueError("max_duration_seconds must be non-negative.")
     if config.min_stale_loss_quote < 0.0:
         raise ValueError("min_stale_loss_quote must be non-negative.")
+    if config.min_stale_loss_bps < 0.0:
+        raise ValueError("min_stale_loss_bps must be non-negative.")
     if config.fallback_alpha_bps < 0.0:
         raise ValueError("fallback_alpha_bps must be non-negative.")
     if config.fallback_alpha_bps > 10_000.0:

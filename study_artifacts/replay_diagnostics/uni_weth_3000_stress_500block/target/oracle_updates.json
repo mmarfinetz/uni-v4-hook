@@ -1,0 +1,36 @@
+[
+  {
+    "base_answer": "787350560",
+    "base_decimals": 8,
+    "base_feed": "0x553303d460ee0afb37edff9be42922d8ff63220e",
+    "block_number": 23543841,
+    "block_timestamp": 1760057171,
+    "log_index": 805,
+    "quote_answer": "437153000000",
+    "quote_decimals": 8,
+    "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+    "reference_price": "0.001801086942100363",
+    "reference_price_wad": "1801086942100363",
+    "source_feed": "0x553303d460ee0afb37edff9be42922d8ff63220e",
+    "source_label": "base_feed",
+    "timestamp": 1760057171,
+    "tx_hash": "0x17a0a5b84c005184638192d9ad37797cd7b5c874cb8591b2841d179c1a75b7fd"
+  },
+  {
+    "base_answer": "787350560",
+    "base_decimals": 8,
+    "base_feed": "0x553303d460ee0afb37edff9be42922d8ff63220e",
+    "block_number": 23543993,
+    "block_timestamp": 1760059007,
+    "log_index": 276,
+    "quote_answer": "438811343189",
+    "quote_decimals": 8,
+    "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+    "reference_price": "0.001794280326205881",
+    "reference_price_wad": "1794280326205881",
+    "source_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+    "source_label": "quote_feed",
+    "timestamp": 1760059007,
+    "tx_hash": "0x97a46a74fb7448afcecf9f899bf05c59d5742cd6e14b316d06889b305d3f2938"
+  }
+]

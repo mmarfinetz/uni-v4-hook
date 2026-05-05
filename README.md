@@ -25,9 +25,10 @@ The identity chart proves the accounting claim. The next chart answers the econo
 - Exact toxic-flow surcharge law: `f*(z) = e^{|z|/2} - 1`, with `z = log(P_ref / P_pool)`.
 - The fee-identity claim is no longer hypothetical in this repo: the replay pipeline and exact-fee pass agree to machine precision on frozen real data.
 - The current Dutch-auction policy is positive versus hook in `21` windows, zero in `23`, and negative in `0`.
-- The 24-hour cross-pool stress rerun now includes WETH/USDC, WBTC/USDC, LINK/WETH, and UNI/WETH with nonzero auction trigger activity. See `study_artifacts/cross_pool_24h_2026_04_26/publication_table.md`.
-- The October 2025 month study completed `124 / 124` planned windows across WETH/USDC, WBTC/USDC, LINK/WETH, and UNI/WETH. The manual USD-floor launch policy uses a `$0.50` stale-loss floor converted into each pool's quote token.
-- The main remaining question is execution generalization, not fee accounting: the agent-study stress result is adversarial/informed-flow evidence, while the paper still needs broader holdout windows and mixed-flow market-quality tests.
+- The October 2025 v4 refresh completed `124 / 124` planned pool-windows across WETH/USDC, WBTC/USDC, LINK/WETH, and UNI/WETH.
+- Auction eligibility is now the pool-oracle stale gap in bps: `stale_gap_bps_before >= trigger_gap_bps`.
+- The recommended grid cell is `trigger_gap_bps=10`, `base_fee_bps=5`, `start_concession_bps=10`, `concession_growth_bps_per_sec=0.5`, and `max_fee_bps=2500`.
+- The main remaining question is execution generalization, not fee accounting: the month grid is adversarial/informed-flow evidence, while competitive routing and mixed-flow pending-auction behavior remain future work.
 
 ## Research Results
 
@@ -44,16 +45,16 @@ The Dutch-auction study separates baseline strategies from auction trigger rules
 | Hook-only exact toxic-flow fee | Exact toxic-flow fee applies, but no Dutch auction opens. | Negative control: exact fees can deter repricing and leave the pool stale. |
 | Hook + Dutch auction | Auction opens under a trigger rule and clears only if solver economics and LP reserve constraints are met. | Candidate mechanism for preserving repricing while returning stale-loss surplus to LPs. |
 
-Auction trigger rules tested in the simulator:
+Current auction trigger rules tested in the simulator:
 
 | Trigger rule | Fires when | Where used |
 | --- | --- | --- |
-| `oracle_volatility_threshold` | Latest oracle move is at least the threshold and stale loss exceeds the floor. | Main October 2025 month launch-policy sweep. |
+| `stale_gap_bps_before` | Current pool-oracle stale gap is at least `trigger_gap_bps`. | Main October 2025 v4 grid. |
 | `hook_lp_net_negative` | Hook-only counterfactual LP net would be negative: `hook_fee_revenue - gross_lvr < 0`. | October 10 four-pool stress exhibit. |
 | `fee_too_high_or_unprofitable` | The hook would fail closed or leave no public-searcher profit. | Robustness / diagnostic sweep. |
 | `all_toxic` | Every toxic correction above the stale-loss floor is auction eligible. | Upper-bound / diagnostic sweep. |
 
-The selected manual month policy uses `oracle_volatility_threshold = 0 bps` and a `$0.50` stale-loss floor converted into each pool's quote token. Solver gas, solver edge, and reserve margin are zero in this counterfactual, so this is a research benchmark rather than production solver economics.
+The selected month policy uses the stale-gap bps gate and reports recapture, clear rate, and solver payout in rate units. Solver gas, solver edge, and reserve margin are zero in this counterfactual, so this is a research benchmark rather than production solver economics.
 
 ## What the Hook Does
 
@@ -100,8 +101,6 @@ Fork tests and live historical export need `MAINNET_RPC_URL`.
 
 ## Open Questions
 
-- Decide whether the cross-pool 24-hour stress artifact should become a headline paper table or remain supporting evidence until more full-day normal and stress windows are frozen.
-- Freeze full raw input bundles for the cross-pool 24-hour run; the current artifact freezes the publication table, source summaries, and WETH/USD normalization reference.
 - Improve external-reference selection for alt pools so multi-oracle ranking is informative outside the core WETH/USDC families.
 - Test how robust the current auction trigger / reserve policy remains out of sample once broader alt-pool windows with nonzero triggers are identified.
 - Extend the auctioned agent study to mixed flow so benign execution cost, stale-time, and volume rejection can be reported alongside LP recapture.
@@ -109,6 +108,5 @@ Fork tests and live historical export need `MAINNET_RPC_URL`.
 ## Further Reading
 
 - [docs/research_results.md](docs/research_results.md)
-- [study_artifacts/cross_pool_24h_2026_04_26/README.md](study_artifacts/cross_pool_24h_2026_04_26/README.md)
 - [study_artifacts/one_page_proof_2026_03_31/README.md](study_artifacts/one_page_proof_2026_03_31/README.md)
 - [study_artifacts/dutch_auction_ablation_2026_03_28/README.md](study_artifacts/dutch_auction_ablation_2026_03_28/README.md)

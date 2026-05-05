@@ -1,0 +1,1 @@
+block_number,timestamp,tx_hash,log_index,event_type,tick_lower,tick_upper,amount,amount0,amount1

@@ -86,12 +86,13 @@ class RunAgentSimulationTest(unittest.TestCase):
             "solver_edge_bps": 0.0,
             "reserve_margin_bps": 0.0,
             "trigger_condition": "all_toxic",
-            "oracle_volatility_threshold_bps": 0.0,
+            "trigger_gap_bps": 0.0,
             "start_concession_bps": 0.0,
             "concession_growth_bps_per_second": 0.0,
             "max_concession_bps": 10_000.0,
             "max_duration_seconds": 60,
             "min_stale_loss_quote": 0.0,
+            "min_stale_loss_bps": 0.0,
             "reference_update_policy": "update_in_place",
             "auction_expiry_policy": "fallback_to_hook",
             "auction_accounting_mode": "auto",
@@ -284,8 +285,8 @@ class RunAgentSimulationTest(unittest.TestCase):
                     fixed_fee_bps=30.0,
                     base_fee_bps=600.0,
                     alpha_bps=10_000.0,
-                    trigger_condition="oracle_volatility_threshold",
-                    oracle_volatility_threshold_bps=1_000_000_000.0,
+                    trigger_condition="stale_gap_bps_before",
+                    trigger_gap_bps=1_000_000_000.0,
                 )
             )
 

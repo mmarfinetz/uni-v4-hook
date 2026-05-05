@@ -1,0 +1,11 @@
+parameter,direction,delta_recapture_mean_pp,delta_recapture_std_pp,pools_improved_of_4
+base_fee_bps,up,-0.9860485227645576,0.5626204312672177,0
+start_concession_bps,up,-0.6999848747476575,1.3022642138421243e-05,0
+trigger_gap_bps,up,-0.57677332087784,0.4242536980807995,0
+start_concession_bps,down,0.19999659746354,3.971762426666772e-06,4
+base_fee_bps,down,-0.088198758543985,0.07481979154500613,0
+trigger_gap_bps,down,-0.061181542612655,0.042074695017793484,0
+max_fee_bps,down,-0.025048137643452498,0.03804468327683616,0
+concession_growth_bps_per_sec,down,0.0,0.0,0
+concession_growth_bps_per_sec,up,0.0,0.0,0
+max_fee_bps,up,0.0,0.0,0

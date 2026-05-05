@@ -1,0 +1,11 @@
+{
+  "data_dir_resolved": ".tmp/month_2025_10/checkpointed_export_combined/windows",
+  "grid_size": 6,
+  "mode": "smoke",
+  "output": "reports/sensitivity_grid_smoke.csv",
+  "pools": [
+    "weth_usdc_3000"
+  ],
+  "row_count": 6,
+  "runtime_seconds": 0.10647183330729604
+}

@@ -1,0 +1,14 @@
+{
+  "data_dir_resolved": ".tmp/month_2025_10/checkpointed_export_combined/windows",
+  "grid_size": 324,
+  "mode": "full",
+  "output": "reports/sensitivity_grid_combined.csv",
+  "pools": [
+    "weth_usdc_3000",
+    "wbtc_usdc_500",
+    "link_weth_3000",
+    "uni_weth_3000"
+  ],
+  "row_count": 1296,
+  "runtime_seconds": 673.3511219578795
+}

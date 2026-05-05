@@ -310,6 +310,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rpc-timeout", type=int, default=45)
     parser.add_argument("--max-retries", type=int, default=5)
     parser.add_argument("--retry-backoff-seconds", type=float, default=1.0)
+    parser.add_argument("--max-retry-sleep-seconds", type=float, default=30.0)
     parser.add_argument(
         "--include-replay-diagnostics",
         action="store_true",
@@ -560,6 +561,7 @@ def make_batch_args(
         rpc_cache_dir=args.rpc_cache_dir,
         max_retries=args.max_retries,
         retry_backoff_seconds=args.retry_backoff_seconds,
+        max_retry_sleep_seconds=args.max_retry_sleep_seconds,
     )
 
 
