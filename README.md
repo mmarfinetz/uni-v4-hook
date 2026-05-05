@@ -16,6 +16,20 @@ The reproducible research bundle for that draft lives in [reports/](reports/). T
 - [docs/research_results_v2.md](docs/research_results_v2.md): concise methodology and results summary.
 - [docs/system_backtest_flow.md](docs/system_backtest_flow.md): system and backtest flow.
 
+## Fee-Law Validation
+
+The Dutch-auction study depends on the hook fee law being correct. The one-page proof artifacts validate that accounting layer separately from the auction parameter grid.
+
+Across `44` replay-clean frozen windows (`7,019` swaps), every exact-replay fee-identity check passed. Maximum residual error on the exact series was `1.0e-64`.
+
+![Fee identity vs oracle gap](study_artifacts/one_page_proof_2026_03_31/fee_identity_vs_oracle_gap.svg)
+
+The next chart shows how real toxic swaps split stale-loss value between LP recovery and remaining arbitrage surplus across swap sizes and fee schedules.
+
+![LVR split by swap size and fee rate](study_artifacts/one_page_proof_2026_03_31/lvr_split_by_size_and_fee_rate.svg)
+
+These charts prove the fee-accounting claim. The October 2025 grid in [reports/](reports/) is the separate mechanism-design test for the Dutch-auction repricing path.
+
 ## Key Results
 
 - Exact toxic-flow surcharge law: `f*(z) = e^{|z|/2} - 1`, with `z = log(P_ref / P_pool)`.
