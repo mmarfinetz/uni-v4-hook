@@ -114,10 +114,13 @@ Fork tests and live historical export need `MAINNET_RPC_URL`.
 
 - `src/`: hook, oracle, and interfaces
 - `test/`: Foundry unit, fuzz, invariant, property, and fork tests
-- `script/`: Python export, replay, backtest, reporting, and artifact-generation code
+- `research/lvr/`: Python export, replay, backtest, reporting, study, and config implementations
+- `script/`: compatibility wrappers for documented `python3 -m script.*` commands and legacy config paths
 - `reports/`: May 2026 paper result tables, charts, and deterministic checks
 - `study_artifacts/`: frozen proof artifacts and replay-clean diagnostic inputs
 - `docs/`: methodology notes and system/backtest flow documentation
+
+See [docs/python_tooling_map.md](docs/python_tooling_map.md) before moving Python tooling or reproducibility artifacts.
 
 ## Open Questions
 
@@ -130,4 +133,5 @@ Fork tests and live historical export need `MAINNET_RPC_URL`.
 - [lvr_v4_hook_paper_dutch_auction_v2.pdf](lvr_v4_hook_paper_dutch_auction_v2.pdf)
 - [docs/research_results_v2.md](docs/research_results_v2.md)
 - [docs/system_backtest_flow.md](docs/system_backtest_flow.md)
+- [docs/python_tooling_map.md](docs/python_tooling_map.md)
 - [reports/README.md](reports/README.md)
