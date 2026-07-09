@@ -37,6 +37,9 @@ script/__pycache__/
 *.out
 *.toc
 
+# Generated per-run agent-simulation outputs (keep curated report tables/charts)
+reports/**/agent_simulation_summary.json
+
 # Local exploratory figures not used by the paper/readme
 study_artifacts/month_2025_10_usd_floor/figures/lvr_per_trigger_cdf.*
 study_artifacts/month_2025_10_usd_floor/figures/lvr_split_waterfall_by_pool.*
