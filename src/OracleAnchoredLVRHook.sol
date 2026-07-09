@@ -38,6 +38,10 @@ contract OracleAnchoredLVRHook is IHooks {
     uint256 internal constant SQRT_WAD = 1e9;
     uint256 internal constant Q96 = 2 ** 96;
     uint256 internal constant EWMA_ALPHA_BPS = 2000;
+    /// @dev 0.5 bps expressed in WAD. The unsigned sqrt-price premium
+    /// `sqrt(P_hi/P_lo) - 1 = e^{|z|/2} - 1` approximates half the log gap `|z|`,
+    /// so a stale gap of `g` bps corresponds to a premium of `g * HALF_BPS_WAD`.
+    uint256 internal constant HALF_BPS_WAD = 5e13;
     /// @dev Scaling factor: WAD (1e18) / LP_FEE_DENOMINATOR (1e6) = 1e12.
     /// Fee units are in ppm (parts per million); WAD-scale fees must be divided
     /// by this factor to convert back to ppm for the PoolManager.
@@ -60,6 +64,15 @@ contract OracleAnchoredLVRHook is IHooks {
         uint32 centerTolTicks;
         uint256 lvrBudgetWad;
         uint256 bootstrapSigma2PerSecondWad;
+        /// @dev Dutch-auction trigger: the auction opens when the unsigned pool-oracle
+        /// stale gap reaches this many bps. Zero disables the auction path entirely.
+        uint24 triggerGapBps;
+        /// @dev Initial concession as a WAD fraction of the toxic surcharge
+        /// (10 bps = 1e15). The solver's discount starts here when the auction opens.
+        uint256 startConcessionWad;
+        /// @dev Concession growth per second as a WAD fraction of the toxic surcharge
+        /// (0.5 bps/sec = 5e13). The concession is capped at WAD (fee floor = baseFee).
+        uint256 concessionGrowthWadPerSec;
     }
 
     struct RiskState {
@@ -70,6 +83,8 @@ contract OracleAnchoredLVRHook is IHooks {
 
     mapping(PoolId => Config) public config;
     mapping(PoolId => RiskState) public risk;
+    /// @dev Timestamp at which the pool's Dutch auction opened; zero when closed.
+    mapping(PoolId => uint64) public auctionStartTs;
 
     event OwnerInitialized(address indexed owner);
     event ConfigSet(
@@ -84,6 +99,14 @@ contract OracleAnchoredLVRHook is IHooks {
         uint256 lvrBudgetWad,
         uint256 bootstrapSigma2PerSecondWad
     );
+    event AuctionConfigSet(
+        PoolId indexed poolId,
+        uint24 triggerGapBps,
+        uint256 startConcessionWad,
+        uint256 concessionGrowthWadPerSec
+    );
+    event AuctionOpened(PoolId indexed poolId, uint64 startTs, uint256 gapPremiumWad);
+    event AuctionClosed(PoolId indexed poolId, uint256 gapPremiumWad);
     event RiskStateSet(
         PoolId indexed poolId,
         uint256 sigma2PerSecondWad,
@@ -140,7 +163,8 @@ contract OracleAnchoredLVRHook is IHooks {
             address(cfg.oracle) == address(0) || cfg.baseFee > cfg.maxFee
                 || cfg.maxFee > LPFeeLibrary.MAX_LP_FEE || cfg.maxOracleAge == 0
                 || cfg.lvrBudgetWad == 0 || cfg.alphaBps == 0 || cfg.alphaBps > BPS_DENOMINATOR
-                || cfg.bootstrapSigma2PerSecondWad == 0
+                || cfg.bootstrapSigma2PerSecondWad == 0 || cfg.startConcessionWad > WAD
+                || cfg.concessionGrowthWadPerSec > WAD
         ) revert InvalidConfig();
 
         PoolId id = key.toId();
@@ -157,6 +181,9 @@ contract OracleAnchoredLVRHook is IHooks {
             cfg.centerTolTicks,
             cfg.lvrBudgetWad,
             cfg.bootstrapSigma2PerSecondWad
+        );
+        emit AuctionConfigSet(
+            id, cfg.triggerGapBps, cfg.startConcessionWad, cfg.concessionGrowthWadPerSec
         );
     }
 
@@ -190,7 +217,54 @@ contract OracleAnchoredLVRHook is IHooks {
         (uint256 referencePriceWad,,) = _loadFreshOracle(cfg);
         referenceSqrtPriceX96 = _priceWadToSqrtPriceX96(referencePriceWad);
         (poolSqrtPriceX96,,,) = poolManager.getSlot0(id);
-        (toxic, feeUnits) = _quoteFee(cfg, zeroForOne, referenceSqrtPriceX96, poolSqrtPriceX96);
+
+        (uint256 premiumWad, bool oracleAbovePool) =
+            _gapPremiumWad(referenceSqrtPriceX96, poolSqrtPriceX96);
+        toxic = premiumWad != 0 && (oracleAbovePool ? !zeroForOne : zeroForOne);
+
+        uint256 concessionWad = 0;
+        if (_auctionEligible(cfg, premiumWad)) {
+            concessionWad = _auctionConcessionWad(cfg, auctionStartTs[id]);
+        }
+        feeUnits = _feeUnits(cfg, toxic, premiumWad, concessionWad);
+    }
+
+    /// @notice Solver-facing view of the pool's Dutch-auction state at the current
+    /// oracle/pool gap. `concessionWad` is the WAD fraction of the toxic surcharge a
+    /// repricing swap would be discounted right now (elapsed 0 if not yet opened).
+    function auctionStatus(PoolKey calldata key)
+        external
+        view
+        returns (bool eligible, uint64 startTs, uint256 concessionWad, uint256 gapPremiumWad)
+    {
+        PoolId id = key.toId();
+        Config memory cfg = _loadConfig(id);
+        (uint256 referencePriceWad,,) = _loadFreshOracle(cfg);
+        uint160 referenceSqrtPriceX96 = _priceWadToSqrtPriceX96(referencePriceWad);
+        (uint160 poolSqrtPriceX96,,,) = poolManager.getSlot0(id);
+
+        (gapPremiumWad,) = _gapPremiumWad(referenceSqrtPriceX96, poolSqrtPriceX96);
+        startTs = auctionStartTs[id];
+        eligible = _auctionEligible(cfg, gapPremiumWad);
+        if (eligible) {
+            concessionWad = _auctionConcessionWad(cfg, startTs);
+        }
+    }
+
+    /// @notice Permissionless poke that opens (or closes) the pool's Dutch-auction
+    /// clock from the current oracle/pool gap without swapping. Solvers and keepers
+    /// call this when a stale gap appears so the concession accrues from that moment
+    /// rather than from the first swap.
+    function pokeAuction(PoolKey calldata key) external returns (bool open, uint256 concessionWad) {
+        PoolId id = key.toId();
+        Config memory cfg = _loadConfig(id);
+        (uint256 referencePriceWad,,) = _loadFreshOracle(cfg);
+        uint160 referenceSqrtPriceX96 = _priceWadToSqrtPriceX96(referencePriceWad);
+        (uint160 poolSqrtPriceX96,,,) = poolManager.getSlot0(id);
+
+        (uint256 premiumWad,) = _gapPremiumWad(referenceSqrtPriceX96, poolSqrtPriceX96);
+        concessionWad = _updateAuction(id, cfg, premiumWad);
+        open = auctionStartTs[id] != 0;
     }
 
     function minWidthTicks(PoolKey calldata key) external view returns (uint256) {
@@ -299,8 +373,12 @@ contract OracleAnchoredLVRHook is IHooks {
 
         uint160 referenceSqrtPriceX96 = _priceWadToSqrtPriceX96(referencePriceWad);
         (uint160 poolSqrtPriceX96,,,) = poolManager.getSlot0(id);
-        (, uint24 feeUnits) =
-            _quoteFee(cfg, params.zeroForOne, referenceSqrtPriceX96, poolSqrtPriceX96);
+
+        (uint256 premiumWad, bool oracleAbovePool) =
+            _gapPremiumWad(referenceSqrtPriceX96, poolSqrtPriceX96);
+        bool toxic = premiumWad != 0 && (oracleAbovePool ? !params.zeroForOne : params.zeroForOne);
+        uint256 concessionWad = _updateAuction(id, cfg, premiumWad);
+        uint24 feeUnits = _feeUnits(cfg, toxic, premiumWad, concessionWad);
 
         return (
             IHooks.beforeSwap.selector,
@@ -364,28 +442,39 @@ contract OracleAnchoredLVRHook is IHooks {
         if (block.timestamp > updatedAt + cfg.maxOracleAge) revert OracleStale();
     }
 
-    function _quoteFee(
-        Config memory cfg,
-        bool zeroForOne,
-        uint160 referenceSqrtPriceX96,
-        uint160 poolSqrtPriceX96
-    ) internal pure returns (bool toxic, uint24 feeUnits) {
+    /// @dev Unsigned sqrt-price premium of the pool-oracle gap:
+    /// `sqrt(P_hi / P_lo) - 1` in WAD, with `oracleAbovePool` giving the gap sign.
+    /// Zero premium means the pool already sits at the reference price.
+    function _gapPremiumWad(uint160 referenceSqrtPriceX96, uint160 poolSqrtPriceX96)
+        internal
+        pure
+        returns (uint256 premiumWad, bool oracleAbovePool)
+    {
+        if (referenceSqrtPriceX96 > poolSqrtPriceX96) {
+            premiumWad = FullMath.mulDiv(referenceSqrtPriceX96, WAD, poolSqrtPriceX96) - WAD;
+            oracleAbovePool = true;
+        } else if (referenceSqrtPriceX96 < poolSqrtPriceX96) {
+            premiumWad = FullMath.mulDiv(poolSqrtPriceX96, WAD, referenceSqrtPriceX96) - WAD;
+        }
+    }
+
+    /// @dev Toxic flow pays `baseFee + alpha * premium * (1 - concession)`; benign flow
+    /// pays `baseFee`. The concession is the Dutch-auction discount as a WAD fraction
+    /// of the toxic surcharge, so the fee never drops below `baseFee` and the LP always
+    /// keeps `(1 - concession)` of the recovered stale value. Fails closed above `maxFee`.
+    function _feeUnits(Config memory cfg, bool toxic, uint256 premiumWad, uint256 concessionWad)
+        internal
+        pure
+        returns (uint24 feeUnits)
+    {
         uint256 feeWad = uint256(cfg.baseFee) * FEE_SCALE;
 
-        if (referenceSqrtPriceX96 > poolSqrtPriceX96) {
-            toxic = !zeroForOne;
-            if (toxic) {
-                uint256 exactPremiumWad =
-                    FullMath.mulDiv(referenceSqrtPriceX96, WAD, poolSqrtPriceX96) - WAD;
-                feeWad += FullMath.mulDiv(exactPremiumWad, cfg.alphaBps, BPS_DENOMINATOR);
+        if (toxic) {
+            uint256 surchargeWad = FullMath.mulDiv(premiumWad, cfg.alphaBps, BPS_DENOMINATOR);
+            if (concessionWad != 0) {
+                surchargeWad -= FullMath.mulDiv(surchargeWad, concessionWad, WAD);
             }
-        } else if (referenceSqrtPriceX96 < poolSqrtPriceX96) {
-            toxic = zeroForOne;
-            if (toxic) {
-                uint256 exactPremiumWad =
-                    FullMath.mulDiv(poolSqrtPriceX96, WAD, referenceSqrtPriceX96) - WAD;
-                feeWad += FullMath.mulDiv(exactPremiumWad, cfg.alphaBps, BPS_DENOMINATOR);
-            }
+            feeWad += surchargeWad;
         }
 
         uint256 feeUnits256 = feeWad / FEE_SCALE;
@@ -396,8 +485,61 @@ contract OracleAnchoredLVRHook is IHooks {
         if (feeUnits > cfg.maxFee) revert DeviationTooLarge(feeUnits, cfg.maxFee);
     }
 
+    /// @dev The auction is eligible when the stale gap reaches `triggerGapBps`. The
+    /// premium `e^{|z|/2} - 1` is compared against the half-gap `triggerGapBps / 2`
+    /// in WAD; the difference from the exact log gap is second order in the gap.
+    function _auctionEligible(Config memory cfg, uint256 premiumWad)
+        internal
+        pure
+        returns (bool)
+    {
+        return cfg.triggerGapBps != 0 && premiumWad >= uint256(cfg.triggerGapBps) * HALF_BPS_WAD;
+    }
+
+    /// @dev Scheduled concession at the current timestamp for an auction opened at
+    /// `startTs` (elapsed 0 when the auction has not opened yet), capped at WAD.
+    function _auctionConcessionWad(Config memory cfg, uint64 startTs)
+        internal
+        view
+        returns (uint256)
+    {
+        uint256 elapsed = startTs == 0 ? 0 : block.timestamp - startTs;
+        uint256 concessionWad = cfg.startConcessionWad + cfg.concessionGrowthWadPerSec * elapsed;
+        return concessionWad > WAD ? WAD : concessionWad;
+    }
+
+    /// @dev Lazily transitions the pool's auction state from the pre-swap gap: opens
+    /// the clock when the gap first crosses the trigger, closes it once the gap is
+    /// repriced back inside, and returns the concession available to this swap.
+    function _updateAuction(PoolId id, Config memory cfg, uint256 premiumWad)
+        internal
+        returns (uint256 concessionWad)
+    {
+        if (cfg.triggerGapBps == 0) return 0;
+
+        uint64 startTs = auctionStartTs[id];
+        if (_auctionEligible(cfg, premiumWad)) {
+            if (startTs == 0) {
+                startTs = uint64(block.timestamp);
+                auctionStartTs[id] = startTs;
+                emit AuctionOpened(id, startTs, premiumWad);
+            }
+            concessionWad = _auctionConcessionWad(cfg, startTs);
+        } else if (startTs != 0) {
+            delete auctionStartTs[id];
+            emit AuctionClosed(id, premiumWad);
+        }
+    }
+
     function _refreshRisk(PoolId id, uint256 referencePriceWad, uint256 latestFeedTs) internal {
         RiskState memory current = risk[id];
+        if (
+            current.lastOraclePriceWad == referencePriceWad && current.lastOracleTs == latestFeedTs
+        ) {
+            // No new oracle information since the last swap; skip the redundant
+            // storage write and event.
+            return;
+        }
         if (latestFeedTs <= current.lastOracleTs || current.lastOraclePriceWad == 0) {
             current.lastOraclePriceWad = referencePriceWad;
             current.lastOracleTs = latestFeedTs;

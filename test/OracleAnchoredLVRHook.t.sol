@@ -357,6 +357,22 @@ contract OracleAnchoredLVRHookTest is Test, Deployers {
         assertEq(bootstrapWidth, explicitBootstrapWidth);
     }
 
+    function test_previewSwapFee_failsClosedWhenToxicPremiumExceedsBaseFeeOnlyMaxFee() public {
+        OracleAnchoredLVRHook.Config memory cfg = _defaultConfig();
+        cfg.maxFee = BASE_FEE;
+        hook.setConfig(key, cfg);
+        _setOraclePrice(_priceWadAtTick(5), block.timestamp);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                OracleAnchoredLVRHook.DeviationTooLarge.selector,
+                _expectedFeeUnits(5, false),
+                BASE_FEE
+            )
+        );
+        hook.previewSwapFee(key, false);
+    }
+
     function _defaultConfig() internal view returns (OracleAnchoredLVRHook.Config memory cfg) {
         cfg = OracleAnchoredLVRHook.Config({
             oracle: oracle,
@@ -367,7 +383,10 @@ contract OracleAnchoredLVRHookTest is Test, Deployers {
             latencySecs: LATENCY_SECS,
             centerTolTicks: CENTER_TOLERANCE_TICKS,
             lvrBudgetWad: LVR_BUDGET_WAD,
-            bootstrapSigma2PerSecondWad: BOOTSTRAP_SIGMA2_PER_SECOND_WAD
+            bootstrapSigma2PerSecondWad: BOOTSTRAP_SIGMA2_PER_SECOND_WAD,
+            triggerGapBps: 0,
+            startConcessionWad: 0,
+            concessionGrowthWadPerSec: 0
         });
     }
 

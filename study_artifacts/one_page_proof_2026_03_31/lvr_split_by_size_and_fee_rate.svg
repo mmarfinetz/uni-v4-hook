@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="980" height="620" viewBox="0 0 980 620" role="img" aria-labelledby="title desc">
   <title id="title">Who keeps stale-loss across swap sizes and fee rates?</title>
-  <desc id="desc">LVR-weighted share of stale-loss recaptured by LPs versus left to arbitrageurs, across toxic swap-size bins and fixed fee schedules on real WETH/USDC replay data.</desc>
+  <desc id="desc">LVR-weighted share of stale-loss recaptured by LPs versus left to arbitrageurs, across toxic swap-size bins and fixed fee schedules on real replay data from the selected terminal frozen-study windows.</desc>
   <rect width="980" height="620" fill="#ffffff" />
   <text x="90" y="32" font-family="Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#111827">Who keeps stale-loss on real toxic swaps?</text>
-  <text x="90" y="54" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#4b5563">Shares are LVR-weighted over exact-replay WETH/USDC swaps. Fixed-fee lines cap recapture at 100% of stale-loss; any overcharge beyond stale-loss is not counted here.</text>
+  <text x="90" y="54" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#4b5563">Shares are LVR-weighted over exact-replay swaps from the selected terminal frozen-study windows. Fixed-fee lines cap recapture at 100% of stale-loss; any overcharge beyond stale-loss is not counted here.</text>
   <line x1="90" y1="442.00" x2="954" y2="442.00" stroke="#e5e7eb" stroke-width="1" />
 <line x1="90" y1="352.00" x2="954" y2="352.00" stroke="#e5e7eb" stroke-width="1" />
 <line x1="90" y1="262.00" x2="954" y2="262.00" stroke="#e5e7eb" stroke-width="1" />

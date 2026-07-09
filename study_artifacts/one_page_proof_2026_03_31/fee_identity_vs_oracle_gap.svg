@@ -3,7 +3,7 @@
   <desc id="desc">Top panel: exact law, half-gap approximation, charged fee, and realized LVR on exact replay toxic swaps. Bottom panel: fee-rate residuals versus LVR rate.</desc>
   <rect width="920" height="700" fill="#ffffff" />
   <text x="90" y="30" font-family="Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#111827">Exact fee identity on real replay data</text>
-  <text x="90" y="52" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#4b5563">1,229 exact-replay toxic swaps from terminal WETH/USDC frozen-study windows; max |fee-LVR| = 0.0e+00</text>
+  <text x="90" y="52" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#4b5563">1,229 exact-replay toxic swaps from the selected terminal frozen-study windows; max |fee-LVR| = 0.0e+00</text>
   <line x1="90.00" y1="72" x2="90.00" y2="432" stroke="#e5e7eb" stroke-width="1" />
 <line x1="251.20" y1="72" x2="251.20" y2="432" stroke="#e5e7eb" stroke-width="1" />
 <line x1="412.40" y1="72" x2="412.40" y2="432" stroke="#e5e7eb" stroke-width="1" />

@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from script.generate_one_page_proof import generate_one_page_proof
+from script.generate_one_page_proof import build_log_bins, bucket_points_by_size, generate_one_page_proof
 
 
 class GenerateOnePageProofTest(unittest.TestCase):
@@ -299,6 +299,300 @@ class GenerateOnePageProofTest(unittest.TestCase):
             self.assertIn("Unrecaptured stale-loss left to arbitrage", split_svg)
             self.assertIn("Exact hook", split_svg)
             self.assertIn("5 bps", split_svg)
+
+    def test_generate_one_page_proof_supports_multiple_prefixes_and_surfaces_collateral_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            new_policy_dir = tmp_path / "new_policy"
+            output_dir = tmp_path / "proof"
+            new_policy_dir.mkdir(parents=True, exist_ok=True)
+
+            aggregate_payload = {
+                "windows": [
+                    {
+                        "window_id": "weth_usdc_3000_normal_4h_p01",
+                        "swap_samples": 1,
+                        "fee_identity_holds": True,
+                        "fee_identity_max_error_exact": 1e-18,
+                        "dutch_auction_lp_net_quote": 101.0,
+                        "dutch_auction_lp_net_vs_hook_quote": 1.0,
+                        "dutch_auction_lp_net_vs_fixed_fee_quote": 3.0,
+                        "dutch_auction_trigger_rate": 0.01,
+                        "dutch_auction_oracle_failclosed_rate": 0.0,
+                        "hook_benign_mean_overcharge_bps": 0.2,
+                        "hook_toxic_clip_rate": 0.1,
+                        "hook_volume_loss_rate": 0.05,
+                        "hook_rejected_stale_oracle": 2,
+                        "hook_rejected_fee_cap": 3,
+                    },
+                    {
+                        "window_id": "wbtc_usdc_500_normal_4h_p01",
+                        "swap_samples": 1,
+                        "fee_identity_holds": True,
+                        "fee_identity_max_error_exact": 1e-20,
+                        "dutch_auction_lp_net_quote": 102.0,
+                        "dutch_auction_lp_net_vs_hook_quote": 2.0,
+                        "dutch_auction_lp_net_vs_fixed_fee_quote": 4.0,
+                        "dutch_auction_trigger_rate": 0.02,
+                        "dutch_auction_oracle_failclosed_rate": 0.0,
+                        "hook_benign_mean_overcharge_bps": 0.4,
+                        "hook_toxic_clip_rate": 0.3,
+                        "hook_volume_loss_rate": 0.15,
+                        "hook_rejected_stale_oracle": 1,
+                        "hook_rejected_fee_cap": 4,
+                    },
+                ]
+            }
+            (new_policy_dir / "aggregate_manifest_summary.json").write_text(
+                json.dumps(aggregate_payload, indent=2, sort_keys=True),
+                encoding="utf-8",
+            )
+
+            for window_id in ("weth_usdc_3000_normal_4h_p01", "wbtc_usdc_500_normal_4h_p01"):
+                self.write_fee_identity_rows(
+                    new_policy_dir / window_id,
+                    [
+                        {
+                            "event_index": "1",
+                            "timestamp": "1",
+                            "block_number": "1",
+                            "tx_hash": "0x1",
+                            "log_index": "1",
+                            "direction": "zero_for_one",
+                            "reference_price": "100.0",
+                            "liquidity": "1",
+                            "token0_decimals": "18",
+                            "token1_decimals": "6",
+                            "pool_price_before_observed": "99.0",
+                            "pool_price_after_observed": "100.0",
+                            "toxic_input_notional_observed": "1000.0",
+                            "charged_fee_observed": "0.0",
+                            "exact_fee_revenue_observed": "5.0",
+                            "gross_lvr_observed": "5.0",
+                            "residual_error_observed": "0.0",
+                            "identity_holds_observed": "True",
+                            "pool_price_before_exact": "99.0",
+                            "pool_price_after_exact": "100.0",
+                            "toxic_input_notional_exact": "1000.0",
+                            "charged_fee_exact": "0.0",
+                            "exact_fee_revenue_exact": "5.0",
+                            "gross_lvr_exact": "5.0",
+                            "residual_error_exact": "0.0",
+                            "identity_holds_exact": "True",
+                        }
+                    ],
+                )
+
+            study_summary_path = tmp_path / "study_summary.json"
+            study_summary_path.write_text(
+                json.dumps(
+                    {
+                        "bootstrap_summary": {
+                            "overall": {
+                                "mean_new_lp_uplift_vs_hook_quote": 1.5,
+                                "bootstrap_ci_new_lp_uplift_vs_hook_quote": {
+                                    "lower": 0.5,
+                                    "upper": 2.5,
+                                },
+                            }
+                        }
+                    },
+                    indent=2,
+                    sort_keys=True,
+                ),
+                encoding="utf-8",
+            )
+
+            snapshot = generate_one_page_proof(
+                argparse.Namespace(
+                    new_policy_dir=str(new_policy_dir),
+                    study_summary=str(study_summary_path),
+                    output_dir=str(output_dir),
+                    chart_family_prefix="weth_usdc_,wbtc_usdc_",
+                )
+            )
+
+            self.assertEqual(
+                snapshot["chart"]["window_ids"],
+                ["wbtc_usdc_500_normal_4h_p01", "weth_usdc_3000_normal_4h_p01"],
+            )
+            self.assertEqual(snapshot["chart"]["family_prefixes"], ["weth_usdc_", "wbtc_usdc_"])
+            self.assertAlmostEqual(snapshot["collateral_damage"]["mean_benign_overcharge_bps"], 0.3)
+            self.assertEqual(snapshot["collateral_damage"]["total_rejected_fee_cap"], 7)
+            self.assertEqual(snapshot["collateral_damage"]["total_rejected_stale_oracle"], 3)
+
+            readme = (output_dir / "README.md").read_text(encoding="utf-8")
+            self.assertIn("Hook collateral", readme)
+            self.assertIn("Governance & Operational Path", readme)
+            self.assertIn("../../docs/dutch_auction_operational_spec.md", readme)
+            self.assertIn("fails closed above `maxFee`", readme)
+
+    def test_bucket_points_by_size_includes_log_bin_endpoints(self) -> None:
+        points = [
+            {"toxic_input_notional_quote": 486.10343859597907},
+            {"toxic_input_notional_quote": 19364058544.940304},
+        ]
+        bins = build_log_bins([point["toxic_input_notional_quote"] for point in points], bin_count=6)
+        buckets = bucket_points_by_size(points, bins)
+
+        self.assertEqual(bins[0], points[0]["toxic_input_notional_quote"])
+        self.assertEqual(bins[-1], points[1]["toxic_input_notional_quote"])
+        self.assertEqual(sum(len(bucket) for bucket in buckets), len(points))
+
+    def test_generate_one_page_proof_writes_curvature_chart_with_residual_panel(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            new_policy_dir = tmp_path / "new_policy"
+            output_dir = tmp_path / "proof"
+            new_policy_dir.mkdir(parents=True, exist_ok=True)
+
+            aggregate_payload = {
+                "windows": [
+                    {
+                        "window_id": "weth_usdc_3000_normal_4h_p01",
+                        "swap_samples": 3,
+                        "fee_identity_holds": True,
+                        "fee_identity_max_error_exact": 1e-18,
+                        "dutch_auction_lp_net_quote": 101.0,
+                        "dutch_auction_lp_net_vs_hook_quote": 1.0,
+                        "dutch_auction_lp_net_vs_fixed_fee_quote": 3.0,
+                        "dutch_auction_trigger_rate": 0.01,
+                        "dutch_auction_oracle_failclosed_rate": 0.0,
+                    }
+                ]
+            }
+            (new_policy_dir / "aggregate_manifest_summary.json").write_text(
+                json.dumps(aggregate_payload, indent=2, sort_keys=True),
+                encoding="utf-8",
+            )
+
+            self.write_fee_identity_rows(
+                new_policy_dir / "weth_usdc_3000_normal_4h_p01",
+                [
+                    {
+                        "event_index": "1",
+                        "timestamp": "1",
+                        "block_number": "1",
+                        "tx_hash": "0x1",
+                        "log_index": "1",
+                        "direction": "zero_for_one",
+                        "reference_price": "100.0",
+                        "liquidity": "1",
+                        "token0_decimals": "18",
+                        "token1_decimals": "6",
+                        "pool_price_before_observed": "99.0",
+                        "pool_price_after_observed": "100.0",
+                        "toxic_input_notional_observed": "1000.0",
+                        "charged_fee_observed": "0.0",
+                        "exact_fee_revenue_observed": "5.0",
+                        "gross_lvr_observed": "5.0",
+                        "residual_error_observed": "0.0",
+                        "identity_holds_observed": "True",
+                        "pool_price_before_exact": "99.0",
+                        "pool_price_after_exact": "100.0",
+                        "toxic_input_notional_exact": "1000.0",
+                        "charged_fee_exact": "0.0",
+                        "exact_fee_revenue_exact": "5.0",
+                        "gross_lvr_exact": "5.0",
+                        "residual_error_exact": "0.0",
+                        "identity_holds_exact": "True",
+                    },
+                    {
+                        "event_index": "2",
+                        "timestamp": "2",
+                        "block_number": "2",
+                        "tx_hash": "0x2",
+                        "log_index": "2",
+                        "direction": "zero_for_one",
+                        "reference_price": "100.0",
+                        "liquidity": "1",
+                        "token0_decimals": "18",
+                        "token1_decimals": "6",
+                        "pool_price_before_observed": "98.0",
+                        "pool_price_after_observed": "100.0",
+                        "toxic_input_notional_observed": "1000.0",
+                        "charged_fee_observed": "0.0",
+                        "exact_fee_revenue_observed": "10.0",
+                        "gross_lvr_observed": "10.0",
+                        "residual_error_observed": "0.0",
+                        "identity_holds_observed": "True",
+                        "pool_price_before_exact": "98.0",
+                        "pool_price_after_exact": "100.0",
+                        "toxic_input_notional_exact": "1000.0",
+                        "charged_fee_exact": "0.0",
+                        "exact_fee_revenue_exact": "10.0",
+                        "gross_lvr_exact": "10.0",
+                        "residual_error_exact": "0.0",
+                        "identity_holds_exact": "True",
+                    },
+                    {
+                        "event_index": "3",
+                        "timestamp": "3",
+                        "block_number": "3",
+                        "tx_hash": "0x3",
+                        "log_index": "3",
+                        "direction": "zero_for_one",
+                        "reference_price": "100.0",
+                        "liquidity": "1",
+                        "token0_decimals": "18",
+                        "token1_decimals": "6",
+                        "pool_price_before_observed": "97.0",
+                        "pool_price_after_observed": "100.0",
+                        "toxic_input_notional_observed": "1000.0",
+                        "charged_fee_observed": "0.0",
+                        "exact_fee_revenue_observed": "15.0",
+                        "gross_lvr_observed": "15.0",
+                        "residual_error_observed": "0.0",
+                        "identity_holds_observed": "True",
+                        "pool_price_before_exact": "97.0",
+                        "pool_price_after_exact": "100.0",
+                        "toxic_input_notional_exact": "1000.0",
+                        "charged_fee_exact": "0.0",
+                        "exact_fee_revenue_exact": "15.0",
+                        "gross_lvr_exact": "15.0",
+                        "residual_error_exact": "0.0",
+                        "identity_holds_exact": "True",
+                    },
+                ],
+            )
+
+            study_summary_path = tmp_path / "study_summary.json"
+            study_summary_path.write_text(
+                json.dumps(
+                    {
+                        "bootstrap_summary": {
+                            "overall": {
+                                "mean_new_lp_uplift_vs_hook_quote": 1.5,
+                                "bootstrap_ci_new_lp_uplift_vs_hook_quote": {
+                                    "lower": 0.5,
+                                    "upper": 2.5,
+                                },
+                            }
+                        }
+                    },
+                    indent=2,
+                    sort_keys=True,
+                ),
+                encoding="utf-8",
+            )
+
+            generate_one_page_proof(
+                argparse.Namespace(
+                    new_policy_dir=str(new_policy_dir),
+                    study_summary=str(study_summary_path),
+                    output_dir=str(output_dir),
+                    chart_family_prefix="weth_usdc_",
+                )
+            )
+
+            curvature_svg = (output_dir / "fee_law_curvature_vs_half_gap.svg").read_text(encoding="utf-8")
+            readme = (output_dir / "README.md").read_text(encoding="utf-8")
+
+            self.assertIn("Curvature of the exact fee law in the observed regime", curvature_svg)
+            self.assertIn("Exact law minus x / 2", curvature_svg)
+            self.assertIn("Residual panel: fee-rate minus LVR-rate identity check in micro-bps", curvature_svg)
+            self.assertIn("Curvature In The Observed Regime", readme)
+            self.assertIn("fee_law_curvature_vs_half_gap.svg", readme)
 
 
 if __name__ == "__main__":

@@ -86,7 +86,10 @@ contract PythonParityHarness {
                 latencySecs: latencySecs,
                 centerTolTicks: 30,
                 lvrBudgetWad: lvrBudgetWad,
-                bootstrapSigma2PerSecondWad: bootstrapSigma2PerSecondWad
+                bootstrapSigma2PerSecondWad: bootstrapSigma2PerSecondWad,
+                triggerGapBps: 0,
+                startConcessionWad: 0,
+                concessionGrowthWadPerSec: 0
             })
         );
     }

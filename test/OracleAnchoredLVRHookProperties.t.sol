@@ -212,7 +212,10 @@ contract OracleAnchoredLVRHookPropertiesTest is Test, Deployers {
             latencySecs: LATENCY_SECS,
             centerTolTicks: CENTER_TOLERANCE_TICKS,
             lvrBudgetWad: LVR_BUDGET_WAD,
-            bootstrapSigma2PerSecondWad: BOOTSTRAP_SIGMA2_PER_SECOND_WAD
+            bootstrapSigma2PerSecondWad: BOOTSTRAP_SIGMA2_PER_SECOND_WAD,
+            triggerGapBps: 0,
+            startConcessionWad: 0,
+            concessionGrowthWadPerSec: 0
         });
     }
 

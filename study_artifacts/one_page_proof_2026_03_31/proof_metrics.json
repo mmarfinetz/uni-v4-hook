@@ -1,6 +1,9 @@
 {
   "chart": {
     "family_prefix": "weth_usdc_",
+    "family_prefixes": [
+      "weth_usdc_"
+    ],
     "max_abs_residual_rate_bps": 0.0,
     "max_fee_rate_bps": 52.17723524763352,
     "max_gap_bps_exact": 104.08316742121052,
@@ -13537,6 +13540,13 @@
     ]
   },
   "claim": "Fee identity holds to machine precision on real data.",
+  "collateral_damage": {
+    "mean_benign_overcharge_bps": 0.0,
+    "mean_toxic_clip_rate": 0.30482514802367433,
+    "mean_volume_loss_rate": 0.28878335377743564,
+    "total_rejected_fee_cap": 2523,
+    "total_rejected_stale_oracle": 2
+  },
   "comparison": {
     "auction": {
       "bootstrap_ci_new_lp_uplift_vs_hook_quote": {
@@ -13568,9 +13578,16 @@
     "swap_samples_total": 7019,
     "window_count": 44
   },
+  "governance_operational_path": {
+    "phase_1_governance": "Owner-set via setConfig().",
+    "phase_1_operational_path": "Hook-only fee override via beforeSwap (deployed research hook).",
+    "phase_2_governance": "Recommended 48h timelock over auction parameters and fallback policy.",
+    "phase_2_operational_path": "Async auction relay with solver fills before fallback to hook (proposed)."
+  },
   "sources": {
-    "aggregate_manifest_summary": "/Users/mitch/uni-v4-hook/uni-v4-hook/.tmp/dutch_auction_ablation_artifact_build/new_policy/aggregate_manifest_summary.json",
-    "new_policy_dir": "/Users/mitch/uni-v4-hook/uni-v4-hook/.tmp/dutch_auction_ablation_artifact_build/new_policy",
-    "study_summary": "/Users/mitch/uni-v4-hook/uni-v4-hook/study_artifacts/dutch_auction_ablation_2026_03_28/outputs/study_summary.json"
+    "aggregate_manifest_summary": ".tmp/dutch_auction_ablation_artifact_build/new_policy/aggregate_manifest_summary.json",
+    "new_policy_dir": ".tmp/dutch_auction_ablation_artifact_build/new_policy",
+    "operational_spec": "../../docs/dutch_auction_operational_spec.md",
+    "study_summary": "study_artifacts/dutch_auction_ablation_2026_03_28/outputs/study_summary.json"
   }
 }

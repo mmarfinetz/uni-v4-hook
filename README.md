@@ -1,6 +1,6 @@
 # uni-v4-hook
 
-`uni-v4-hook` is a Foundry research repo for an oracle-anchored Uniswap v4 hook that targets loss-versus-rebalancing (LVR) on stale pools with dynamic toxic-flow fees, oracle freshness checks, LP width/centering guards, and a proposed Dutch-auction repricing path.
+`uni-v4-hook` is a Foundry research repo for an oracle-anchored Uniswap v4 hook that targets loss-versus-rebalancing (LVR) on stale pools with dynamic toxic-flow fees, oracle freshness checks, LP width/centering guards, and an on-chain Dutch-auction repricing path (a gap-triggered, time-growing concession on the toxic surcharge).
 
 ## Current Research Draft
 
@@ -32,13 +32,14 @@ These charts prove the fee-accounting claim. The October 2025 grid in [reports/]
 
 ## Key Results
 
-- Exact toxic-flow surcharge law: `f*(z) = e^{|z|/2} - 1`, with `z = log(P_ref / P_pool)`.
+The claims are ordered from strongest to most assumption-dependent:
+
+- Exact toxic-flow surcharge law: `f*(z) = e^{|z|/2} - 1`, with `z = log(P_ref / P_pool)`, validated by exact replay (`44` frozen windows, `7,019` swaps, max residual `1.0e-64`).
 - Informed stale-price repricing is treated as toxic flow because it trades against stale quotes and creates LP loss before fees.
-- The October 2025 refresh completed `124 / 124` planned pool-windows across WETH/USDC, WBTC/USDC, LINK/WETH, and UNI/WETH.
-- Auction eligibility is the current pool-oracle stale gap in bps: `stale_gap_bps_before >= trigger_gap_bps`.
-- The recommended grid cell is `trigger_gap_bps=10`, `base_fee_bps=5`, `start_concession_bps=10`, `concession_growth_bps_per_sec=0.5`, and `max_fee_bps=2500`.
-- In the controlled replay without gas or competitive routing, the recommended set beats fixed-fee V3 on all four pools, clears every modeled auction, and leaves solvers about `10 bps` of gross stale-LVR value.
-- Solver economics are the main protocol-design caveat: the modeled total solver payout is about `$12.9k` across `7,414` filled auctions, or `$1.74` per filled auction before gas and overhead.
+- Selectivity (observed-flow replay): the hook-based auction rule improves LP net in `28` of `54` windows, leaves `26` unchanged, and worsens none, with a `0.98%` trigger rate versus `5.82%` for the broad all-stale rule.
+- Clearing (October 2025 grid, `124 / 124` pool-windows across WETH/USDC, WBTC/USDC, LINK/WETH, and UNI/WETH): the recommended cell — `trigger_gap_bps=10`, `base_fee_bps=5`, `start_concession_bps=10`, `concession_growth_bps_per_sec=0.5`, `max_fee_bps=2500` — maintains a `1.0` clear rate on all four pools. Auction eligibility is the current pool-oracle stale gap in bps: `stale_gap_bps_before >= trigger_gap_bps`.
+- The frequently quoted `99.9%` mean recapture is the mechanical ceiling implied by the mechanism assumptions, not an independent empirical finding: with a single rational solver, zero gas, and captive flow, a clearing auction returns everything except the roughly `10 bps` concession by construction. The informative outputs are the clear rate, the trigger selectivity, and the solver payout scale.
+- Solver economics are the main protocol-design caveat: the modeled total solver payout is about `$12.9k` across `7,414` filled auctions, or `$1.74` per filled auction before gas and overhead. Mainnet gas would make most fills unprofitable; low-cost L2 deployment or batched correction is needed for the mechanism to attract solvers.
 
 ## Headline Tables And Figures
 
@@ -73,17 +74,20 @@ The selected policy uses the stale-gap bps gate. Solver gas, solver edge, and re
 
 ## What The Hook Does
 
-[src/OracleAnchoredLVRHook.sol](src/OracleAnchoredLVRHook.sol) implements two controls:
+[src/OracleAnchoredLVRHook.sol](src/OracleAnchoredLVRHook.sol) implements three controls:
 
-- `beforeSwap`: reads a fresh oracle price, classifies toxic direction, and overrides the LP fee.
+- `beforeSwap`: reads a fresh oracle price, classifies toxic direction, overrides the LP fee, and lazily opens or closes the pool's Dutch auction from the pre-swap stale gap.
+- `pokeAuction`: permissionless entry point that starts the Dutch-auction clock when a stale gap appears, so the concession accrues from the moment the gap is visible rather than from the first swap.
 - `beforeAddLiquidity`: rejects LP ranges that are too narrow or too far off-center relative to the oracle.
 
 Core mechanics:
 
 - benign flow pays the base fee; toxic flow pays a gap-scaled surcharge, and the swap fails closed if the computed fee exceeds `maxFee`
+- Dutch-auction repricing: when the stale gap reaches `triggerGapBps`, the toxic surcharge is discounted by a concession that starts at `startConcessionWad` and grows at `concessionGrowthWadPerSec` (as a fraction of the surcharge, so the fee never drops below the base fee); the growing concession also brings capped-out fees back under `maxFee`, so large gaps are eventually repriceable instead of permanently deterred
 - swaps and fee previews fail closed when the oracle is stale
 - the hook tracks oracle volatility through an EWMA-style `sigma^2` update
 - LP admission uses width and centering guards derived from oracle risk
+- `auctionStatus` exposes the current eligibility, clock, and scheduled concession for solvers
 
 [src/oracles/ChainlinkReferenceOracle.sol](src/oracles/ChainlinkReferenceOracle.sol) supplies the reference price, either from one Chainlink feed or a base/quote ratio assembled from two feeds.
 
