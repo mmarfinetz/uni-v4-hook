@@ -1,0 +1,87 @@
+{
+  "branch": "agent-solver-competition",
+  "config": {
+    "alpha_bps": 0.0,
+    "base_fee_bps": 5.0,
+    "concession_growth_bps_per_second": 0.5,
+    "max_duration_seconds": 600,
+    "max_fee_bps": 2500.0,
+    "solver_edge_bps": 0.08,
+    "solver_edge_spread_bps": 0.14,
+    "solver_gas_cost_quote": 0.0,
+    "solver_gas_cost_spread_quote": 0.0,
+    "start_concession_bps": 10.0,
+    "trigger_gap_bps": 10.0
+  },
+  "data_dir": "/Users/mitch/uni-v4-hook/uni-v4-hook/.tmp/month_2025_10/checkpointed_export_combined/windows",
+  "outputs": {
+    "per_block_rows_dir": "/private/tmp/solver_competition_october_v4_candidate_rows",
+    "per_pool_metrics_csv": "reports/solver_competition_october_v4_candidate/per_pool_metrics.csv",
+    "per_run_summaries_dir": "reports/solver_competition_october_v4_candidate",
+    "per_window_metrics_csv": "reports/solver_competition_october_v4_candidate/per_window_metrics.csv",
+    "summary_csv": "reports/solver_competition_october_v4_candidate/summary.csv"
+  },
+  "pools": [
+    "weth_usdc_3000",
+    "wbtc_usdc_500",
+    "link_weth_3000",
+    "uni_weth_3000"
+  ],
+  "solver_counts": [
+    1,
+    2,
+    5,
+    10
+  ],
+  "summary_rows": [
+    {
+      "clear_count": 4748,
+      "event_weighted_clear_rate": 0.8094101602454824,
+      "macro_recapture_pct": 98.36900083850195,
+      "macro_solver_payout_bps": 43.93076062724052,
+      "macro_stale_time_share": 0.3575853638765012,
+      "macro_winning_solver_profit_bps": 27.60740716706222,
+      "pool_count": 4,
+      "solver_count": 1,
+      "trigger_count": 5866,
+      "window_count": 124
+    },
+    {
+      "clear_count": 4941,
+      "event_weighted_clear_rate": 0.8243243243243243,
+      "macro_recapture_pct": 98.54910474579263,
+      "macro_solver_payout_bps": 38.33304701083773,
+      "macro_stale_time_share": 0.3408144635898185,
+      "macro_winning_solver_profit_bps": 26.637964862112895,
+      "pool_count": 4,
+      "solver_count": 2,
+      "trigger_count": 5994,
+      "window_count": 124
+    },
+    {
+      "clear_count": 5394,
+      "event_weighted_clear_rate": 0.8553758325404377,
+      "macro_recapture_pct": 99.05537874331213,
+      "macro_solver_payout_bps": 25.662745249909065,
+      "macro_stale_time_share": 0.30940210361904713,
+      "macro_winning_solver_profit_bps": 18.52713730024028,
+      "pool_count": 4,
+      "solver_count": 5,
+      "trigger_count": 6306,
+      "window_count": 124
+    },
+    {
+      "clear_count": 6823,
+      "event_weighted_clear_rate": 0.94816564758199,
+      "macro_recapture_pct": 99.7012617447327,
+      "macro_solver_payout_bps": 13.371046028240606,
+      "macro_stale_time_share": 0.2083630439231238,
+      "macro_winning_solver_profit_bps": 8.174791890869976,
+      "pool_count": 4,
+      "solver_count": 10,
+      "trigger_count": 7196,
+      "window_count": 124
+    }
+  ],
+  "window_count": 124
+}

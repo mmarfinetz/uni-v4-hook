@@ -50,6 +50,8 @@ REOPEN_AUCTION = "reopen_auction"
 BASELINE_NO_AUCTION = "baseline_no_auction"
 DUTCH_AUCTION_PARAMETERIZED = "dutch_auction_parameterized"
 FIXED_FEE_BASELINE = "fixed_fee_baseline"
+SINGLE_SOLVER = "single"
+SYNTHETIC_N_SOLVERS = "synthetic_n_solvers"
 
 
 @dataclass(frozen=True)
@@ -59,7 +61,11 @@ class AgentSimulationConfig:
     max_fee_bps: float
     alpha_bps: float
     solver_gas_cost_quote: float
+    solver_gas_cost_spread_quote: float
     solver_edge_bps: float
+    solver_edge_spread_bps: float
+    solver_competition_mode: str
+    solver_count: int
     reserve_margin_bps: float
     trigger_condition: str
     auction_accounting_mode: str
@@ -89,6 +95,20 @@ class PendingAuction:
     trigger_timestamp: int
 
 
+@dataclass(frozen=True)
+class SolverRequirement:
+    solver_id: int
+    required_quote: Decimal
+
+
+@dataclass(frozen=True)
+class SolverAuctionDecision:
+    active_solver_count: int
+    best_solver_id: int | None
+    best_required_quote: Decimal | None
+    second_best_required_quote: Decimal | None
+
+
 @dataclass
 class StrategyRuntimeState:
     strategy: str
@@ -97,6 +117,8 @@ class StrategyRuntimeState:
     total_fee_revenue_quote: Decimal = DECIMAL_ZERO
     total_gross_lvr_quote: Decimal = DECIMAL_ZERO
     total_agent_profit_quote: Decimal = DECIMAL_ZERO
+    total_solver_payment_quote: Decimal = DECIMAL_ZERO
+    total_winning_solver_profit_quote: Decimal = DECIMAL_ZERO
     cumulative_gap_time_bps_blocks: Decimal = DECIMAL_ZERO
     trigger_count: int = 0
     clear_count: int = 0
@@ -110,6 +132,10 @@ class StrategyRuntimeState:
     delay_blocks: list[int] = field(default_factory=list)
     delay_seconds: list[int] = field(default_factory=list)
     residual_gap_bps_after_trade: list[float] = field(default_factory=list)
+    solver_payment_quote: list[float] = field(default_factory=list)
+    winning_solver_profit_quote: list[float] = field(default_factory=list)
+    winning_solver_required_quote: list[float] = field(default_factory=list)
+    second_best_solver_required_quote: list[float] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -136,6 +162,12 @@ class AgentSimulationRow:
     delay_seconds_if_trade: int | None
     agent_profit_quote: float
     solver_payment_quote: float
+    solver_competition_mode: str
+    n_active_solvers: int
+    winning_solver_id: int | None
+    winning_solver_required_quote: float | None
+    second_best_solver_required_quote: float | None
+    winning_solver_profit_quote: float
     lp_fee_revenue_quote: float
     gross_lvr_quote: float
     potential_gross_lvr_quote: float
@@ -202,10 +234,43 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--solver-gas-cost-spread-quote",
+        type=float,
+        default=0.0,
+        help=(
+            "Deterministic spread around solver_gas_cost_quote for synthetic solver competition. "
+            "With N solvers, requirements are evenly spaced from mean - spread/2 to mean + spread/2."
+        ),
+    )
+    parser.add_argument(
         "--solver-edge-bps",
         type=float,
         default=0.0,
         help="Additional auction solver edge requirement, in bps of toxic input notional.",
+    )
+    parser.add_argument(
+        "--solver-edge-spread-bps",
+        type=float,
+        default=0.0,
+        help=(
+            "Deterministic spread around solver_edge_bps for synthetic solver competition. "
+            "The lower bound is clipped at zero."
+        ),
+    )
+    parser.add_argument(
+        "--solver-competition-mode",
+        choices=[SINGLE_SOLVER, SYNTHETIC_N_SOLVERS],
+        default=SINGLE_SOLVER,
+        help=(
+            "single preserves the historical one-solver threshold. synthetic_n_solvers creates a "
+            "deterministic set of heterogeneous solver requirements and lets the cheapest solver clear."
+        ),
+    )
+    parser.add_argument(
+        "--solver-count",
+        type=int,
+        default=1,
+        help="Number of synthetic solvers when --solver-competition-mode=synthetic_n_solvers.",
     )
     parser.add_argument(
         "--reserve-margin-bps",
@@ -332,7 +397,11 @@ def run_agent_simulation(args: argparse.Namespace) -> dict[str, Any]:
         max_fee_bps=float(args.max_fee_bps),
         alpha_bps=float(args.alpha_bps),
         solver_gas_cost_quote=float(getattr(args, "solver_gas_cost_quote", 0.0)),
+        solver_gas_cost_spread_quote=float(getattr(args, "solver_gas_cost_spread_quote", 0.0)),
         solver_edge_bps=float(getattr(args, "solver_edge_bps", 0.0)),
+        solver_edge_spread_bps=float(getattr(args, "solver_edge_spread_bps", 0.0)),
+        solver_competition_mode=str(getattr(args, "solver_competition_mode", SINGLE_SOLVER)),
+        solver_count=int(getattr(args, "solver_count", 1)),
         reserve_margin_bps=float(getattr(args, "reserve_margin_bps", 0.0)),
         trigger_condition=str(args.trigger_condition),
         auction_accounting_mode=str(getattr(args, "auction_accounting_mode", "auto")),
@@ -488,6 +557,13 @@ def _simulate_strategy_block(
     gross_lvr_quote = DECIMAL_ZERO
     agent_profit_quote = DECIMAL_ZERO
     solver_payment_quote = DECIMAL_ZERO
+    winning_solver_profit_quote = DECIMAL_ZERO
+    solver_decision = SolverAuctionDecision(
+        active_solver_count=0,
+        best_solver_id=None,
+        best_required_quote=None,
+        second_best_required_quote=None,
+    )
     residual_gap_after_trade: float | None = None
     decision_reason = "no_reference"
     auction_trigger_block: int | None = state.pending_auction.trigger_block if state.pending_auction else None
@@ -526,6 +602,12 @@ def _simulate_strategy_block(
             delay_seconds_if_trade=None,
             agent_profit_quote=0.0,
             solver_payment_quote=0.0,
+            solver_competition_mode=config.solver_competition_mode,
+            n_active_solvers=0,
+            winning_solver_id=None,
+            winning_solver_required_quote=None,
+            second_best_solver_required_quote=None,
+            winning_solver_profit_quote=0.0,
             lp_fee_revenue_quote=0.0,
             gross_lvr_quote=0.0,
             potential_gross_lvr_quote=0.0,
@@ -582,6 +664,12 @@ def _simulate_strategy_block(
             delay_seconds_if_trade=None,
             agent_profit_quote=0.0,
             solver_payment_quote=0.0,
+            solver_competition_mode=config.solver_competition_mode,
+            n_active_solvers=0,
+            winning_solver_id=None,
+            winning_solver_required_quote=None,
+            second_best_solver_required_quote=None,
+            winning_solver_profit_quote=0.0,
             lp_fee_revenue_quote=0.0,
             gross_lvr_quote=0.0,
             potential_gross_lvr_quote=0.0,
@@ -605,7 +693,7 @@ def _simulate_strategy_block(
     gross_lvr_quote = _decimal(correction["gross_lvr"])
     toxic_input_notional = _decimal(correction["toxic_input_notional"])
     stale_loss_bps_value = float(stale_loss_bps(gross_lvr_quote, toxic_input_notional))
-    solver_required_quote = _solver_required_quote(
+    solver_decision = _solver_auction_decision(
         toxic_input_notional=toxic_input_notional,
         config=config,
     )
@@ -761,13 +849,17 @@ def _simulate_strategy_block(
                 config=config,
             )
             can_clear_auction = (
-                auction_agent_profit_quote > solver_required_quote
+                solver_decision.best_required_quote is not None
+                and auction_agent_profit_quote > solver_decision.best_required_quote
                 and auction_lp_fee_quote >= reserve_floor_quote
             )
             if can_clear_auction:
                 agent_traded = True
                 fee_revenue_quote = auction_lp_fee_quote
                 agent_profit_quote = auction_agent_profit_quote
+                winning_solver_profit_quote = auction_agent_profit_quote - (
+                    solver_decision.best_required_quote or DECIMAL_ZERO
+                )
                 pool_price_after = reference_price
                 stale_gap_bps_after = 0.0
                 residual_gap_after_trade = 0.0
@@ -823,6 +915,17 @@ def _simulate_strategy_block(
             state.delay_seconds.append(trade_delay_seconds)
         if residual_gap_after_trade is not None:
             state.residual_gap_bps_after_trade.append(residual_gap_after_trade)
+        if auction_cleared_this_block:
+            state.total_solver_payment_quote += solver_payment_quote
+            state.total_winning_solver_profit_quote += winning_solver_profit_quote
+            state.solver_payment_quote.append(float(solver_payment_quote))
+            state.winning_solver_profit_quote.append(float(winning_solver_profit_quote))
+            if solver_decision.best_required_quote is not None:
+                state.winning_solver_required_quote.append(float(solver_decision.best_required_quote))
+            if solver_decision.second_best_required_quote is not None:
+                state.second_best_solver_required_quote.append(
+                    float(solver_decision.second_best_required_quote)
+                )
 
     return AgentSimulationRow(
         block_number=block.block_number,
@@ -847,6 +950,29 @@ def _simulate_strategy_block(
         delay_seconds_if_trade=trade_delay_seconds,
         agent_profit_quote=float(agent_profit_quote),
         solver_payment_quote=float(solver_payment_quote) if auction_cleared_this_block else 0.0,
+        solver_competition_mode=config.solver_competition_mode,
+        n_active_solvers=(
+            solver_decision.active_solver_count
+            if state.strategy == DUTCH_AUCTION_PARAMETERIZED
+            and auction_trigger_block is not None
+            else 0
+        ),
+        winning_solver_id=solver_decision.best_solver_id if auction_cleared_this_block else None,
+        winning_solver_required_quote=(
+            float(solver_decision.best_required_quote)
+            if auction_cleared_this_block and solver_decision.best_required_quote is not None
+            else None
+        ),
+        second_best_solver_required_quote=(
+            float(solver_decision.second_best_required_quote)
+            if state.strategy == DUTCH_AUCTION_PARAMETERIZED
+            and auction_trigger_block is not None
+            and solver_decision.second_best_required_quote is not None
+            else None
+        ),
+        winning_solver_profit_quote=(
+            float(winning_solver_profit_quote) if auction_cleared_this_block else 0.0
+        ),
         lp_fee_revenue_quote=float(fee_revenue_quote),
         gross_lvr_quote=float(gross_lvr_quote) if agent_traded else 0.0,
         potential_gross_lvr_quote=float(gross_lvr_quote),
@@ -907,14 +1033,86 @@ def _auction_settlement_quotes(
     return lp_fee_revenue_quote, agent_profit_quote
 
 
-def _solver_required_quote(
+def _solver_auction_decision(
     *,
     toxic_input_notional: Decimal,
     config: AgentSimulationConfig,
+) -> SolverAuctionDecision:
+    requirements = _solver_requirement_quotes(
+        toxic_input_notional=toxic_input_notional,
+        config=config,
+    )
+    if not requirements:
+        return SolverAuctionDecision(
+            active_solver_count=0,
+            best_solver_id=None,
+            best_required_quote=None,
+            second_best_required_quote=None,
+        )
+    sorted_requirements = sorted(requirements, key=lambda item: (item.required_quote, item.solver_id))
+    best = sorted_requirements[0]
+    second_best = sorted_requirements[1] if len(sorted_requirements) > 1 else None
+    return SolverAuctionDecision(
+        active_solver_count=len(sorted_requirements),
+        best_solver_id=best.solver_id,
+        best_required_quote=best.required_quote,
+        second_best_required_quote=second_best.required_quote if second_best is not None else None,
+    )
+
+
+def _solver_requirement_quotes(
+    *,
+    toxic_input_notional: Decimal,
+    config: AgentSimulationConfig,
+) -> list[SolverRequirement]:
+    if config.solver_competition_mode == SINGLE_SOLVER or config.solver_count == 1:
+        return [
+            SolverRequirement(
+                solver_id=0,
+                required_quote=_solver_required_quote(
+                    toxic_input_notional=toxic_input_notional,
+                    gas_cost_quote=Decimal(str(config.solver_gas_cost_quote)),
+                    edge_bps=Decimal(str(config.solver_edge_bps)),
+                ),
+            )
+        ]
+
+    count = config.solver_count
+    gas_mean = Decimal(str(config.solver_gas_cost_quote))
+    gas_half_spread = Decimal(str(config.solver_gas_cost_spread_quote)) / Decimal(2)
+    edge_mean = Decimal(str(config.solver_edge_bps))
+    edge_half_spread = Decimal(str(config.solver_edge_spread_bps)) / Decimal(2)
+    gas_low = max(gas_mean - gas_half_spread, DECIMAL_ZERO)
+    gas_high = gas_mean + gas_half_spread
+    edge_low = max(edge_mean - edge_half_spread, DECIMAL_ZERO)
+    edge_high = edge_mean + edge_half_spread
+
+    requirements: list[SolverRequirement] = []
+    for solver_id in range(count):
+        quantile = Decimal(solver_id + 1) / Decimal(count + 1)
+        gas_cost_quote = gas_low + ((gas_high - gas_low) * quantile)
+        edge_bps = edge_low + ((edge_high - edge_low) * quantile)
+        requirements.append(
+            SolverRequirement(
+                solver_id=solver_id,
+                required_quote=_solver_required_quote(
+                    toxic_input_notional=toxic_input_notional,
+                    gas_cost_quote=gas_cost_quote,
+                    edge_bps=edge_bps,
+                ),
+            )
+        )
+    return requirements
+
+
+def _solver_required_quote(
+    *,
+    toxic_input_notional: Decimal,
+    gas_cost_quote: Decimal,
+    edge_bps: Decimal,
 ) -> Decimal:
-    gas_cost = Decimal(str(config.solver_gas_cost_quote))
-    edge = toxic_input_notional * Decimal(str(config.solver_edge_bps / 10_000.0))
-    return gas_cost + edge
+    edge = toxic_input_notional * (edge_bps / BPS_DENOMINATOR)
+    return gas_cost_quote + edge
 
 
 def _auction_reserve_floor_quote(
@@ -1110,6 +1308,24 @@ def _summarize_strategy(*, state: StrategyRuntimeState, total_blocks: int) -> di
         if state.residual_gap_bps_after_trade
         else None
     )
+    mean_solver_payment_quote = (
+        statistics.mean(state.solver_payment_quote) if state.solver_payment_quote else None
+    )
+    mean_winning_solver_profit_quote = (
+        statistics.mean(state.winning_solver_profit_quote)
+        if state.winning_solver_profit_quote
+        else None
+    )
+    mean_winning_solver_required_quote = (
+        statistics.mean(state.winning_solver_required_quote)
+        if state.winning_solver_required_quote
+        else None
+    )
+    mean_second_best_solver_required_quote = (
+        statistics.mean(state.second_best_solver_required_quote)
+        if state.second_best_solver_required_quote
+        else None
+    )
     return {
         "strategy": state.strategy,
         "total_blocks": total_blocks,
@@ -1125,6 +1341,8 @@ def _summarize_strategy(*, state: StrategyRuntimeState, total_blocks: int) -> di
         "total_fee_revenue_quote": float(state.total_fee_revenue_quote),
         "total_gross_lvr_quote": float(state.total_gross_lvr_quote),
         "total_agent_profit_quote": float(state.total_agent_profit_quote),
+        "total_solver_payment_quote": float(state.total_solver_payment_quote),
+        "total_winning_solver_profit_quote": float(state.total_winning_solver_profit_quote),
         "total_lp_net_quote": float(total_lp_net_quote),
         "recapture_ratio": recapture_ratio,
         "stale_block_rate": (state.stale_gap_blocks / total_blocks) if total_blocks else 0.0,
@@ -1142,6 +1360,10 @@ def _summarize_strategy(*, state: StrategyRuntimeState, total_blocks: int) -> di
         "mean_delay_seconds": mean_delay_seconds,
         "time_to_reprice_blocks": mean_delay_blocks,
         "residual_gap_bps_after_trade": mean_residual_gap_bps_after_trade,
+        "mean_solver_payment_quote": mean_solver_payment_quote,
+        "mean_winning_solver_profit_quote": mean_winning_solver_profit_quote,
+        "mean_winning_solver_required_quote": mean_winning_solver_required_quote,
+        "mean_second_best_solver_required_quote": mean_second_best_solver_required_quote,
         "cumulative_gap_time_bps_blocks": float(state.cumulative_gap_time_bps_blocks),
         "final_pool_price": float(state.pool_price),
     }
@@ -1269,8 +1491,16 @@ def _validate_config(config: AgentSimulationConfig) -> None:
         raise ValueError("alpha_bps must be non-negative.")
     if config.solver_gas_cost_quote < 0.0:
         raise ValueError("solver_gas_cost_quote must be non-negative.")
+    if config.solver_gas_cost_spread_quote < 0.0:
+        raise ValueError("solver_gas_cost_spread_quote must be non-negative.")
     if config.solver_edge_bps < 0.0:
         raise ValueError("solver_edge_bps must be non-negative.")
+    if config.solver_edge_spread_bps < 0.0:
+        raise ValueError("solver_edge_spread_bps must be non-negative.")
+    if config.solver_count < 1:
+        raise ValueError("solver_count must be >= 1.")
+    if config.solver_competition_mode not in {SINGLE_SOLVER, SYNTHETIC_N_SOLVERS}:
+        raise ValueError(f"Unsupported solver_competition_mode={config.solver_competition_mode}.")
     if config.reserve_margin_bps < 0.0:
         raise ValueError("reserve_margin_bps must be non-negative.")
     if config.trigger_gap_bps < 0.0:

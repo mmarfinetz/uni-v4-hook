@@ -83,7 +83,11 @@ class RunAgentSimulationTest(unittest.TestCase):
             "max_fee_bps": 500.0,
             "alpha_bps": 0.0,
             "solver_gas_cost_quote": 0.0,
+            "solver_gas_cost_spread_quote": 0.0,
             "solver_edge_bps": 0.0,
+            "solver_edge_spread_bps": 0.0,
+            "solver_competition_mode": "single",
+            "solver_count": 1,
             "reserve_margin_bps": 0.0,
             "trigger_condition": "all_toxic",
             "trigger_gap_bps": 0.0,
@@ -113,6 +117,8 @@ class RunAgentSimulationTest(unittest.TestCase):
         self.assertIn("--oracle-updates", result.stdout)
         self.assertIn("--reference-update-policy", result.stdout)
         self.assertIn("--auction-expiry-policy", result.stdout)
+        self.assertIn("--solver-competition-mode", result.stdout)
+        self.assertIn("--solver-count", result.stdout)
 
     def test_single_block_immediate_rebalance_matches_correction_trade_accounting(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -155,6 +161,11 @@ class RunAgentSimulationTest(unittest.TestCase):
             self.assertIn("delay_blocks_if_trade", rows[0])
             self.assertIn("auction_trigger_block", rows[0])
             self.assertIn("auction_clear_block", rows[0])
+            self.assertIn("solver_payment_quote", rows[0])
+            self.assertIn("solver_competition_mode", rows[0])
+            self.assertIn("n_active_solvers", rows[0])
+            self.assertIn("winning_solver_id", rows[0])
+            self.assertIn("winning_solver_profit_quote", rows[0])
             self.assertIn("fallback_triggered_this_block", rows[0])
             self.assertIn("potential_gross_lvr_quote", rows[0])
             self.assertIn("foregone_gross_lvr_quote", rows[0])
@@ -517,6 +528,71 @@ class RunAgentSimulationTest(unittest.TestCase):
             self.assertEqual(no_cost_summary["clear_count"], 1)
             self.assertEqual(high_cost_summary["clear_count"], 0)
             self.assertGreater(high_cost_summary["stale_time_share"], no_cost_summary["stale_time_share"])
+
+    def test_synthetic_solver_competition_clears_with_low_cost_winner(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            pool_snapshot = self.make_pool_snapshot(tmp_path, from_block=100, to_block=100)
+            oracle_path = self.write_csv(
+                tmp_path,
+                "oracle_updates.csv",
+                ["timestamp", "block_number", "price"],
+                [
+                    {"timestamp": 1_700_000_000, "block_number": 100, "price": 1.0},
+                    {"timestamp": 1_700_000_001, "block_number": 101, "price": 1.10},
+                ],
+            )
+            common_args = {
+                "oracle_updates": oracle_path,
+                "pool_snapshot": pool_snapshot,
+                "fixed_fee_bps": 30.0,
+                "base_fee_bps": 30.0,
+                "alpha_bps": 0.0,
+                "trigger_condition": "hook_lp_net_negative",
+                "start_concession_bps": 100.0,
+                "concession_growth_bps_per_second": 0.0,
+                "solver_edge_bps": 5.0,
+                "max_duration_seconds": 60,
+            }
+
+            single = run_agent_simulation(
+                self.make_args(
+                    output_dir=tmp_path / "single",
+                    **common_args,
+                )
+            )
+            synthetic = run_agent_simulation(
+                self.make_args(
+                    output_dir=tmp_path / "synthetic",
+                    solver_competition_mode="synthetic_n_solvers",
+                    solver_count=3,
+                    solver_edge_spread_bps=8.0,
+                    **common_args,
+                )
+            )
+
+            single_summary = single["summary"]["strategies"][DUTCH_AUCTION_PARAMETERIZED]
+            synthetic_summary = synthetic["summary"]["strategies"][DUTCH_AUCTION_PARAMETERIZED]
+            self.assertEqual(single_summary["clear_count"], 0)
+            self.assertEqual(synthetic_summary["clear_count"], 1)
+            self.assertGreater(synthetic_summary["total_winning_solver_profit_quote"], 0.0)
+
+            synthetic_row = next(
+                row for row in synthetic["rows"] if row["strategy"] == DUTCH_AUCTION_PARAMETERIZED
+            )
+            self.assertEqual(synthetic_row["solver_competition_mode"], "synthetic_n_solvers")
+            self.assertEqual(synthetic_row["n_active_solvers"], 3)
+            self.assertEqual(synthetic_row["winning_solver_id"], 0)
+            self.assertIsNotNone(synthetic_row["second_best_solver_required_quote"])
+            self.assertGreater(
+                synthetic_row["solver_payment_quote"],
+                synthetic_row["winning_solver_required_quote"],
+            )
+            self.assertAlmostEqual(
+                synthetic_summary["mean_solver_payment_quote"],
+                synthetic_row["solver_payment_quote"],
+                places=12,
+            )
 
     def test_reserve_margin_blocks_clear_when_lp_uplift_above_hook_is_insufficient(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
