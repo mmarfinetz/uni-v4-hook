@@ -114,6 +114,15 @@ python3 -m script.build_oracle_gap_charts
 
 Fork tests and live historical export need `MAINNET_RPC_URL`.
 
+## Testnet Deployment
+
+[docs/deployment.md](docs/deployment.md) documents the deployment path: mining a
+permission-encoded hook address with [script/DeployHook.s.sol](script/DeployHook.s.sol),
+then deploying a Chainlink reference oracle, initializing a dynamic-fee pool at the
+oracle price, and writing the recommended auction config with
+[script/DeployPool.s.sol](script/DeployPool.s.sol). Base Sepolia is the primary
+target; the whole path can be rehearsed for free against an Anvil fork.
+
 ## Repository Layout
 
 - `src/`: hook, oracle, and interfaces

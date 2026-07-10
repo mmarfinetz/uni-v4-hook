@@ -5,6 +5,9 @@ cache/
 out/
 .tmp/
 
+# Local forge-script rehearsal runs (real deployments are documented in docs/deployment.md)
+broadcast/
+
 # Local docs / working notes
 lvr_v4_hook_paper.pdf
 lvr_v4_hook_paper_dutch_auction.pdf

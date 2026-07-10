@@ -15,6 +15,8 @@ fs_permissions = [{ access = "read-write", path = "./" }]
 [rpc_endpoints]
 mainnet = "${MAINNET_RPC_URL}"
 sepolia = "${SEPOLIA_RPC_URL}"
+base_sepolia = "${BASE_SEPOLIA_RPC_URL}"
+unichain_sepolia = "${UNICHAIN_SEPOLIA_RPC_URL}"
 
 [profile.default.fuzz]
 runs = 512
