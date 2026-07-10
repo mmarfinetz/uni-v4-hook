@@ -18,6 +18,23 @@ Base Sepolia is the primary target because both Uniswap v4 and Chainlink data fe
 are live there. Unichain Sepolia has a default PoolManager wired in, but Chainlink
 feed coverage there has not been verified; pass feed addresses explicitly if you use it.
 
+## Current deployment (Base Sepolia)
+
+Deployed 2026-07-10 with the default config (recommended Dutch-auction cell):
+
+| Contract | Address |
+| --- | --- |
+| OracleAnchoredLVRHook | `0x6Ac5834889Ee82A7f127271E52c41d84345f4880` |
+| ChainlinkReferenceOracle (USDC/USD base, ETH/USD quote) | `0xbC7138CB8a51303147A9BcbE9a19D0DFe6228c2E` |
+| Hook owner (testnet deployer) | `0x0D433E34d812F443398Aa6e9C5B723779E4D66C1` |
+
+USDC/WETH pool (tick spacing 60, dynamic fee):
+`poolId 0xc91b23d494f33c75a24c52b830650a272798781084e0ab4819c2968f9aa9235e`,
+initialized at tick 201467 from the live oracle price. Verified post-deploy: both
+swap directions preview the 5 bps base fee and the auction is closed at zero gap.
+The deployer key lives in the local gitignored `.env`; the hook has no ownership
+transfer, so redeploy rather than reuse if that key is lost.
+
 ## Verified addresses
 
 All addresses below were verified on-chain (bytecode / `description()` /
