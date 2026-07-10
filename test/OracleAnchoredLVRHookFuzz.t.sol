@@ -144,16 +144,12 @@ contract OracleAnchoredLVRHookFuzzTest is Test, Deployers {
         hook.previewSwapFee(key, false);
     }
 
-    function testFuzz_previewSwapFee_revertsOnUint24OverflowBeforeCast(uint16 rawTick)
-        public
-    {
+    function testFuzz_previewSwapFee_revertsOnUint24OverflowBeforeCast(uint16 rawTick) public {
         int24 overflowTick = int24(int256(bound(uint256(rawTick), 57_800, 60_000)));
 
         hook.setConfig(
             key,
-            _defaultConfig(
-                BASE_FEE, LPFeeLibrary.MAX_LP_FEE, LATENCY_SECS, CENTER_TOLERANCE_TICKS
-            )
+            _defaultConfig(BASE_FEE, LPFeeLibrary.MAX_LP_FEE, LATENCY_SECS, CENTER_TOLERANCE_TICKS)
         );
         _setOraclePrice(_priceWadAtTick(overflowTick), block.timestamp);
 
@@ -267,7 +263,8 @@ contract OracleAnchoredLVRHookFuzzTest is Test, Deployers {
                 bootstrapSigma2PerSecondWad: BOOTSTRAP_SIGMA2_PER_SECOND_WAD,
                 triggerGapBps: 0,
                 startConcessionWad: 0,
-                concessionGrowthWadPerSec: 0
+                concessionGrowthWadPerSec: 0,
+                maxConcessionWad: 0
             });
     }
 

@@ -219,7 +219,8 @@ contract OracleAnchoredLVRHookInvariantTest is StdInvariant, Deployers {
             bootstrapSigma2PerSecondWad: BOOTSTRAP_SIGMA2_PER_SECOND_WAD,
             triggerGapBps: 0,
             startConcessionWad: 0,
-            concessionGrowthWadPerSec: 0
+            concessionGrowthWadPerSec: 0,
+            maxConcessionWad: 0
         });
     }
 

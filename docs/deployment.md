@@ -20,20 +20,24 @@ feed coverage there has not been verified; pass feed addresses explicitly if you
 
 ## Current deployment (Base Sepolia)
 
-Deployed 2026-07-10 with the default config (recommended Dutch-auction cell):
+Deployed 2026-07-10 with the default config (recommended Dutch-auction cell,
+`maxConcessionWad` ceiling at WAD):
 
 | Contract | Address |
 | --- | --- |
-| OracleAnchoredLVRHook | `0x6Ac5834889Ee82A7f127271E52c41d84345f4880` |
-| ChainlinkReferenceOracle (USDC/USD base, ETH/USD quote) | `0xbC7138CB8a51303147A9BcbE9a19D0DFe6228c2E` |
+| OracleAnchoredLVRHook | `0x22081E668dC0f43B6166561Ac4A6Df359AA88880` |
+| ChainlinkReferenceOracle (USDC/USD base, ETH/USD quote) | `0xA68812AA66A2417BDFAFF9a45BD9A7578C5A3202` |
 | Hook owner (testnet deployer) | `0x0D433E34d812F443398Aa6e9C5B723779E4D66C1` |
 
 USDC/WETH pool (tick spacing 60, dynamic fee):
-`poolId 0xc91b23d494f33c75a24c52b830650a272798781084e0ab4819c2968f9aa9235e`,
-initialized at tick 201467 from the live oracle price. Verified post-deploy: both
-swap directions preview the 5 bps base fee and the auction is closed at zero gap.
-The deployer key lives in the local gitignored `.env`; the hook has no ownership
-transfer, so redeploy rather than reuse if that key is lost.
+`poolId 0x6a269352e17a2c717d4fbc96b74f5c19a26b28688c90ee545fc97ad7fd287ff7`,
+initialized at tick 201414 from the live oracle price. Verified post-deploy: the
+on-chain config carries the recommended auction cell including the new
+`maxConcessionWad` ceiling, and both swap directions preview the 5 bps base fee
+at zero gap. An earlier instance without `maxConcessionWad`
+(`0x6Ac5834889Ee82A7f127271E52c41d84345f4880`) is deprecated. The deployer key
+lives in the local gitignored `.env`; the hook has no ownership transfer, so
+redeploy rather than reuse if that key is lost.
 
 ## Verified addresses
 
@@ -120,7 +124,10 @@ Environment overrides (defaults in parentheses): `INVERT_BASE` / `INVERT_QUOTE`
 2500 bps), `ALPHA_BPS` (10000), `MAX_ORACLE_AGE` (86400 s), `LATENCY_SECS` (60),
 `CENTER_TOL_TICKS` (60), `LVR_BUDGET_WAD` (1e16), `BOOTSTRAP_SIGMA2_PER_SECOND_WAD`
 (3e10, about 5% daily volatility), `TRIGGER_GAP_BPS` (10), `START_CONCESSION_WAD`
-(1e15), `CONCESSION_GROWTH_WAD_PER_SEC` (5e13).
+(1e15), `CONCESSION_GROWTH_WAD_PER_SEC` (5e13), `MAX_CONCESSION_WAD` (1e18; the
+ceiling on the auction discount — at 1e18 fees can decay to the base fee, which
+guarantees capped-out gaps become repriceable, while a lower ceiling guarantees LPs
+a floor share of the surcharge but can leave extreme gaps deterred above `MAX_FEE`).
 
 The 24-hour `MAX_ORACLE_AGE` default accommodates slow testnet feed heartbeats
 (the Base Sepolia USDC/USD feed can go hours between updates). Tighten it for any

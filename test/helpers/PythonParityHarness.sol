@@ -89,7 +89,8 @@ contract PythonParityHarness {
                 bootstrapSigma2PerSecondWad: bootstrapSigma2PerSecondWad,
                 triggerGapBps: 0,
                 startConcessionWad: 0,
-                concessionGrowthWadPerSec: 0
+                concessionGrowthWadPerSec: 0,
+                maxConcessionWad: 0
             })
         );
     }
@@ -100,9 +101,8 @@ contract MockExtsloadPoolManager {
 
     function setSlot0(uint160 sqrtPriceX96, int24 tick, uint24 lpFee) external {
         uint24 tickBits = uint24(uint32(int32(tick)));
-        slot0Word = bytes32(
-            uint256(sqrtPriceX96) | (uint256(tickBits) << 160) | (uint256(lpFee) << 208)
-        );
+        slot0Word =
+            bytes32(uint256(sqrtPriceX96) | (uint256(tickBits) << 160) | (uint256(lpFee) << 208));
     }
 
     function extsload(bytes32) external view returns (bytes32) {

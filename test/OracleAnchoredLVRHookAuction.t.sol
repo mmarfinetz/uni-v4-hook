@@ -11,7 +11,8 @@ import { Hooks } from "v4-core/libraries/Hooks.sol";
 import { LPFeeLibrary } from "v4-core/libraries/LPFeeLibrary.sol";
 import { FullMath } from "v4-core/libraries/FullMath.sol";
 import { TickMath } from "v4-core/libraries/TickMath.sol";
-import { ModifyLiquidityParams } from "v4-core/types/PoolOperation.sol";
+import { ModifyLiquidityParams, SwapParams } from "v4-core/types/PoolOperation.sol";
+import { PoolSwapTest } from "v4-core/test/PoolSwapTest.sol";
 import { PoolKey } from "v4-core/types/PoolKey.sol";
 import { PoolId, PoolIdLibrary } from "v4-core/types/PoolId.sol";
 import { ManualAggregatorV3 } from "./helpers/ManualAggregatorV3.sol";
@@ -35,6 +36,7 @@ contract OracleAnchoredLVRHookAuctionTest is Test, Deployers {
     uint24 internal constant TRIGGER_GAP_BPS = 10;
     uint256 internal constant START_CONCESSION_WAD = 1e15;
     uint256 internal constant CONCESSION_GROWTH_WAD_PER_SEC = 5e13;
+    uint256 internal constant MAX_CONCESSION_WAD = WAD;
 
     OracleAnchoredLVRHook internal hook;
     ChainlinkReferenceOracle internal oracle;
@@ -127,8 +129,7 @@ contract OracleAnchoredLVRHookAuctionTest is Test, Deployers {
         vm.warp(block.timestamp + elapsed);
         _setOraclePrice(_priceWadAtTick(20), block.timestamp);
 
-        uint256 expectedConcession =
-            START_CONCESSION_WAD + elapsed * CONCESSION_GROWTH_WAD_PER_SEC;
+        uint256 expectedConcession = START_CONCESSION_WAD + elapsed * CONCESSION_GROWTH_WAD_PER_SEC;
 
         (,, uint256 concessionWad,) = hook.auctionStatus(key);
         assertEq(concessionWad, expectedConcession);
@@ -226,6 +227,185 @@ contract OracleAnchoredLVRHookAuctionTest is Test, Deployers {
         hook.setConfig(key, cfg);
     }
 
+    function test_setConfig_rejectsInvalidMaxConcession() public {
+        // Zero ceiling with the auction enabled would silently disable all concessions.
+        OracleAnchoredLVRHook.Config memory cfg = _auctionConfig();
+        cfg.maxConcessionWad = 0;
+        vm.expectRevert(OracleAnchoredLVRHook.InvalidConfig.selector);
+        hook.setConfig(key, cfg);
+
+        cfg = _auctionConfig();
+        cfg.maxConcessionWad = WAD + 1;
+        vm.expectRevert(OracleAnchoredLVRHook.InvalidConfig.selector);
+        hook.setConfig(key, cfg);
+
+        cfg = _auctionConfig();
+        cfg.startConcessionWad = 2e17;
+        cfg.maxConcessionWad = 1e17;
+        vm.expectRevert(OracleAnchoredLVRHook.InvalidConfig.selector);
+        hook.setConfig(key, cfg);
+
+        // A disabled auction does not require the ceiling.
+        cfg = _auctionConfig();
+        cfg.triggerGapBps = 0;
+        cfg.startConcessionWad = 0;
+        cfg.concessionGrowthWadPerSec = 0;
+        cfg.maxConcessionWad = 0;
+        hook.setConfig(key, cfg);
+    }
+
+    function test_auction_maxConcessionCapsScheduledConcessionAndFeeFloor() public {
+        OracleAnchoredLVRHook.Config memory cfg = _auctionConfig();
+        cfg.maxConcessionWad = 5e17;
+        hook.setConfig(key, cfg);
+
+        _setOraclePrice(_priceWadAtTick(20), block.timestamp);
+        hook.pokeAuction(key);
+
+        // Long enough for the linear schedule to exceed 100% of the surcharge; the
+        // ceiling holds the concession at 50%, so the LP always keeps half.
+        vm.warp(block.timestamp + 30_000);
+        _setOraclePrice(_priceWadAtTick(20), block.timestamp);
+
+        (,, uint256 concessionWad,) = hook.auctionStatus(key);
+        assertEq(concessionWad, 5e17);
+
+        (, uint24 feeUnits,,) = hook.previewSwapFee(key, false);
+        assertEq(feeUnits, _expectedFeeUnits(20, 5e17));
+        assertGt(feeUnits, BASE_FEE);
+    }
+
+    function test_auction_maxConcessionBelowWadKeepsExtremeGapDeterred() public {
+        // Counterpart of test_auction_escapesMaxFeeDeadlockAsConcessionGrows: a
+        // sub-WAD ceiling caps how far the discounted fee can fall, so a gap whose
+        // floored fee still exceeds maxFee stays fail-closed no matter how long the
+        // auction runs. Governance trades patient-solver protection against
+        // repriceability of extreme gaps.
+        OracleAnchoredLVRHook.Config memory cfg = _auctionConfig();
+        cfg.maxFee = 10_000;
+        cfg.maxConcessionWad = 2e17;
+        hook.setConfig(key, cfg);
+
+        // Roughly a 2% gap: floored fee = base + 0.8 * surcharge (~1.66%) > maxFee (1%).
+        _setOraclePrice(_priceWadAtTick(400), block.timestamp);
+        hook.pokeAuction(key);
+
+        vm.expectRevert();
+        swap(key, false, -1e15, ZERO_BYTES);
+
+        vm.warp(block.timestamp + 100_000);
+        _setOraclePrice(_priceWadAtTick(400), block.timestamp);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                OracleAnchoredLVRHook.DeviationTooLarge.selector,
+                _expectedFeeUnits(400, 2e17),
+                cfg.maxFee
+            )
+        );
+        hook.previewSwapFee(key, false);
+
+        vm.expectRevert();
+        swap(key, false, -1e15, ZERO_BYTES);
+    }
+
+    function test_auction_clockResetGriefing_partialRepriceRestartsConcession() public {
+        // Adversarial vector: a griefer who wants repricing to stay expensive nudges
+        // the pool just inside the trigger. The auction closes, the clock is deleted,
+        // and when the gap re-widens the concession restarts from the beginning, so
+        // accrued discount is destroyed at the cost of one small toxic swap.
+        _setOraclePrice(_priceWadAtTick(20), block.timestamp);
+        hook.pokeAuction(key);
+
+        uint256 elapsed = 4000;
+        vm.warp(block.timestamp + elapsed);
+        _setOraclePrice(_priceWadAtTick(20), block.timestamp);
+
+        uint256 agedConcession = START_CONCESSION_WAD + elapsed * CONCESSION_GROWTH_WAD_PER_SEC;
+        (,, uint256 concessionBefore,) = hook.auctionStatus(key);
+        assertEq(concessionBefore, agedConcession);
+
+        // Partial reprice to tick 12: the remaining 8-tick gap (~4 bps premium) sits
+        // below the 10 bps trigger, so the next interaction closes the auction.
+        swapRouter.swap(
+            key,
+            SwapParams({
+                zeroForOne: false,
+                amountSpecified: -1e18,
+                sqrtPriceLimitX96: TickMath.getSqrtPriceAtTick(12)
+            }),
+            PoolSwapTest.TestSettings({ takeClaims: false, settleUsingBurn: false }),
+            ZERO_BYTES
+        );
+
+        (bool open,) = hook.pokeAuction(key);
+        assertFalse(open);
+        assertEq(hook.auctionStartTs(key.toId()), 0);
+
+        // The gap re-widens past the trigger; the clock restarts at the starting
+        // concession instead of the accrued one.
+        _setOraclePrice(_priceWadAtTick(32), block.timestamp);
+        (bool reopened, uint256 concessionAfter) = hook.pokeAuction(key);
+
+        assertTrue(reopened);
+        assertEq(concessionAfter, START_CONCESSION_WAD);
+        assertLt(concessionAfter, agedConcession);
+    }
+
+    function test_auction_gapDirectionFlipInheritsAgedConcession() public {
+        // The gap premium is unsigned, so if the reference crosses the pool price
+        // while an auction is open, the clock keeps running and the brand-new gap in
+        // the opposite direction inherits the aged (larger) concession.
+        _setOraclePrice(_priceWadAtTick(20), block.timestamp);
+        hook.pokeAuction(key);
+        uint64 startTs = hook.auctionStartTs(key.toId());
+
+        uint256 elapsed = 4000;
+        vm.warp(block.timestamp + elapsed);
+        uint256 agedConcession = START_CONCESSION_WAD + elapsed * CONCESSION_GROWTH_WAD_PER_SEC;
+
+        // Reference flips to the other side of the pool with the same 20 bps size.
+        _setOraclePrice(_priceWadAtTick(-20), block.timestamp);
+
+        (bool eligible,, uint256 concessionWad,) = hook.auctionStatus(key);
+        assertTrue(eligible);
+        assertEq(hook.auctionStartTs(key.toId()), startTs);
+        assertEq(concessionWad, agedConcession);
+
+        // Toxic direction flipped to zeroForOne and pays the aged discount from the
+        // first swap in the new direction.
+        (bool toxic, uint24 discountedFee,,) = hook.previewSwapFee(key, true);
+        assertTrue(toxic);
+
+        uint160 referenceSqrtPriceX96 = TickMath.getSqrtPriceAtTick(-20);
+        uint256 premiumWad = FullMath.mulDiv(SQRT_PRICE_1_1, WAD, referenceSqrtPriceX96) - WAD;
+        uint256 surchargeWad = FullMath.mulDiv(premiumWad, ALPHA_BPS, 10_000);
+        surchargeWad -= FullMath.mulDiv(surchargeWad, agedConcession, WAD);
+        assertEq(discountedFee, uint24((uint256(BASE_FEE) * 1e12 + surchargeWad) / 1e12));
+    }
+
+    function testFuzz_auction_concessionMonotoneWhileGapPersists(uint32 earlier, uint32 later)
+        public
+    {
+        earlier = uint32(bound(earlier, 0, 50_000));
+        later = uint32(bound(later, earlier, 60_000));
+
+        _setOraclePrice(_priceWadAtTick(20), block.timestamp);
+        hook.pokeAuction(key);
+        uint256 openTs = block.timestamp;
+
+        vm.warp(openTs + earlier);
+        _setOraclePrice(_priceWadAtTick(20), block.timestamp);
+        (,, uint256 concessionEarlier,) = hook.auctionStatus(key);
+
+        vm.warp(openTs + later);
+        _setOraclePrice(_priceWadAtTick(20), block.timestamp);
+        (,, uint256 concessionLater,) = hook.auctionStatus(key);
+
+        assertGe(concessionLater, concessionEarlier);
+        assertLe(concessionLater, MAX_CONCESSION_WAD);
+    }
+
     function _auctionConfig() internal view returns (OracleAnchoredLVRHook.Config memory cfg) {
         cfg = OracleAnchoredLVRHook.Config({
             oracle: oracle,
@@ -239,7 +419,8 @@ contract OracleAnchoredLVRHookAuctionTest is Test, Deployers {
             bootstrapSigma2PerSecondWad: BOOTSTRAP_SIGMA2_PER_SECOND_WAD,
             triggerGapBps: TRIGGER_GAP_BPS,
             startConcessionWad: START_CONCESSION_WAD,
-            concessionGrowthWadPerSec: CONCESSION_GROWTH_WAD_PER_SEC
+            concessionGrowthWadPerSec: CONCESSION_GROWTH_WAD_PER_SEC,
+            maxConcessionWad: MAX_CONCESSION_WAD
         });
     }
 

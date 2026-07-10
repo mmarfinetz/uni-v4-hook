@@ -215,7 +215,8 @@ contract OracleAnchoredLVRHookPropertiesTest is Test, Deployers {
             bootstrapSigma2PerSecondWad: BOOTSTRAP_SIGMA2_PER_SECOND_WAD,
             triggerGapBps: 0,
             startConcessionWad: 0,
-            concessionGrowthWadPerSec: 0
+            concessionGrowthWadPerSec: 0,
+            maxConcessionWad: 0
         });
     }
 
@@ -241,7 +242,8 @@ contract OracleAnchoredLVRHookPropertiesTest is Test, Deployers {
     }
 
     function _expectedFeeUnits(int24 oracleTick, bool zeroForOne) internal pure returns (uint24) {
-        return _expectedFeeUnits(_referenceSqrtPriceX96AtTick(oracleTick), SQRT_PRICE_1_1, zeroForOne);
+        return
+            _expectedFeeUnits(_referenceSqrtPriceX96AtTick(oracleTick), SQRT_PRICE_1_1, zeroForOne);
     }
 
     function _expectedFeeUnits(

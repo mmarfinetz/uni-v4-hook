@@ -108,7 +108,8 @@ contract DeployPool is Script {
             bootstrapSigma2PerSecondWad: vm.envOr("BOOTSTRAP_SIGMA2_PER_SECOND_WAD", uint256(3e10)),
             triggerGapBps: uint24(vm.envOr("TRIGGER_GAP_BPS", uint256(10))),
             startConcessionWad: vm.envOr("START_CONCESSION_WAD", uint256(1e15)),
-            concessionGrowthWadPerSec: vm.envOr("CONCESSION_GROWTH_WAD_PER_SEC", uint256(5e13))
+            concessionGrowthWadPerSec: vm.envOr("CONCESSION_GROWTH_WAD_PER_SEC", uint256(5e13)),
+            maxConcessionWad: vm.envOr("MAX_CONCESSION_WAD", uint256(1e18))
         });
     }
 

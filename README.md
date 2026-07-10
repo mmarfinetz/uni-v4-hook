@@ -83,7 +83,7 @@ The selected policy uses the stale-gap bps gate. Solver gas, solver edge, and re
 Core mechanics:
 
 - benign flow pays the base fee; toxic flow pays a gap-scaled surcharge, and the swap fails closed if the computed fee exceeds `maxFee`
-- Dutch-auction repricing: when the stale gap reaches `triggerGapBps`, the toxic surcharge is discounted by a concession that starts at `startConcessionWad` and grows at `concessionGrowthWadPerSec` (as a fraction of the surcharge, so the fee never drops below the base fee); the growing concession also brings capped-out fees back under `maxFee`, so large gaps are eventually repriceable instead of permanently deterred
+- Dutch-auction repricing: when the stale gap reaches `triggerGapBps`, the toxic surcharge is discounted by a concession that starts at `startConcessionWad`, grows at `concessionGrowthWadPerSec`, and is hard-capped at the governance ceiling `maxConcessionWad` (all as fractions of the surcharge, so the fee never drops below the base fee); at a WAD ceiling the growing concession also brings capped-out fees back under `maxFee`, so large gaps are eventually repriceable instead of permanently deterred, while a sub-WAD ceiling guarantees LPs keep at least `1 - maxConcessionWad` of the surcharge from patient solvers at the cost of that escape property
 - swaps and fee previews fail closed when the oracle is stale
 - the hook tracks oracle volatility through an EWMA-style `sigma^2` update
 - LP admission uses width and centering guards derived from oracle risk

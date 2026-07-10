@@ -71,8 +71,15 @@ contract OracleAnchoredLVRHook is IHooks {
         /// (10 bps = 1e15). The solver's discount starts here when the auction opens.
         uint256 startConcessionWad;
         /// @dev Concession growth per second as a WAD fraction of the toxic surcharge
-        /// (0.5 bps/sec = 5e13). The concession is capped at WAD (fee floor = baseFee).
+        /// (0.5 bps/sec = 5e13). The concession is capped at `maxConcessionWad`.
         uint256 concessionGrowthWadPerSec;
+        /// @dev Hard ceiling on the Dutch-auction concession as a WAD fraction of the
+        /// toxic surcharge. At WAD the fee floor decays to `baseFee` (guaranteeing the
+        /// maxFee deadlock always escapes); below WAD the LP keeps at least
+        /// `1 - maxConcessionWad` of the surcharge, but gaps whose floored fee exceeds
+        /// `maxFee` stay deterred. Must be nonzero and >= startConcessionWad when the
+        /// auction is enabled.
+        uint256 maxConcessionWad;
     }
 
     struct RiskState {
@@ -103,7 +110,8 @@ contract OracleAnchoredLVRHook is IHooks {
         PoolId indexed poolId,
         uint24 triggerGapBps,
         uint256 startConcessionWad,
-        uint256 concessionGrowthWadPerSec
+        uint256 concessionGrowthWadPerSec,
+        uint256 maxConcessionWad
     );
     event AuctionOpened(PoolId indexed poolId, uint64 startTs, uint256 gapPremiumWad);
     event AuctionClosed(PoolId indexed poolId, uint256 gapPremiumWad);
@@ -164,7 +172,11 @@ contract OracleAnchoredLVRHook is IHooks {
                 || cfg.maxFee > LPFeeLibrary.MAX_LP_FEE || cfg.maxOracleAge == 0
                 || cfg.lvrBudgetWad == 0 || cfg.alphaBps == 0 || cfg.alphaBps > BPS_DENOMINATOR
                 || cfg.bootstrapSigma2PerSecondWad == 0 || cfg.startConcessionWad > WAD
-                || cfg.concessionGrowthWadPerSec > WAD
+                || cfg.concessionGrowthWadPerSec > WAD || cfg.maxConcessionWad > WAD
+        ) revert InvalidConfig();
+        if (
+            cfg.triggerGapBps != 0
+                && (cfg.maxConcessionWad == 0 || cfg.startConcessionWad > cfg.maxConcessionWad)
         ) revert InvalidConfig();
 
         PoolId id = key.toId();
@@ -183,7 +195,11 @@ contract OracleAnchoredLVRHook is IHooks {
             cfg.bootstrapSigma2PerSecondWad
         );
         emit AuctionConfigSet(
-            id, cfg.triggerGapBps, cfg.startConcessionWad, cfg.concessionGrowthWadPerSec
+            id,
+            cfg.triggerGapBps,
+            cfg.startConcessionWad,
+            cfg.concessionGrowthWadPerSec,
+            cfg.maxConcessionWad
         );
     }
 
@@ -428,9 +444,7 @@ contract OracleAnchoredLVRHook is IHooks {
         returns (uint256 priceWad, uint256 updatedAt, uint256 latestFeedTs)
     {
         try cfg.oracle.latestPriceWad() returns (
-            uint256 fetchedPriceWad,
-            uint256 fetchedUpdatedAt,
-            uint256 fetchedLatestFeedTs
+            uint256 fetchedPriceWad, uint256 fetchedUpdatedAt, uint256 fetchedLatestFeedTs
         ) {
             priceWad = fetchedPriceWad;
             updatedAt = fetchedUpdatedAt;
@@ -488,16 +502,13 @@ contract OracleAnchoredLVRHook is IHooks {
     /// @dev The auction is eligible when the stale gap reaches `triggerGapBps`. The
     /// premium `e^{|z|/2} - 1` is compared against the half-gap `triggerGapBps / 2`
     /// in WAD; the difference from the exact log gap is second order in the gap.
-    function _auctionEligible(Config memory cfg, uint256 premiumWad)
-        internal
-        pure
-        returns (bool)
-    {
+    function _auctionEligible(Config memory cfg, uint256 premiumWad) internal pure returns (bool) {
         return cfg.triggerGapBps != 0 && premiumWad >= uint256(cfg.triggerGapBps) * HALF_BPS_WAD;
     }
 
     /// @dev Scheduled concession at the current timestamp for an auction opened at
-    /// `startTs` (elapsed 0 when the auction has not opened yet), capped at WAD.
+    /// `startTs` (elapsed 0 when the auction has not opened yet), capped at the
+    /// configured `maxConcessionWad` ceiling.
     function _auctionConcessionWad(Config memory cfg, uint64 startTs)
         internal
         view
@@ -505,7 +516,7 @@ contract OracleAnchoredLVRHook is IHooks {
     {
         uint256 elapsed = startTs == 0 ? 0 : block.timestamp - startTs;
         uint256 concessionWad = cfg.startConcessionWad + cfg.concessionGrowthWadPerSec * elapsed;
-        return concessionWad > WAD ? WAD : concessionWad;
+        return concessionWad > cfg.maxConcessionWad ? cfg.maxConcessionWad : concessionWad;
     }
 
     /// @dev Lazily transitions the pool's auction state from the pre-swap gap: opens
@@ -533,9 +544,8 @@ contract OracleAnchoredLVRHook is IHooks {
 
     function _refreshRisk(PoolId id, uint256 referencePriceWad, uint256 latestFeedTs) internal {
         RiskState memory current = risk[id];
-        if (
-            current.lastOraclePriceWad == referencePriceWad && current.lastOracleTs == latestFeedTs
-        ) {
+        if (current.lastOraclePriceWad == referencePriceWad && current.lastOracleTs == latestFeedTs)
+        {
             // No new oracle information since the last swap; skip the redundant
             // storage write and event.
             return;
