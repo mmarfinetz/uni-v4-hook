@@ -32,4 +32,21 @@ be quoted with its ex-dislocation figure. The annualized column assumes the
 October regime repeats all year and is therefore a high-volatility upper
 bound, not an expected yield.
 
+## Observed-flow floor
+
+The ceiling above uses a modeled repricer. The floor companion replays real
+historical swaps (54 windows across seven pools, May 2026 observed-flow
+study) through the hook+auction and static-fee policies on identical
+reconstructed pool state. Against the static-fee policy, LP net was higher
+in **51 of 54 windows**, unchanged in 3, and lower in **0** (per-window
+values frozen in `reports/observed_flow_lp_uplift_windows.csv`).
+
+USD aggregation of the floor is deliberately withheld: the replay's
+`wbtc_usdc_500` quote units are inconsistent with the other pools (values
+five orders of magnitude larger, likely a token-decimals issue in the
+fixed-fee branch), and publishing dollar sums before that is resolved would
+not survive scrutiny. Sign counts are scale-invariant and unaffected. The
+replay holds flow captive (the same swaps run through both fee curves), so
+it bounds mechanism accounting, not market routing behavior.
+
 Reproduce with `python3 -m script.build_lp_apr_uplift`.

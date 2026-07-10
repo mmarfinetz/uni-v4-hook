@@ -5,6 +5,7 @@ from research.lvr.reporting.build_lp_apr_uplift import (
     ANNUALIZATION,
     STUDY_DAYS,
     build_rows,
+    observed_flow_counts,
 )
 
 
@@ -72,6 +73,13 @@ class LpAprUpliftTest(unittest.TestCase):
             link["uplift_bps_tvl_month_ex_dislocation"],
             link["uplift_bps_tvl_month"] * Decimal("0.4"),
         )
+
+    def test_observed_flow_floor_counts(self):
+        counts = observed_flow_counts()
+        self.assertEqual(counts["windows"], 54)
+        self.assertEqual(counts["positive"], 51)
+        self.assertEqual(counts["zero"], 3)
+        self.assertEqual(counts["negative"], 0)
 
     def test_tvl_magnitudes_are_sane(self):
         # Pool token balances priced at the study block: between $1M and $200M.

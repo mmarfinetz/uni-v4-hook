@@ -33,6 +33,7 @@ USD_TABLE_PATH = (
     / "paper_empirical_update_2026_04_27"
     / "cross_pool_native_usd_table.csv"
 )
+OBSERVED_FLOW_PATH = REPO_ROOT / "reports" / "observed_flow_lp_uplift_windows.csv"
 OUTPUT_CSV_PATH = REPO_ROOT / "reports" / "lp_apr_uplift.csv"
 OUTPUT_MD_PATH = REPO_ROOT / "reports" / "lp_apr_uplift.md"
 
@@ -175,6 +176,24 @@ def build_rows() -> List[Dict[str, Decimal]]:
     return rows
 
 
+def observed_flow_counts() -> Dict[str, int]:
+    """Sign counts of the observed-flow replay's hook+auction LP net versus the
+    static-fee policy. Signs are scale-invariant, so these counts are immune to
+    the per-pool quote-unit anomaly documented in the output notes."""
+    counts = {"positive": 0, "zero": 0, "negative": 0, "windows": 0}
+    with OBSERVED_FLOW_PATH.open() as handle:
+        for row in csv.DictReader(handle):
+            value = Decimal(row["lp_net_vs_fixed_fee_quote"])
+            counts["windows"] += 1
+            if value > 0:
+                counts["positive"] += 1
+            elif value < 0:
+                counts["negative"] += 1
+            else:
+                counts["zero"] += 1
+    return counts
+
+
 def _fmt_usd(value: Decimal) -> str:
     if value >= Decimal(1_000_000):
         return "$%.2fM" % (value / Decimal(1_000_000))
@@ -241,6 +260,7 @@ def write_outputs(rows: List[Dict[str, Decimal]]) -> None:
                 row["uplift_pct_tvl_annualized"],
             )
         )
+    counts = observed_flow_counts()
     lines += [
         "",
         "The study month (October 2025, %.1f days of windows) includes the Oct 10-11"
@@ -251,6 +271,24 @@ def write_outputs(rows: List[Dict[str, Decimal]]) -> None:
         "be quoted with its ex-dislocation figure. The annualized column assumes the",
         "October regime repeats all year and is therefore a high-volatility upper",
         "bound, not an expected yield.",
+        "",
+        "## Observed-flow floor",
+        "",
+        "The ceiling above uses a modeled repricer. The floor companion replays real",
+        "historical swaps (54 windows across seven pools, May 2026 observed-flow",
+        "study) through the hook+auction and static-fee policies on identical",
+        "reconstructed pool state. Against the static-fee policy, LP net was higher",
+        "in **%d of %d windows**, unchanged in %d, and lower in **%d** (per-window"
+        % (counts["positive"], counts["windows"], counts["zero"], counts["negative"]),
+        "values frozen in `reports/observed_flow_lp_uplift_windows.csv`).",
+        "",
+        "USD aggregation of the floor is deliberately withheld: the replay's",
+        "`wbtc_usdc_500` quote units are inconsistent with the other pools (values",
+        "five orders of magnitude larger, likely a token-decimals issue in the",
+        "fixed-fee branch), and publishing dollar sums before that is resolved would",
+        "not survive scrutiny. Sign counts are scale-invariant and unaffected. The",
+        "replay holds flow captive (the same swaps run through both fee curves), so",
+        "it bounds mechanism accounting, not market routing behavior.",
         "",
         "Reproduce with `python3 -m script.build_lp_apr_uplift`.",
     ]
