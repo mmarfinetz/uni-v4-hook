@@ -77,6 +77,38 @@ the auction close is lazy, no interaction had observed the closed gap, so the ne
 opposite-direction gap inherited the old clock's accrued 2.23% concession and the
 bot filled immediately.
 
+## Side-by-side static-fee baseline
+
+[`script/DeployBaselinePool.s.sol`](../script/DeployBaselinePool.s.sol) deploys a
+hookless control pool on the same demo tokens — static 30 bps fee (the classic
+v3 tier and what a hookless v4 pool would charge), same tick range and seeded
+liquidity, initialized at the same reference price. `solver_bot.py compare`
+then reads both LPs' exact withdrawable value (fees included) via simulated
+full withdrawal, so the comparison is on-chain state, not a model.
+
+Baseline pool on Base Sepolia (2026-07-10): static fee `3000`, pool id
+`0x1d0f8d083126f3731abe0cc71566db605946d93079b1419f4bf95ef9af7b2456`.
+
+Live run of one 100 bps reference move pushed through both pools:
+
+```
+SNAPSHOT 1: hooked LP - baseline LP = +0.010379 tokens   (fees from earlier cycles)
+make-gap --bps 100
+hooked fill:   toxic fee 5,474 ppm (gap-scaled, net of 0.25% concession)
+baseline fill: static fee 3,000 ppm
+SNAPSHOT 2: hooked LP - baseline LP = +0.022879 tokens
+event-attributable difference: +0.012500 tokens on one repricing event
+```
+
+The +0.0125 matches the fee arithmetic exactly: (5,474 - 3,000) ppm on the
+~5.05-token repricing notional, a 1.82x fee capture on this event. Honest
+caveat for the pitch: the gap-scaled fee only exceeds a 30 bps static fee for
+gaps above roughly 50 bps (`5 + gap/2` bps vs `30` bps), so on small gaps the
+static pool captures more per event. The aggregate studies still favor the hook
+because stale-loss value is dominated by large gaps, and benign flow pays 5 bps
+instead of 30 — both halves of that argument are demonstrable on this pair of
+pools.
+
 Operational notes:
 
 - The public `sepolia.base.org` RPC is load-balanced with inconsistent mempool

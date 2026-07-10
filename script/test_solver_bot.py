@@ -3,10 +3,12 @@ import unittest
 from script.solver_bot import (
     HALF_BPS_WAD,
     WAD,
+    decode_balance_delta,
     feed_answer_for_gap,
     gap_premium_wad,
     gap_trigger_bps,
     parse_cast_values,
+    position_value_token1,
     should_fill,
     should_poke,
     toxic_zero_for_one,
@@ -62,6 +64,34 @@ class FeedMathTest(unittest.TestCase):
         self.assertEqual(feed_answer_for_gap(10**18, 30), 10**18 * 10_030 // 10_000)
         self.assertEqual(feed_answer_for_gap(10**18, -30), 10**18 * 9_970 // 10_000)
         self.assertEqual(feed_answer_for_gap(10**18, 0), 10**18)
+
+
+class BalanceDeltaTest(unittest.TestCase):
+    def test_decodes_positive_amounts(self):
+        packed = (5 << 128) | 7
+        self.assertEqual(decode_balance_delta(packed), (5, 7))
+
+    def test_decodes_negative_amounts(self):
+        a0, a1 = -3, -11
+        packed = ((a0 & ((1 << 128) - 1)) << 128) | (a1 & ((1 << 128) - 1))
+        # Interpret the 256-bit two's complement as a signed int like cast does.
+        signed = packed - (1 << 256) if packed >= (1 << 255) else packed
+        self.assertEqual(decode_balance_delta(signed), (-3, -11))
+
+    def test_decodes_mixed_signs(self):
+        a0, a1 = 42, -1
+        packed = ((a0 & ((1 << 128) - 1)) << 128) | (a1 & ((1 << 128) - 1))
+        signed = packed - (1 << 256) if packed >= (1 << 255) else packed
+        self.assertEqual(decode_balance_delta(signed), (42, -1))
+
+
+class PositionValueTest(unittest.TestCase):
+    def test_values_token0_at_reference_price(self):
+        # P_ref = 4 (sqrtP = 2 * Q96): 10 token0 = 40 token1, plus 5 token1.
+        self.assertEqual(position_value_token1(10, 5, 2 * Q96), 45)
+
+    def test_one_to_one_price_sums_amounts(self):
+        self.assertEqual(position_value_token1(7, 8, Q96), 15)
 
 
 class CastParsingTest(unittest.TestCase):

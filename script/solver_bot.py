@@ -36,6 +36,10 @@ from typing import List, Optional, Tuple
 WAD = 10**18
 HALF_BPS_WAD = 5 * 10**13  # hook's premium unit: 1 trigger-bps of gap
 DYNAMIC_FEE_FLAG = 0x800000
+ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
+ZERO_SALT = "0x" + "0" * 64
+Q96 = 2**96
+POOLS_MAPPING_SLOT = 6  # PoolManager: mapping(PoolId => Pool.State) at slot 6
 
 POOL_KEY_ABI = "(address,address,uint24,int24,address)"
 SWAP_ABI = (
@@ -95,6 +99,23 @@ def feed_answer_for_gap(current_answer: int, gap_bps: float) -> int:
     where the feed points now; the hook's premium reads this as ~gap_bps trigger
     units. Negative gap_bps moves the reference below the pool."""
     return int(current_answer * (10_000 + gap_bps) // 10_000)
+
+
+def decode_balance_delta(packed: int) -> Tuple[int, int]:
+    """Split a v4 BalanceDelta (int256 packing two int128s) into signed
+    (amount0, amount1)."""
+    unsigned = packed & ((1 << 256) - 1)
+    lower = unsigned & ((1 << 128) - 1)
+    upper = unsigned >> 128
+    amount1 = lower - (1 << 128) if lower >= (1 << 127) else lower
+    amount0 = upper - (1 << 128) if upper >= (1 << 127) else upper
+    return amount0, amount1
+
+
+def position_value_token1(amount0: int, amount1: int, ref_sqrtp: int) -> int:
+    """Value of a token pair in token1 raw units at the reference price implied
+    by `ref_sqrtp` (amount0 * P_ref + amount1, integer math)."""
+    return amount0 * ref_sqrtp * ref_sqrtp // (Q96 * Q96) + amount1
 
 
 def parse_cast_values(output: str) -> List[str]:
@@ -168,8 +189,18 @@ class SolverBot:
         self.swap_router = cfg.swap_router
         self.base_feed = cfg.base_feed
         self.quote_feed = cfg.quote_feed
+        self.liquidity_router = cfg.liquidity_router
+        self.baseline_fee = cfg.baseline_fee
+        self.tick_lower = cfg.tick_lower
+        self.tick_upper = cfg.tick_upper
+        self.seed_liquidity = cfg.seed_liquidity
+        self.caller = os.environ.get("DEPLOYER_ADDRESS")
+        self._pool_manager = None  # type: Optional[str]
         self.key_tuple = "(%s,%s,%d,%d,%s)" % (
             cfg.token0, cfg.token1, DYNAMIC_FEE_FLAG, cfg.tick_spacing, cfg.hook
+        )
+        self.baseline_key_tuple = "(%s,%s,%d,%d,%s)" % (
+            cfg.token0, cfg.token1, cfg.baseline_fee, cfg.tick_spacing, ZERO_ADDRESS
         )
 
     # -- reads --------------------------------------------------------------
@@ -214,6 +245,54 @@ class SolverBot:
         premium, above = gap_premium_wad(ref, pool)
         return premium, above, toxic_fee, ref, pool
 
+    def pool_manager(self) -> str:
+        if self._pool_manager is None:
+            self._pool_manager = self.chain.call(
+                self.hook, "poolManager()(address)"
+            )[0]
+        return self._pool_manager
+
+    def pool_sqrtp(self, key_tuple: str) -> int:
+        """Any pool's current sqrt price straight from PoolManager storage via
+        extsload (slot0 is the first word of Pool.State), so no lens contract or
+        hook is needed - works for the hookless baseline pool."""
+        encoded = subprocess.run(
+            ["cast", "abi-encode", "f(%s)" % POOL_KEY_ABI, key_tuple],
+            capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        pool_id = subprocess.run(
+            ["cast", "keccak", encoded], capture_output=True, text=True, check=True
+        ).stdout.strip()
+        state_slot = subprocess.run(
+            ["cast", "index", "bytes32", pool_id, str(POOLS_MAPPING_SLOT)],
+            capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        word = self.chain.call(
+            self.pool_manager(), "extsload(bytes32)(bytes32)", state_slot
+        )[0]
+        return int(word, 16) & ((1 << 160) - 1)
+
+    def withdraw_simulation(self, key_tuple: str) -> Tuple[int, int]:
+        """Simulated full withdrawal of the seeded position (eth_call, nothing
+        is broadcast): returns the exact token amounts the LP would receive now,
+        fees included."""
+        params = "(%d,%d,-%d,%s)" % (
+            self.tick_lower, self.tick_upper, self.seed_liquidity, ZERO_SALT
+        )
+        cmd = [
+            "cast", "call", self.liquidity_router,
+            "modifyLiquidity(%s,(int24,int24,int256,bytes32),bytes)(int256)"
+            % POOL_KEY_ABI,
+            key_tuple, params, "0x", "--rpc-url", self.chain.rpc_url,
+        ]
+        if self.caller:
+            cmd += ["--from", self.caller]
+        out = subprocess.run(cmd, capture_output=True, text=True)
+        if out.returncode != 0:
+            raise CallReverted(out.stderr.strip())
+        packed = int(parse_cast_values(out.stdout)[0])
+        return decode_balance_delta(packed)
+
     def feed_round(self, feed: str) -> Tuple[int, int]:
         vals = self.chain.call(
             feed, "latestRoundData()(uint80,int256,uint256,uint256,uint80)"
@@ -230,14 +309,44 @@ class SolverBot:
             self.hook, "pokeAuction(%s)" % POOL_KEY_ABI, self.key_tuple
         )
 
-    def fill(self, amount_in: int) -> str:
+    def fill(self, amount_in: int, baseline: bool = False) -> str:
         premium, above, _, ref, _ = self.read_gap()
+        key_tuple = self.key_tuple
+        if baseline:
+            key_tuple = self.baseline_key_tuple
+            premium, above = gap_premium_wad(ref, self.pool_sqrtp(key_tuple))
         if premium == 0:
             raise RuntimeError("no gap to reprice")
         zero_for_one = toxic_zero_for_one(above)
         swap_params = "(%s,-%d,%d)" % (str(zero_for_one).lower(), amount_in, ref)
         return self.chain.send(
-            self.swap_router, SWAP_ABI, self.key_tuple, swap_params, "(false,false)", "0x"
+            self.swap_router, SWAP_ABI, key_tuple, swap_params, "(false,false)", "0x"
+        )
+
+    def compare(self) -> None:
+        """Side-by-side LP value of the hooked and baseline pools: simulated
+        full withdrawal of the identical seeded position, valued in token1 raw
+        units at the current oracle reference price."""
+        _, _, _, ref, hooked_sqrtp = self.read_gap()
+        pools = (
+            ("hooked", self.key_tuple, hooked_sqrtp),
+            ("baseline", self.baseline_key_tuple, self.pool_sqrtp(self.baseline_key_tuple)),
+        )
+        values = {}
+        for name, key_tuple, sqrtp in pools:
+            premium, _ = gap_premium_wad(ref, sqrtp)
+            amount0, amount1 = self.withdraw_simulation(key_tuple)
+            value = position_value_token1(amount0, amount1, ref)
+            values[name] = value
+            log(
+                "%-8s | gap %6.2f trigger-bps | withdrawable %s token0 + %s token1"
+                " | value %s token1-units"
+                % (name, gap_trigger_bps(premium), amount0, amount1, value)
+            )
+        delta = values["hooked"] - values["baseline"]
+        log(
+            "hooked LP - baseline LP = %+d token1-units (%+.6f whole tokens)"
+            % (delta, delta / 10**18)
         )
 
     def refresh_oracle(self, max_age_secs: int = 0) -> None:
@@ -326,15 +435,25 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--quote-feed", default=os.environ.get("QUOTE_FEED"))
     p.add_argument("--tick-spacing", type=int,
                    default=int(os.environ.get("TICK_SPACING", "60")))
+    p.add_argument("--liquidity-router", default=os.environ.get("LIQUIDITY_ROUTER"))
+    p.add_argument("--baseline-fee", type=int,
+                   default=int(os.environ.get("BASELINE_FEE", "3000")),
+                   help="static fee (ppm) of the hookless control pool")
+    p.add_argument("--tick-lower", type=int, default=-12_000)
+    p.add_argument("--tick-upper", type=int, default=12_000)
+    p.add_argument("--seed-liquidity", type=int, default=10**21,
+                   help="liquidity of the seeded position in both pools")
 
     sub = p.add_subparsers(dest="command", required=True)
     sub.add_parser("status")
     sub.add_parser("poke")
     sub.add_parser("refresh-oracle")
+    sub.add_parser("compare")
 
     fill = sub.add_parser("fill")
     fill.add_argument("--amount-in", type=float, default=100e18,
                       help="max exact-in size; the ref price limit truncates it")
+    fill.add_argument("--pool", choices=("hooked", "baseline"), default="hooked")
 
     gap = sub.add_parser("make-gap")
     gap.add_argument("--bps", type=float, required=True,
@@ -375,7 +494,9 @@ def main() -> int:
         bot.refresh_oracle()
         log("feeds re-stamped")
     elif args.command == "fill":
-        log("fill tx: %s" % bot.fill(int(args.amount_in)))
+        log("fill tx: %s" % bot.fill(int(args.amount_in), args.pool == "baseline"))
+    elif args.command == "compare":
+        bot.compare()
     elif args.command == "make-gap":
         log("make-gap tx: %s" % bot.make_gap(args.bps))
     elif args.command == "run":
