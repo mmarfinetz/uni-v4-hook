@@ -25,6 +25,7 @@ import csv
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 COMBINED_GRID_PATH = REPO_ROOT / "reports" / "sensitivity_grid_combined.csv"
+WINDOWS_GRID_PATH = REPO_ROOT / "reports" / "sensitivity_grid_windows.csv"
 TVL_PATH = REPO_ROOT / "reports" / "pool_tvl_2025_10.csv"
 USD_TABLE_PATH = (
     REPO_ROOT
@@ -50,6 +51,11 @@ POOL_LABELS = {
     "link_weth_3000": "LINK/WETH",
     "uni_weth_3000": "UNI/WETH",
 }
+
+# Daily windows containing the Oct 10-11, 2025 market dislocation. The
+# ex-dislocation columns exclude these two calendar windows (not the data-mined
+# maximum) so the robustness split cannot be accused of cherry-picking.
+DISLOCATION_WINDOW_SUFFIXES = ("_w10", "_w11")
 
 # Study span: month windows w01..w31 cover mainnet blocks 23,479,243-23,700,766.
 STUDY_SPAN_BLOCKS = 23_700_766 - 23_479_243
@@ -104,10 +110,35 @@ def _tvl_usd(path: Path) -> Dict[str, Dict[str, Decimal]]:
     return tvl
 
 
+def _gross_quote_by_pool_excluding_dislocation(path: Path) -> Dict[str, Decimal]:
+    """Per-pool gross stale value (quote tokens) for the recommended cell with
+    the Oct 10-11 windows removed, from the per-window grid output."""
+    totals: Dict[str, Decimal] = {slug: Decimal("0") for slug in POOL_LABELS}
+    with path.open() as handle:
+        for row in csv.DictReader(handle):
+            if row["pool"] not in totals:
+                continue
+            if not all(
+                Decimal(row[column]) == expected
+                for column, expected in RECOMMENDED_CELL.items()
+            ):
+                continue
+            if row["window_id"].endswith(DISLOCATION_WINDOW_SUFFIXES):
+                continue
+            recapture = Decimal(row["recapture_pct"]) / Decimal(100)
+            unrecovered = Decimal(1) - recapture
+            if unrecovered <= 0:
+                continue
+            lp_net = Decimal(row["lp_net_quote_token"])
+            totals[row["pool"]] += max(Decimal("0"), -lp_net / unrecovered)
+    return totals
+
+
 def build_rows() -> List[Dict[str, Decimal]]:
     grid = _recommended_rows(COMBINED_GRID_PATH)
     multipliers = _usd_multipliers(USD_TABLE_PATH)
     tvl = _tvl_usd(TVL_PATH)
+    gross_ex_dislocation = _gross_quote_by_pool_excluding_dislocation(WINDOWS_GRID_PATH)
 
     rows: List[Dict[str, Decimal]] = []
     for slug, label in POOL_LABELS.items():
@@ -124,6 +155,10 @@ def build_rows() -> List[Dict[str, Decimal]]:
         uplift_usd = gross_usd * (recapture - v3_recapture)
         pool_tvl = tvl[slug]["tvl_usd"]
         monthly_bps = uplift_usd / pool_tvl * BPS
+
+        uplift_ex_usd = (
+            gross_ex_dislocation[slug] * multipliers[label] * (recapture - v3_recapture)
+        )
         rows.append(
             {
                 "pool": label,
@@ -133,6 +168,7 @@ def build_rows() -> List[Dict[str, Decimal]]:
                 "v3_recapture_pct": v3_recapture * 100,
                 "uplift_usd_month": uplift_usd,
                 "uplift_bps_tvl_month": monthly_bps,
+                "uplift_bps_tvl_month_ex_dislocation": uplift_ex_usd / pool_tvl * BPS,
                 "uplift_pct_tvl_annualized": monthly_bps * ANNUALIZATION / Decimal(100),
             }
         )
@@ -156,6 +192,7 @@ def write_outputs(rows: List[Dict[str, Decimal]]) -> None:
         "v3_recapture_pct",
         "uplift_usd_month",
         "uplift_bps_tvl_month",
+        "uplift_bps_tvl_month_ex_dislocation",
         "uplift_pct_tvl_annualized",
     ]
     with OUTPUT_CSV_PATH.open("w", newline="") as handle:
@@ -165,22 +202,33 @@ def write_outputs(rows: List[Dict[str, Decimal]]) -> None:
             writer.writerow({key: str(row[key]) for key in fieldnames})
 
     lines = [
-        "# LP APR Uplift (Recommended Cell, October 2025)",
+        "# LP Uplift vs Static Fees (Recommended Cell, October 2025)",
         "",
-        "LP value recovered above the fixed-fee v3 baseline, expressed against each",
-        "pool's TVL. TVL is the pool's token balances at mainnet block 23,590,000",
-        "(mid-study), priced with the study's Chainlink USD feeds at that block",
-        "(`reports/pool_tvl_2025_10.csv`). Gross stale value and recapture come from",
-        "the recommended cell of `reports/sensitivity_grid_combined.csv` using the",
-        "same methodology and USD conversion as the solver economics table.",
+        "Modeled recovery ceiling above a static-fee baseline, expressed against each",
+        "pool's TVL. The baseline is a fixed-fee pool at the venue's fee tier, which",
+        "describes both Uniswap v3 and a hookless Uniswap v4 pool (identical AMM",
+        "math and static fees). TVL is the pool's token balances at mainnet block",
+        "23,590,000 (mid-study), priced with the study's Chainlink USD feeds at that",
+        "block (`reports/pool_tvl_2025_10.csv`). Gross stale value and recapture come",
+        "from the recommended cell of `reports/sensitivity_grid_combined.csv` using",
+        "the same methodology and USD conversion as the solver economics table.",
         "",
-        "| Pool | TVL | Gross stale value | Hook recapture | V3 recapture |"
-        " LP uplift (month) | Uplift (bps of TVL, month) | Annualized (% of TVL) |",
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "**What this is:** the size of the stale-loss value static fees left",
+        "unrecovered, which the auction mechanism is designed to capture. The hook",
+        "recapture rate is the mechanism's *modeled ceiling* (single rational solver,",
+        "zero gas, captive flow; see the README key-results caveat), not a realized",
+        "yield. The empirically grounded companions are the exact fee-law validation,",
+        "the 124/124 auction clear rate, and the observed-flow replay in which LP net",
+        "improved in 28 of 54 windows and worsened in none.",
+        "",
+        "| Pool | TVL | Gross stale value | Hook recapture (ceiling) | Static-fee"
+        " recapture | LP uplift (month) | Uplift (bps of TVL, month) | ex Oct 10-11"
+        " (bps) | Annualized (% of TVL) |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for row in rows:
         lines.append(
-            "| %s | %s | %s | %.1f%% | %.1f%% | %s | %.0f | %.0f%% |"
+            "| %s | %s | %s | %.1f%% | %.1f%% | %s | %.0f | %.0f | %.0f%% |"
             % (
                 row["pool"],
                 _fmt_usd(row["tvl_usd"]),
@@ -189,6 +237,7 @@ def write_outputs(rows: List[Dict[str, Decimal]]) -> None:
                 row["v3_recapture_pct"],
                 _fmt_usd(row["uplift_usd_month"]),
                 row["uplift_bps_tvl_month"],
+                row["uplift_bps_tvl_month_ex_dislocation"],
                 row["uplift_pct_tvl_annualized"],
             )
         )
@@ -196,11 +245,12 @@ def write_outputs(rows: List[Dict[str, Decimal]]) -> None:
         "",
         "The study month (October 2025, %.1f days of windows) includes the Oct 10-11"
         % float(STUDY_DAYS),
-        "market dislocation, which dominates the stale-loss totals. The annualized",
-        "column assumes that regime repeats all year and is therefore a",
-        "high-volatility upper bound, not an expected yield. The monthly bps column",
-        "is the defensible headline: it is what the hook's auction path recovered",
-        "for LPs, above what static v3 fees recovered, in one observed month.",
+        "market dislocation. The `ex Oct 10-11` column removes those two calendar",
+        "windows: WETH/USDC keeps most of its uplift (the value is not a one-day",
+        "artifact), while LINK/WETH is dominated by the dislocation and should always",
+        "be quoted with its ex-dislocation figure. The annualized column assumes the",
+        "October regime repeats all year and is therefore a high-volatility upper",
+        "bound, not an expected yield.",
         "",
         "Reproduce with `python3 -m script.build_lp_apr_uplift`.",
     ]

@@ -53,6 +53,26 @@ class LpAprUpliftTest(unittest.TestCase):
         self.assertAlmostEqual(float(STUDY_DAYS), 30.77, places=1)
         self.assertAlmostEqual(float(ANNUALIZATION), 365.25 / 30.77, places=2)
 
+    def test_ex_dislocation_split_shows_concentration(self):
+        for pool, row in self.rows.items():
+            self.assertLess(
+                row["uplift_bps_tvl_month_ex_dislocation"],
+                row["uplift_bps_tvl_month"],
+                pool,
+            )
+        # WETH/USDC uplift is not a one-day artifact; LINK/WETH is dominated by
+        # the Oct 10-11 dislocation windows.
+        weth = self.rows["WETH/USDC"]
+        self.assertGreater(
+            weth["uplift_bps_tvl_month_ex_dislocation"],
+            weth["uplift_bps_tvl_month"] * Decimal("0.6"),
+        )
+        link = self.rows["LINK/WETH"]
+        self.assertLess(
+            link["uplift_bps_tvl_month_ex_dislocation"],
+            link["uplift_bps_tvl_month"] * Decimal("0.4"),
+        )
+
     def test_tvl_magnitudes_are_sane(self):
         # Pool token balances priced at the study block: between $1M and $200M.
         for pool, row in self.rows.items():
