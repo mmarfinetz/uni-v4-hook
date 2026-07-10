@@ -123,6 +123,12 @@ oracle price, and writing the recommended auction config with
 [script/DeployPool.s.sol](script/DeployPool.s.sol). Base Sepolia is the primary
 target; the whole path can be rehearsed for free against an Anvil fork.
 
+[docs/solver_bot.md](docs/solver_bot.md) documents the solver/keeper bot
+([script/solver_bot.py](script/solver_bot.py)) that runs the Dutch-auction loop
+live — poke on gap open, fill once the concession clears a threshold — against a
+controllable demo pool ([script/DeployDemoPool.s.sol](script/DeployDemoPool.s.sol))
+on the real Base Sepolia PoolManager.
+
 ## Repository Layout
 
 - `src/`: hook, oracle, and interfaces
