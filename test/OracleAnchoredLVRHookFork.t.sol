@@ -66,8 +66,10 @@ contract ChainlinkReferenceOracleForkTest is MainnetForkBase {
         assertEq(IERC20Metadata(WETH).decimals(), 18);
         assertEq(IERC20Metadata(USDC).decimals(), 6);
 
-        IChainlinkAggregatorV3 baseFeed = IChainlinkAggregatorV3(ETH_USD_FEED);
-        IChainlinkAggregatorV3 quoteFeed = IChainlinkAggregatorV3(USDC_USD_FEED);
+        // USDC (token0, 6 decimals) / WETH (token1, 18 decimals): base feed is
+        // token0's asset feed, quote feed is token1's asset feed.
+        IChainlinkAggregatorV3 baseFeed = IChainlinkAggregatorV3(USDC_USD_FEED);
+        IChainlinkAggregatorV3 quoteFeed = IChainlinkAggregatorV3(ETH_USD_FEED);
         ChainlinkReferenceOracle oracle =
             new ChainlinkReferenceOracle(baseFeed, false, quoteFeed, false, 6, 18);
 
@@ -91,27 +93,31 @@ contract ChainlinkReferenceOracleForkTest is MainnetForkBase {
         assertGt(quoteAnswer, 0);
         assertGe(baseAnsweredInRound, baseRoundId);
         assertGe(quoteAnsweredInRound, quoteRoundId);
-        assertLe(block.timestamp - baseUpdatedAt, ETH_USD_HEARTBEAT_WINDOW);
-        assertLe(block.timestamp - quoteUpdatedAt, USDC_USD_HEARTBEAT_WINDOW);
+        assertLe(block.timestamp - baseUpdatedAt, USDC_USD_HEARTBEAT_WINDOW);
+        assertLe(block.timestamp - quoteUpdatedAt, ETH_USD_HEARTBEAT_WINDOW);
 
         (uint256 priceWad, uint256 updatedAt, uint256 latestFeedTs) = oracle.latestPriceWad();
 
         uint256 expectedUpdatedAt = baseUpdatedAt < quoteUpdatedAt ? baseUpdatedAt : quoteUpdatedAt;
-        uint256 expectedLatestFeedTs = baseUpdatedAt > quoteUpdatedAt ? baseUpdatedAt : quoteUpdatedAt;
+        uint256 expectedLatestFeedTs =
+            baseUpdatedAt > quoteUpdatedAt ? baseUpdatedAt : quoteUpdatedAt;
         uint256 expectedPriceWad =
             _expectedPriceWad(baseFeed, quoteFeed, baseAnswer, quoteAnswer, 6, 18);
 
         assertEq(updatedAt, expectedUpdatedAt);
         assertEq(latestFeedTs, expectedLatestFeedTs);
         assertEq(priceWad, expectedPriceWad);
-        assertGt(priceWad, 500e6);
+        // Raw amount1/amount0 for USDC/WETH is 1e12 / ETHUSD in WAD, so the
+        // bounds correspond to an ETH price between $100 and $100,000.
+        assertGt(priceWad, 1e25);
+        assertLt(priceWad, 1e28);
     }
 
     function testFork_rollForwardAcrossBlocks_onlyAdvancesOracleWhenFeedsRefresh() public {
         ChainlinkReferenceOracle oracle = new ChainlinkReferenceOracle(
-            IChainlinkAggregatorV3(ETH_USD_FEED),
-            false,
             IChainlinkAggregatorV3(LINK_USD_FEED),
+            false,
+            IChainlinkAggregatorV3(ETH_USD_FEED),
             false,
             18,
             18
@@ -151,10 +157,10 @@ contract ChainlinkReferenceOracleForkTest is MainnetForkBase {
         uint256 quotePriceWad =
             FullMath.mulDiv(uint256(quoteAnswer), WAD, 10 ** quoteFeed.decimals());
         uint256 priceWad = FullMath.mulDiv(basePriceWad, WAD, quotePriceWad);
-        if (token0Decimals >= token1Decimals) {
-            return FullMath.mulDiv(priceWad, 10 ** (token0Decimals - token1Decimals), 1);
+        if (token1Decimals >= token0Decimals) {
+            return FullMath.mulDiv(priceWad, 10 ** (token1Decimals - token0Decimals), 1);
         }
-        return FullMath.mulDiv(priceWad, 1, 10 ** (token1Decimals - token0Decimals));
+        return FullMath.mulDiv(priceWad, 1, 10 ** (token0Decimals - token1Decimals));
     }
 }
 
@@ -316,10 +322,12 @@ contract OracleAnchoredLVRHookForkTest is MainnetForkBase, Deployers {
     }
 
     function _deployLiveOracleAndHook() internal {
+        // LINK is token0 and WETH token1 on mainnet, so the base feed is LINK/USD
+        // and the quote feed is ETH/USD, giving WETH-per-LINK as amount1/amount0.
         oracle = new ChainlinkReferenceOracle(
-            IChainlinkAggregatorV3(ETH_USD_FEED),
-            false,
             IChainlinkAggregatorV3(LINK_USD_FEED),
+            false,
+            IChainlinkAggregatorV3(ETH_USD_FEED),
             false,
             18,
             18

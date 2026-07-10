@@ -6,6 +6,13 @@ import { FullMath } from "v4-core/libraries/FullMath.sol";
 import { IChainlinkAggregatorV3 } from "../interfaces/IChainlinkAggregatorV3.sol";
 import { IReferenceOracle } from "../interfaces/IReferenceOracle.sol";
 
+/// @notice Chainlink-backed reference price for a v4 pool, returned as the pool's
+/// raw-unit `amount1/amount0` price in WAD (the value `sqrtPriceX96^2 / 2^192`
+/// scaled by 1e18), which is what the hook's `_priceWadToSqrtPriceX96` expects.
+/// @dev Wire `baseFeed` to token0's asset/USD feed and `quoteFeed` to token1's
+/// asset/USD feed (e.g. USDC/USD base and ETH/USD quote for a USDC/WETH pool),
+/// so the base/quote ratio is the whole-token price of token0 denominated in
+/// token1. The token-decimals conversion then rescales that ratio into raw units.
 contract ChainlinkReferenceOracle is IReferenceOracle {
     uint256 internal constant WAD = 1e18;
 
@@ -67,11 +74,12 @@ contract ChainlinkReferenceOracle is IReferenceOracle {
             latestFeedTs = baseUpdatedAt > quoteUpdatedAt ? baseUpdatedAt : quoteUpdatedAt;
         }
 
-        // Convert the economic feed ratio into the pool's raw-unit amount1/amount0 price.
-        if (token0Decimals >= token1Decimals) {
-            priceWad = FullMath.mulDiv(priceWad, 10 ** (token0Decimals - token1Decimals), 1);
+        // Convert the economic feed ratio (token1 per whole token0) into the pool's
+        // raw-unit amount1/amount0 price: multiply by 10^(dec1 - dec0).
+        if (token1Decimals >= token0Decimals) {
+            priceWad = FullMath.mulDiv(priceWad, 10 ** (token1Decimals - token0Decimals), 1);
         } else {
-            priceWad = FullMath.mulDiv(priceWad, 1, 10 ** (token1Decimals - token0Decimals));
+            priceWad = FullMath.mulDiv(priceWad, 1, 10 ** (token0Decimals - token1Decimals));
         }
     }
 

@@ -24,10 +24,9 @@ contract ChainlinkReferenceOracleTest is Test {
 
     function test_latestPriceWad_supportsInvertedFeeds() public {
         ManualAggregatorV3 baseFeed = new ManualAggregatorV3(8, 5e7, 100);
-        ChainlinkReferenceOracle oracle =
-            new ChainlinkReferenceOracle(
-                baseFeed, true, IChainlinkAggregatorV3(address(0)), false, 18, 18
-            );
+        ChainlinkReferenceOracle oracle = new ChainlinkReferenceOracle(
+            baseFeed, true, IChainlinkAggregatorV3(address(0)), false, 18, 18
+        );
 
         (uint256 priceWad, uint256 updatedAt, uint256 latestFeedTs) = oracle.latestPriceWad();
 
@@ -83,14 +82,17 @@ contract ChainlinkReferenceOracleTest is Test {
     }
 
     function test_latestPriceWad_normalizesHeterogeneousTokenDecimals() public {
-        ManualAggregatorV3 baseFeed = new ManualAggregatorV3(8, 2000e8, 200);
-        ManualAggregatorV3 quoteFeed = new ManualAggregatorV3(8, 1e8, 150);
+        // USDC/WETH-style pool: token0 = USDC (6 decimals), token1 = WETH (18 decimals),
+        // base feed = USDC/USD, quote feed = ETH/USD at $2000. One raw USDC unit
+        // (1e-6 USDC) buys 5e-10 ETH = 5e8 wei, so amount1/amount0 in WAD is 5e26.
+        ManualAggregatorV3 baseFeed = new ManualAggregatorV3(8, 1e8, 200);
+        ManualAggregatorV3 quoteFeed = new ManualAggregatorV3(8, 2000e8, 150);
         ChainlinkReferenceOracle oracle =
             new ChainlinkReferenceOracle(baseFeed, false, quoteFeed, false, 6, 18);
 
         (uint256 priceWad,, uint256 latestFeedTs) = oracle.latestPriceWad();
 
-        assertEq(priceWad, 2000e6);
+        assertEq(priceWad, 5e26);
         assertEq(latestFeedTs, 200);
     }
 }
