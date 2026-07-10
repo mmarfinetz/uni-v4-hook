@@ -10,6 +10,7 @@ This directory contains the reproducible outputs for the May 2026 OracleAnchored
 - `sensitivity_impact_table.md`: one-step sensitivity table replacing correlation-matrix framing.
 - `policy_comparison.csv`: selection-rule comparison for the shared stale-gap trigger.
 - `solver_economics_table.md`: USD-equivalent solver payout scale for the recommended parameter set.
+- `lp_apr_uplift.md`: LP value recovered above the fixed-fee v3 baseline as bps of pool TVL, with `pool_tvl_2025_10.csv` holding the frozen mid-study TVL inputs.
 
 ## Charts
 
