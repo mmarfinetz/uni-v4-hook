@@ -35,18 +35,24 @@ bound, not an expected yield.
 ## Observed-flow floor
 
 The ceiling above uses a modeled repricer. The floor companion replays real
-historical swaps (54 windows across seven pools, May 2026 observed-flow
-study) through the hook+auction and static-fee policies on identical
-reconstructed pool state. Against the static-fee policy, LP net was higher
-in **51 of 54 windows**, unchanged in 3, and lower in **0** (per-window
-values frozen in `reports/observed_flow_lp_uplift_windows.csv`).
+historical swaps (54 windows across seven pools, observed-flow ablation
+study re-run 2026-07-16 with corrected reference orientation) through the
+hook+auction and static-fee policies on identical reconstructed pool state.
+Against the static-fee policy, LP net was higher in **49 of 54 windows**,
+unchanged in 5, and lower in **0** (per-window values frozen in
+`reports/observed_flow_lp_uplift_windows.csv`).
 
-USD aggregation of the floor is deliberately withheld: the replay's
-`wbtc_usdc_500` quote units are inconsistent with the other pools (values
-five orders of magnitude larger, likely a token-decimals issue in the
-fixed-fee branch), and publishing dollar sums before that is resolved would
-not survive scrutiny. Sign counts are scale-invariant and unaffected. The
-replay holds flow captive (the same swaps run through both fee curves), so
-it bounds mechanism accounting, not market routing behavior.
+Provenance note: the original May 2026 run fed external reference feeds in
+quote-asset-per-base-asset orientation while the pool series is
+token0-per-token1, so the four pools whose base asset is token0 (LINK/WETH,
+UNI/WETH, WBTC/USDC, WBTC/WETH) saw reciprocal prices: the hook branch
+failed closed on every swap and the fixed-fee branch accrued phantom LVR.
+The study runner now inverts external reference series for those pools and
+the replay fails loudly on convention mismatches; headline rule-selectivity
+counts (28 improved / 26 unchanged / 0 worse) are unchanged by the fix.
+USD aggregation of the floor is still not offered because window families
+differ in span and oversample stress periods; the sign counts are the
+claim. The replay holds flow captive (the same swaps run through both fee
+curves), so it bounds mechanism accounting, not market routing behavior.
 
 Reproduce with `python3 -m script.build_lp_apr_uplift`.

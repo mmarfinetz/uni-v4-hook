@@ -70,6 +70,32 @@ MARKET_REFERENCE_FIELDNAMES = [
 ]
 
 
+_INVERTIBLE_PRICE_FIELDS = ("price", "reference_price")
+_INVERTIBLE_WAD_FIELDS = ("price_wad", "reference_price_wad")
+
+
+def invert_reference_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Reorient reference rows from quote-asset-per-base-asset to the replay's
+    token0-per-token1 pool convention (used when the base asset is token0)."""
+    inverted_rows: list[dict[str, str]] = []
+    for row in rows:
+        updated = dict(row)
+        for field in _INVERTIBLE_PRICE_FIELDS:
+            value = updated.get(field)
+            if value not in (None, ""):
+                price = float(value)
+                if price > 0.0:
+                    updated[field] = repr(1.0 / price)
+        for field in _INVERTIBLE_WAD_FIELDS:
+            value = updated.get(field)
+            if value not in (None, ""):
+                wad = int(value)
+                if wad > 0:
+                    updated[field] = str(10**36 // wad)
+        inverted_rows.append(updated)
+    return inverted_rows
+
+
 @dataclass(frozen=True)
 class OracleSourceConfig:
     name: str
@@ -93,6 +119,7 @@ class BacktestWindow:
     replay_error_tolerance: float
     input_dir: str | None
     oracle_sources: tuple[OracleSourceConfig, ...]
+    invert_external_reference: bool = False
 
 
 @dataclass(frozen=True)
@@ -366,6 +393,7 @@ def load_backtest_manifest(path_str: str) -> BacktestManifest:
             replay_error_tolerance=_optional_float(item, "replay_error_tolerance") or 0.001,
             input_dir=_optional_str(item, "input_dir"),
             oracle_sources=_parse_oracle_sources(item),
+            invert_external_reference=bool(item.get("invert_external_reference", False)),
         )
         if window.window_id in seen_window_ids:
             raise ValueError(f"{path} contains duplicate window_id '{window.window_id}'.")
@@ -795,6 +823,11 @@ def materialize_cached_window_inputs(
         raise DataSourceUnavailable(
             f"window_id={window.window_id}: cached input_dir produced zero oracle_updates rows."
         )
+    if window.invert_external_reference:
+        # The CSVs are what the replay loads; the auxiliary .json copies keep
+        # their original orientation and must not be consumed for prices.
+        filtered_oracle_rows = invert_reference_rows(filtered_oracle_rows)
+        oracle_rows = invert_reference_rows(oracle_rows)
     write_rows_csv(str(export_dir / "oracle_updates.csv"), oracle_fieldnames, filtered_oracle_rows)
     _copy_optional_filtered_json_array(
         source_path=oracle_updates_source.with_suffix(".json"),
@@ -860,6 +893,8 @@ def materialize_cached_window_inputs(
             for row in market_rows
             if _row_block_at_most(row, "block_number", markout_to_block)
         ]
+        if window.invert_external_reference:
+            filtered_market_rows = invert_reference_rows(filtered_market_rows)
         write_rows_csv(
             str(export_dir / "market_reference_updates.csv"),
             market_fieldnames,
@@ -892,6 +927,8 @@ def materialize_cached_window_inputs(
             block_key="block_number",
             max_block=markout_to_block,
         )
+        if window.invert_external_reference and source.name != "deep_pool":
+            filtered_source_rows = invert_reference_rows(filtered_source_rows)
         write_rows_csv(str(materialized_source_path), source_fieldnames, filtered_source_rows)
 
     return {

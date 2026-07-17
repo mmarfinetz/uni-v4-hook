@@ -30,6 +30,10 @@ from research.lvr.core.lvr_validation import correction_trade
 
 
 BPS_DENOMINATOR = 10_000.0
+# A window whose *smallest* pre-swap gap exceeds this is not a dislocation but a
+# reference/pool price-convention mismatch; fail loudly instead of producing
+# garbage counterfactuals (observed dislocations peak around 2,400 bps).
+REFERENCE_CONVENTION_GAP_LIMIT_BPS = 20_000.0
 EFFECTIVELY_UNCAPPED_SOLVER_PAYMENT_HOOK_CAP_MULTIPLE = 999.0
 
 
@@ -721,11 +725,13 @@ def _same_snapshot_counterfactual_lp_nets(
 ) -> tuple[float, float]:
     hook_lp_net = 0.0
     fixed_lp_net = 0.0
+    observed_gaps: list[float] = []
     for swap_row, series_row in zip(swap_samples, series_rows, strict=True):
         oracle_update = _latest_oracle_before(oracle_updates, swap_row.timestamp)
         if oracle_update is None:
             continue
         pool_price_before = float(series_row["pool_price_before"])
+        observed_gaps.append(gap_bps(oracle_update.price, pool_price_before))
         hook_outcome = _strategy_counterfactual_outcome(
             curve="hook",
             swap=swap_row,
@@ -748,6 +754,12 @@ def _same_snapshot_counterfactual_lp_nets(
         )
         hook_lp_net += hook_outcome["fee_revenue_quote"] - hook_outcome["gross_lvr_quote"]
         fixed_lp_net += fixed_outcome["fee_revenue_quote"] - fixed_outcome["gross_lvr_quote"]
+    if observed_gaps and min(observed_gaps) > REFERENCE_CONVENTION_GAP_LIMIT_BPS:
+        raise ValueError(
+            "reference/pool price convention mismatch: every observed pre-swap gap exceeds "
+            f"{REFERENCE_CONVENTION_GAP_LIMIT_BPS:.0f} bps (min {min(observed_gaps):.0f} bps); "
+            "check the reference orientation for this window's oracle series."
+        )
     return hook_lp_net, fixed_lp_net
 
 

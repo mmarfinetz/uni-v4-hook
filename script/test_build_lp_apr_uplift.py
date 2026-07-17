@@ -75,10 +75,12 @@ class LpAprUpliftTest(unittest.TestCase):
         )
 
     def test_observed_flow_floor_counts(self):
+        # Corrected 2026-07-16 re-run (reference-orientation fix); the invariant
+        # that matters is zero windows where the hook+auction lost to static fees.
         counts = observed_flow_counts()
         self.assertEqual(counts["windows"], 54)
-        self.assertEqual(counts["positive"], 51)
-        self.assertEqual(counts["zero"], 3)
+        self.assertEqual(counts["positive"], 49)
+        self.assertEqual(counts["zero"], 5)
         self.assertEqual(counts["negative"], 0)
 
     def test_tvl_magnitudes_are_sane(self):

@@ -67,6 +67,19 @@ class PolicyConfig:
     reserve_mode: str
 
 
+# Pools whose base (feed) asset is token0: external reference feeds quote the
+# base asset in quote-asset units, which is the reciprocal of the replay's
+# token0-per-token1 pool-price convention, so their external reference series
+# must be inverted at window build time (pool-derived deep_pool series are
+# already in pool convention).
+INVERTED_EXTERNAL_REFERENCE_FAMILIES = (
+    "wbtc_usdc_500",
+    "wbtc_weth_500",
+    "link_weth_3000",
+    "uni_weth_3000",
+)
+
+
 DEFAULT_SOURCE_SPECS = (
     StudySourceSpec(
         source_id="weth_usdc_3000_normal_4h",
@@ -466,6 +479,9 @@ def build_source_windows(source_spec: StudySourceSpec) -> tuple[list[dict[str, A
                 "market_base_feed": source_spec.market_base_feed,
                 "market_quote_feed": source_spec.market_quote_feed,
                 "oracle_lookback_blocks": source_spec.oracle_lookback_blocks,
+                "invert_external_reference": source_spec.source_id.startswith(
+                    INVERTED_EXTERNAL_REFERENCE_FAMILIES
+                ),
                 "markout_extension_blocks": source_spec.markout_extension_blocks,
                 "require_exact_replay": source_spec.require_exact_replay,
                 "replay_error_tolerance": source_spec.replay_error_tolerance,
