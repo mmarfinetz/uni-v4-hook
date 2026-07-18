@@ -46,6 +46,8 @@ class PythonSolidityParityTest(unittest.TestCase):
                 anvil_url,
                 "--private-key",
                 DEFAULT_ANVIL_PRIVATE_KEY,
+                # Newer foundry dry-runs `forge create` unless told to broadcast.
+                "--broadcast",
             ],
             cwd=REPO_ROOT,
             check=False,
@@ -145,6 +147,9 @@ class PythonSolidityParityTest(unittest.TestCase):
             ],
         )
         decoded = json.loads(raw)
+        # Newer cast --json wraps single return values in a one-element list.
+        if isinstance(decoded, list):
+            decoded = decoded[0]
         return int(decoded, 16) if isinstance(decoded, str) else int(decoded)
 
     def cast_call(self, signature: str, args: list[str]) -> str:
