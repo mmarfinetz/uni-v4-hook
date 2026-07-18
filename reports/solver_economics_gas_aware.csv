@@ -1,0 +1,5 @@
+pool,filled_auctions,payout_usd,per_fill_usd,eth_usd,breakeven_gwei_measured,breakeven_gwei_conservative
+LINK/WETH,3163,8833.11,2.7926,4215.40,2.8659,1.8928
+WETH/USDC,1242,3434.44,2.7652,4215.40,2.8378,1.8742
+UNI/WETH,2209,565.12,0.2558,4215.40,0.2625,0.1734
+WBTC/USDC,800,92.72,0.1159,4215.40,0.1189,0.0786

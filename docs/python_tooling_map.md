@@ -42,6 +42,7 @@ those paths explicitly.
 | `script.build_oracle_gap_charts` | `research.lvr.reporting.build_oracle_gap_charts` | `python3 -m script.build_oracle_gap_charts` | `reports/charts/*` | No, but requires `matplotlib` |
 | `script.build_parameter_set_outcomes` | `research.lvr.reporting.build_parameter_set_outcomes` | `python3 -m script.build_parameter_set_outcomes` | `reports/parameter_set_outcomes.{csv,md}` | No |
 | `script.build_sensitivity_impact_table` | `research.lvr.reporting.build_sensitivity_impact_table` | `python3 -m script.build_sensitivity_impact_table` | `reports/sensitivity_impact_table.{csv,md}` | No |
+| `script.build_gas_aware_solver_economics` | `research.lvr.reporting.build_gas_aware_solver_economics` | `python3 -m script.build_gas_aware_solver_economics` | `reports/solver_economics_gas_aware.{csv,md}` | No |
 | `script.generate_aggregate_report` | `research.lvr.reporting.generate_aggregate_report` | `python3 -m script.generate_aggregate_report` | aggregate report JSON / Markdown | No |
 | `script.generate_one_page_proof` | `research.lvr.reporting.generate_one_page_proof` | `python3 -m script.generate_one_page_proof` | `study_artifacts/one_page_proof_2026_03_31/*` | No |
 | `script.run_backtest_validation_report` | `research.lvr.reporting.run_backtest_validation_report` | `python3 -m script.run_backtest_validation_report` | validation report directories | No |
