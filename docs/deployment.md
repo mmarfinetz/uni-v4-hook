@@ -119,7 +119,10 @@ forge script script/DeployPool.s.sol:DeployPool \
   --rpc-url base_sepolia --private-key "$DEPLOYER_KEY" --broadcast
 ```
 
-Environment overrides (defaults in parentheses): `INVERT_BASE` / `INVERT_QUOTE`
+Environment overrides (defaults in parentheses): `SEQUENCER_UPTIME_FEED` (unset =
+disabled; on L2s set it to the chain's [Chainlink sequencer uptime feed](https://docs.chain.link/data-feeds/l2-sequencer-feeds)
+so oracle reads fail closed during outages), `SEQUENCER_GRACE_PERIOD` (3600 s after
+sequencer recovery before reads resume), `INVERT_BASE` / `INVERT_QUOTE`
 (false), `TICK_SPACING` (60), `BASE_FEE` (500 ppm = 5 bps), `MAX_FEE` (250000 ppm =
 2500 bps), `ALPHA_BPS` (10000), `MAX_ORACLE_AGE` (86400 s), `LATENCY_SECS` (60),
 `CENTER_TOL_TICKS` (60), `LVR_BUDGET_WAD` (1e16), `BOOTSTRAP_SIGMA2_PER_SECOND_WAD`
@@ -170,10 +173,20 @@ answers at the forked block.
   manager, owner) and the compiled bytecode. Re-running with identical args after a
   successful deployment finds the code at the mined address and moves to the next
   salt, producing a second hook instance.
-- **L2 sequencer uptime**: the oracle does not yet check a Chainlink sequencer
-  uptime feed. On OP-stack chains a sequencer outage can leave feeds fresh-looking
-  while the chain reorders; production deployments should gate on the uptime feed
-  before trusting `updatedAt`.
+- **L2 sequencer uptime**: `ChainlinkReferenceOracle` accepts an optional sequencer
+  uptime feed (`SEQUENCER_UPTIME_FEED` / `SEQUENCER_GRACE_PERIOD` in `DeployPool`).
+  When wired, `latestPriceWad` reverts while the sequencer is down and for the grace
+  period after recovery, so swaps and previews fail closed. Set it on every
+  production L2 deployment; feed addresses are listed in the
+  [Chainlink L2 sequencer feeds docs](https://docs.chain.link/data-feeds/l2-sequencer-feeds).
+  Note the testnet caveat: Base Sepolia has no official sequencer uptime feed, so
+  testnet deployments run with the check disabled.
+- **Reference-feed granularity**: the trigger measures the gap to the last posted
+  Chainlink round, and dislocations below the feed's deviation threshold are
+  invisible by construction; record each feed's deviation threshold and heartbeat
+  alongside the addresses above. See
+  [`oracle_granularity.md`](oracle_granularity.md) for why the backtest already
+  embeds this granularity and when a re-run is required.
 - **Solver economics**: per [`reports/solver_economics_table.md`](../reports/solver_economics_table.md),
   auction fills average $1.74 before gas, so low-cost L2s are the only viable venue;
   this is why the scripts target Base/Unichain rather than Ethereum Sepolia.

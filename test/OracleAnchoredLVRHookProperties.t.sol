@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import { Test } from "forge-std/Test.sol";
 import { OracleAnchoredLVRHook } from "src/OracleAnchoredLVRHook.sol";
 import { ChainlinkReferenceOracle } from "src/oracles/ChainlinkReferenceOracle.sol";
+import { IChainlinkAggregatorV3 } from "src/interfaces/IChainlinkAggregatorV3.sol";
 import { Deployers } from "../lib/v4-core/test/utils/Deployers.sol";
 import { IHooks } from "v4-core/interfaces/IHooks.sol";
 import { IPoolManager } from "v4-core/interfaces/IPoolManager.sol";
@@ -50,7 +51,9 @@ contract OracleAnchoredLVRHookPropertiesTest is Test, Deployers {
 
         baseFeed = new ManualAggregatorV3(18, int256(WAD), block.timestamp);
         quoteFeed = new ManualAggregatorV3(18, int256(WAD), block.timestamp);
-        oracle = new ChainlinkReferenceOracle(baseFeed, false, quoteFeed, false, 18, 18);
+        oracle = new ChainlinkReferenceOracle(
+            baseFeed, false, quoteFeed, false, 18, 18, IChainlinkAggregatorV3(address(0)), 0
+        );
 
         (key,) = initPool(
             currency0,

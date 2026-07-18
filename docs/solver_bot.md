@@ -11,6 +11,27 @@ Stdlib-only Python (3.9+); all chain access goes through the Foundry `cast` bina
 Pure decision/math helpers are unit-tested in
 [`script/test_solver_bot.py`](../script/test_solver_bot.py).
 
+## Permissionless surface
+
+This bot is a convenience, not a privileged actor. The auction requires no solver
+registration, allowlist, or hook-specific calldata:
+
+- `pokeAuction(key)` is callable by any address (it only reads the oracle and pool
+  price and updates the clock), and `auctionStatus(key)` / `previewSwapFee(key, dir)`
+  are public views, so any keeper or arb bot can watch and time fills.
+- A fill is a plain v4 swap through any router; the concession-discounted fee is
+  applied by `beforeSwap` regardless of who the swap sender is.
+- The only owner-gated functions are `setConfig` and `setRiskState` (pool
+  parameters); the owner has no role in auction operation.
+
+`test_auction_permissionless_strangerPokesAndStrangerFills` in
+[`test/OracleAnchoredLVRHookAuction.t.sol`](../test/OracleAnchoredLVRHookAuction.t.sol)
+pins this end-to-end: a non-owner address opens the clock and a second non-owner
+fills through the standard router at the aged concession. Consequence for solver
+economics: existing arbitrage bots can fill profitable auctions without integrating
+anything beyond a fee preview, so the mechanism does not depend on a bespoke solver
+network forming.
+
 ## Demo pool
 
 Live testnet Chainlink feeds barely move, so auction triggering cannot be

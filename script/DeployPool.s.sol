@@ -55,6 +55,14 @@ contract DeployPool is Script {
         bool invertBase = vm.envOr("INVERT_BASE", false);
         bool invertQuote = vm.envOr("INVERT_QUOTE", false);
 
+        // On L2 targets, set SEQUENCER_UPTIME_FEED to the chain's Chainlink
+        // sequencer uptime feed (see https://docs.chain.link/data-feeds/l2-sequencer-feeds)
+        // so oracle reads fail closed during outages and for the grace period after
+        // recovery. Leave unset to disable (L1 or chains without a feed).
+        IChainlinkAggregatorV3 sequencerUptimeFeed =
+            IChainlinkAggregatorV3(vm.envOr("SEQUENCER_UPTIME_FEED", address(0)));
+        uint256 sequencerGracePeriod = vm.envOr("SEQUENCER_GRACE_PERIOD", uint256(3600));
+
         int24 tickSpacing = int24(uint24(vm.envOr("TICK_SPACING", uint256(60))));
         key = PoolKey({
             currency0: Currency.wrap(token0),
@@ -73,7 +81,9 @@ contract DeployPool is Script {
             quoteFeed,
             invertQuote,
             IERC20Decimals(token0).decimals(),
-            IERC20Decimals(token1).decimals()
+            IERC20Decimals(token1).decimals(),
+            sequencerUptimeFeed,
+            sequencerGracePeriod
         );
         cfg.oracle = oracle;
 

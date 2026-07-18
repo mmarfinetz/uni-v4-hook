@@ -18,6 +18,7 @@ import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 
 import { OracleAnchoredLVRHook } from "src/OracleAnchoredLVRHook.sol";
 import { ChainlinkReferenceOracle } from "src/oracles/ChainlinkReferenceOracle.sol";
+import { IChainlinkAggregatorV3 } from "src/interfaces/IChainlinkAggregatorV3.sol";
 import { ManualAggregatorV3 } from "test/helpers/ManualAggregatorV3.sol";
 
 /// @notice Deploys a fully controllable demo pool for the solver-bot loop: two
@@ -56,8 +57,10 @@ contract DeployDemoPool is Script {
 
         ManualAggregatorV3 baseFeed = new ManualAggregatorV3(18, int256(WAD), block.timestamp);
         ManualAggregatorV3 quoteFeed = new ManualAggregatorV3(18, int256(WAD), block.timestamp);
-        ChainlinkReferenceOracle oracle =
-            new ChainlinkReferenceOracle(baseFeed, false, quoteFeed, false, 18, 18);
+        // Demo pool uses manual feeds, so the sequencer uptime check stays disabled.
+        ChainlinkReferenceOracle oracle = new ChainlinkReferenceOracle(
+            baseFeed, false, quoteFeed, false, 18, 18, IChainlinkAggregatorV3(address(0)), 0
+        );
 
         PoolSwapTest swapRouter = new PoolSwapTest(poolManager);
         PoolModifyLiquidityTest liquidityRouter = new PoolModifyLiquidityTest(poolManager);

@@ -13,6 +13,10 @@ import { IReferenceOracle } from "../interfaces/IReferenceOracle.sol";
 /// asset/USD feed (e.g. USDC/USD base and ETH/USD quote for a USDC/WETH pool),
 /// so the base/quote ratio is the whole-token price of token0 denominated in
 /// token1. The token-decimals conversion then rescales that ratio into raw units.
+/// On L2s, wire `sequencerUptimeFeed` to the chain's Chainlink sequencer uptime
+/// feed so price reads fail closed while the sequencer is down and for
+/// `sequencerGracePeriod` seconds after it recovers (feeds may still be catching
+/// up to the true price right after a restart); leave it unset on L1.
 contract ChainlinkReferenceOracle is IReferenceOracle {
     uint256 internal constant WAD = 1e18;
 
@@ -20,14 +24,19 @@ contract ChainlinkReferenceOracle is IReferenceOracle {
     error IncompleteRound(address feed, uint80 roundId, uint80 answeredInRound);
     error InvalidFeed(address feed);
     error InvalidFeedAnswer(address feed, int256 answer);
+    error SequencerDown();
+    error SequencerGracePeriodNotOver(uint256 statusStartedAt);
 
     IChainlinkAggregatorV3 public immutable baseFeed;
     IChainlinkAggregatorV3 public immutable quoteFeed;
+    IChainlinkAggregatorV3 public immutable sequencerUptimeFeed;
     bool public immutable hasQuoteFeed;
+    bool public immutable hasSequencerUptimeFeed;
     bool public immutable invertBase;
     bool public immutable invertQuote;
     uint8 public immutable token0Decimals;
     uint8 public immutable token1Decimals;
+    uint256 public immutable sequencerGracePeriod;
 
     uint8 internal immutable baseFeedDecimals;
     uint8 internal immutable quoteFeedDecimals;
@@ -38,7 +47,9 @@ contract ChainlinkReferenceOracle is IReferenceOracle {
         IChainlinkAggregatorV3 _quoteFeed,
         bool _invertQuote,
         uint8 _token0Decimals,
-        uint8 _token1Decimals
+        uint8 _token1Decimals,
+        IChainlinkAggregatorV3 _sequencerUptimeFeed,
+        uint256 _sequencerGracePeriod
     ) {
         if (address(_baseFeed) == address(0)) revert InvalidFeed(address(0));
 
@@ -49,6 +60,9 @@ contract ChainlinkReferenceOracle is IReferenceOracle {
         invertQuote = _invertQuote;
         token0Decimals = _token0Decimals;
         token1Decimals = _token1Decimals;
+        sequencerUptimeFeed = _sequencerUptimeFeed;
+        hasSequencerUptimeFeed = address(_sequencerUptimeFeed) != address(0);
+        sequencerGracePeriod = _sequencerGracePeriod;
 
         baseFeedDecimals = _validatedDecimals(_baseFeed);
         quoteFeedDecimals = hasQuoteFeed ? _validatedDecimals(_quoteFeed) : 0;
@@ -59,6 +73,8 @@ contract ChainlinkReferenceOracle is IReferenceOracle {
         view
         returns (uint256 priceWad, uint256 updatedAt, uint256 latestFeedTs)
     {
+        if (hasSequencerUptimeFeed) _checkSequencerUp();
+
         (uint256 basePriceWad, uint256 baseUpdatedAt) =
             _readFeed(baseFeed, baseFeedDecimals, invertBase);
 
@@ -80,6 +96,18 @@ contract ChainlinkReferenceOracle is IReferenceOracle {
             priceWad = FullMath.mulDiv(priceWad, 10 ** (token1Decimals - token0Decimals), 1);
         } else {
             priceWad = FullMath.mulDiv(priceWad, 1, 10 ** (token0Decimals - token1Decimals));
+        }
+    }
+
+    /// @dev Chainlink sequencer uptime feed convention: answer 0 means up, 1 means
+    /// down; `startedAt` is when the current status began. `startedAt == 0` is an
+    /// uninitialized round (seen on some chains right after feed deployment) and is
+    /// treated as down.
+    function _checkSequencerUp() internal view {
+        (, int256 answer, uint256 startedAt,,) = sequencerUptimeFeed.latestRoundData();
+        if (answer != 0 || startedAt == 0) revert SequencerDown();
+        if (block.timestamp - startedAt <= sequencerGracePeriod) {
+            revert SequencerGracePeriodNotOver(startedAt);
         }
     }
 

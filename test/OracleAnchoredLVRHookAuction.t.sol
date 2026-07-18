@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import { Test } from "forge-std/Test.sol";
 import { OracleAnchoredLVRHook } from "src/OracleAnchoredLVRHook.sol";
 import { ChainlinkReferenceOracle } from "src/oracles/ChainlinkReferenceOracle.sol";
+import { IChainlinkAggregatorV3 } from "src/interfaces/IChainlinkAggregatorV3.sol";
 import { Deployers } from "../lib/v4-core/test/utils/Deployers.sol";
 import { IHooks } from "v4-core/interfaces/IHooks.sol";
 import { IPoolManager } from "v4-core/interfaces/IPoolManager.sol";
@@ -15,10 +16,14 @@ import { ModifyLiquidityParams, SwapParams } from "v4-core/types/PoolOperation.s
 import { PoolSwapTest } from "v4-core/test/PoolSwapTest.sol";
 import { PoolKey } from "v4-core/types/PoolKey.sol";
 import { PoolId, PoolIdLibrary } from "v4-core/types/PoolId.sol";
+import { Currency } from "v4-core/types/Currency.sol";
+import { StateLibrary } from "v4-core/libraries/StateLibrary.sol";
+import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
 import { ManualAggregatorV3 } from "./helpers/ManualAggregatorV3.sol";
 
 contract OracleAnchoredLVRHookAuctionTest is Test, Deployers {
     using PoolIdLibrary for PoolKey;
+    using StateLibrary for IPoolManager;
 
     uint256 internal constant WAD = 1e18;
     uint256 internal constant SQRT_WAD = 1e9;
@@ -58,7 +63,9 @@ contract OracleAnchoredLVRHookAuctionTest is Test, Deployers {
 
         baseFeed = new ManualAggregatorV3(18, int256(WAD), block.timestamp);
         quoteFeed = new ManualAggregatorV3(18, int256(WAD), block.timestamp);
-        oracle = new ChainlinkReferenceOracle(baseFeed, false, quoteFeed, false, 18, 18);
+        oracle = new ChainlinkReferenceOracle(
+            baseFeed, false, quoteFeed, false, 18, 18, IChainlinkAggregatorV3(address(0)), 0
+        );
 
         (key,) = initPool(
             currency0,
@@ -119,6 +126,49 @@ contract OracleAnchoredLVRHookAuctionTest is Test, Deployers {
         assertTrue(open);
         assertEq(concessionWad, START_CONCESSION_WAD);
         assertEq(hook.auctionStartTs(key.toId()), uint64(block.timestamp));
+    }
+
+    function test_auction_permissionless_strangerPokesAndStrangerFills() public {
+        _setOraclePrice(_priceWadAtTick(20), block.timestamp);
+
+        // The poker is neither the owner nor an LP and holds no tokens; the
+        // clock still opens from the visible gap.
+        vm.prank(makeAddr("poker"));
+        (bool open, uint256 concessionWad) = hook.pokeAuction(key);
+        assertTrue(open);
+        assertEq(concessionWad, START_CONCESSION_WAD);
+
+        uint256 elapsed = 100;
+        vm.warp(block.timestamp + elapsed);
+        _setOraclePrice(_priceWadAtTick(20), block.timestamp);
+        uint256 agedConcession = START_CONCESSION_WAD + elapsed * CONCESSION_GROWTH_WAD_PER_SEC;
+        (, uint24 quotedFee,,) = hook.previewSwapFee(key, false);
+        assertEq(quotedFee, _expectedFeeUnits(20, agedConcession));
+
+        // A different stranger fills through the standard swap router with plain
+        // hook data — no allowlist, no solver registration, no special calldata.
+        address solver = makeAddr("solver");
+        MockERC20 token1 = MockERC20(Currency.unwrap(currency1));
+        token1.transfer(solver, 1e18);
+        (uint160 poolPriceBefore,,,) = manager.getSlot0(key.toId());
+
+        vm.startPrank(solver);
+        token1.approve(address(swapRouter), type(uint256).max);
+        swapRouter.swap(
+            key,
+            SwapParams({
+                zeroForOne: false,
+                amountSpecified: -1e15,
+                sqrtPriceLimitX96: TickMath.MAX_SQRT_PRICE - 1
+            }),
+            PoolSwapTest.TestSettings({ takeClaims: false, settleUsingBurn: false }),
+            ZERO_BYTES
+        );
+        vm.stopPrank();
+
+        // The fill moved the pool toward the oracle price.
+        (uint160 poolPriceAfter,,,) = manager.getSlot0(key.toId());
+        assertGt(poolPriceAfter, poolPriceBefore);
     }
 
     function test_auction_concessionGrowsWithElapsedTime() public {

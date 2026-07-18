@@ -70,8 +70,9 @@ contract ChainlinkReferenceOracleForkTest is MainnetForkBase {
         // token0's asset feed, quote feed is token1's asset feed.
         IChainlinkAggregatorV3 baseFeed = IChainlinkAggregatorV3(USDC_USD_FEED);
         IChainlinkAggregatorV3 quoteFeed = IChainlinkAggregatorV3(ETH_USD_FEED);
-        ChainlinkReferenceOracle oracle =
-            new ChainlinkReferenceOracle(baseFeed, false, quoteFeed, false, 6, 18);
+        ChainlinkReferenceOracle oracle = new ChainlinkReferenceOracle(
+            baseFeed, false, quoteFeed, false, 6, 18, IChainlinkAggregatorV3(address(0)), 0
+        );
 
         assertEq(baseFeed.decimals(), 8);
         assertEq(quoteFeed.decimals(), 8);
@@ -120,7 +121,9 @@ contract ChainlinkReferenceOracleForkTest is MainnetForkBase {
             IChainlinkAggregatorV3(ETH_USD_FEED),
             false,
             18,
-            18
+            18,
+            IChainlinkAggregatorV3(address(0)),
+            0
         );
 
         (uint256 initialPriceWad, uint256 initialUpdatedAt, uint256 initialLatestFeedTs) =
@@ -330,7 +333,9 @@ contract OracleAnchoredLVRHookForkTest is MainnetForkBase, Deployers {
             IChainlinkAggregatorV3(ETH_USD_FEED),
             false,
             18,
-            18
+            18,
+            IChainlinkAggregatorV3(address(0)),
+            0
         );
 
         address hookAddress = _permissionedHookAddress();

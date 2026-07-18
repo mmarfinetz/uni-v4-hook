@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 import { OracleAnchoredLVRHook } from "../../src/OracleAnchoredLVRHook.sol";
 import { ChainlinkReferenceOracle } from "../../src/oracles/ChainlinkReferenceOracle.sol";
+import { IChainlinkAggregatorV3 } from "../../src/interfaces/IChainlinkAggregatorV3.sol";
 import { ManualAggregatorV3 } from "./ManualAggregatorV3.sol";
 import { IHooks } from "v4-core/interfaces/IHooks.sol";
 import { IPoolManager } from "v4-core/interfaces/IPoolManager.sol";
@@ -27,7 +28,9 @@ contract PythonParityHarness {
 
         baseFeed = new ManualAggregatorV3(18, int256(WAD), block.timestamp);
         quoteFeed = new ManualAggregatorV3(18, int256(WAD), block.timestamp);
-        oracle = new ChainlinkReferenceOracle(baseFeed, false, quoteFeed, false, 18, 18);
+        oracle = new ChainlinkReferenceOracle(
+            baseFeed, false, quoteFeed, false, 18, 18, IChainlinkAggregatorV3(address(0)), 0
+        );
 
         key = PoolKey({
             currency0: Currency.wrap(address(0x1000)),

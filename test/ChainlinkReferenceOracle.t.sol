@@ -12,8 +12,9 @@ contract ChainlinkReferenceOracleTest is Test {
     function test_latestPriceWad_returnsBaseQuoteRatioAndOldestTimestamp() public {
         ManualAggregatorV3 baseFeed = new ManualAggregatorV3(8, 2000e8, 200);
         ManualAggregatorV3 quoteFeed = new ManualAggregatorV3(8, 1250e8, 150);
-        ChainlinkReferenceOracle oracle =
-            new ChainlinkReferenceOracle(baseFeed, false, quoteFeed, false, 18, 18);
+        ChainlinkReferenceOracle oracle = new ChainlinkReferenceOracle(
+            baseFeed, false, quoteFeed, false, 18, 18, IChainlinkAggregatorV3(address(0)), 0
+        );
 
         (uint256 priceWad, uint256 updatedAt, uint256 latestFeedTs) = oracle.latestPriceWad();
 
@@ -25,7 +26,8 @@ contract ChainlinkReferenceOracleTest is Test {
     function test_latestPriceWad_supportsInvertedFeeds() public {
         ManualAggregatorV3 baseFeed = new ManualAggregatorV3(8, 5e7, 100);
         ChainlinkReferenceOracle oracle = new ChainlinkReferenceOracle(
-            baseFeed, true, IChainlinkAggregatorV3(address(0)), false, 18, 18
+            baseFeed, true, IChainlinkAggregatorV3(address(0)), false, 18, 18,
+            IChainlinkAggregatorV3(address(0)), 0
         );
 
         (uint256 priceWad, uint256 updatedAt, uint256 latestFeedTs) = oracle.latestPriceWad();
@@ -38,7 +40,8 @@ contract ChainlinkReferenceOracleTest is Test {
     function test_latestPriceWad_revertsOnNonPositiveAnswer() public {
         ManualAggregatorV3 baseFeed = new ManualAggregatorV3(8, 0, 100);
         ChainlinkReferenceOracle oracle = new ChainlinkReferenceOracle(
-            baseFeed, false, IChainlinkAggregatorV3(address(0)), false, 18, 18
+            baseFeed, false, IChainlinkAggregatorV3(address(0)), false, 18, 18,
+            IChainlinkAggregatorV3(address(0)), 0
         );
 
         vm.expectRevert(
@@ -54,7 +57,8 @@ contract ChainlinkReferenceOracleTest is Test {
         baseFeed.setRoundDataStatus(2e8, 200, 1);
 
         ChainlinkReferenceOracle oracle = new ChainlinkReferenceOracle(
-            baseFeed, false, IChainlinkAggregatorV3(address(0)), false, 18, 18
+            baseFeed, false, IChainlinkAggregatorV3(address(0)), false, 18, 18,
+            IChainlinkAggregatorV3(address(0)), 0
         );
 
         vm.expectRevert(
@@ -77,8 +81,65 @@ contract ChainlinkReferenceOracleTest is Test {
             )
         );
         new ChainlinkReferenceOracle(
-            baseFeed, false, IChainlinkAggregatorV3(address(0)), false, 18, 18
+            baseFeed, false, IChainlinkAggregatorV3(address(0)), false, 18, 18,
+            IChainlinkAggregatorV3(address(0)), 0
         );
+    }
+
+    function test_latestPriceWad_revertsWhileSequencerDown() public {
+        ManualAggregatorV3 baseFeed = new ManualAggregatorV3(8, 2000e8, 200);
+        ManualAggregatorV3 uptimeFeed = new ManualAggregatorV3(0, 1, block.timestamp);
+        uptimeFeed.setStartedAt(block.timestamp);
+        ChainlinkReferenceOracle oracle = new ChainlinkReferenceOracle(
+            baseFeed, false, IChainlinkAggregatorV3(address(0)), false, 18, 18, uptimeFeed, 3600
+        );
+
+        vm.expectRevert(ChainlinkReferenceOracle.SequencerDown.selector);
+        oracle.latestPriceWad();
+    }
+
+    function test_latestPriceWad_revertsOnUninitializedSequencerRound() public {
+        ManualAggregatorV3 baseFeed = new ManualAggregatorV3(8, 2000e8, 200);
+        ManualAggregatorV3 uptimeFeed = new ManualAggregatorV3(0, 0, block.timestamp);
+        // startedAt stays 0: an uninitialized round must fail closed even though
+        // the answer reads as "up".
+        ChainlinkReferenceOracle oracle = new ChainlinkReferenceOracle(
+            baseFeed, false, IChainlinkAggregatorV3(address(0)), false, 18, 18, uptimeFeed, 3600
+        );
+
+        vm.expectRevert(ChainlinkReferenceOracle.SequencerDown.selector);
+        oracle.latestPriceWad();
+    }
+
+    function test_latestPriceWad_revertsDuringSequencerGracePeriod() public {
+        vm.warp(10_000);
+        ManualAggregatorV3 baseFeed = new ManualAggregatorV3(8, 2000e8, 200);
+        ManualAggregatorV3 uptimeFeed = new ManualAggregatorV3(0, 0, block.timestamp);
+        uint256 recoveredAt = block.timestamp - 1800;
+        uptimeFeed.setStartedAt(recoveredAt);
+        ChainlinkReferenceOracle oracle = new ChainlinkReferenceOracle(
+            baseFeed, false, IChainlinkAggregatorV3(address(0)), false, 18, 18, uptimeFeed, 3600
+        );
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ChainlinkReferenceOracle.SequencerGracePeriodNotOver.selector, recoveredAt
+            )
+        );
+        oracle.latestPriceWad();
+    }
+
+    function test_latestPriceWad_succeedsAfterSequencerGracePeriod() public {
+        vm.warp(10_000);
+        ManualAggregatorV3 baseFeed = new ManualAggregatorV3(8, 2000e8, 200);
+        ManualAggregatorV3 uptimeFeed = new ManualAggregatorV3(0, 0, block.timestamp);
+        uptimeFeed.setStartedAt(block.timestamp - 3601);
+        ChainlinkReferenceOracle oracle = new ChainlinkReferenceOracle(
+            baseFeed, false, IChainlinkAggregatorV3(address(0)), false, 18, 18, uptimeFeed, 3600
+        );
+
+        (uint256 priceWad,,) = oracle.latestPriceWad();
+        assertEq(priceWad, 2000e18);
     }
 
     function test_latestPriceWad_normalizesHeterogeneousTokenDecimals() public {
@@ -87,8 +148,9 @@ contract ChainlinkReferenceOracleTest is Test {
         // (1e-6 USDC) buys 5e-10 ETH = 5e8 wei, so amount1/amount0 in WAD is 5e26.
         ManualAggregatorV3 baseFeed = new ManualAggregatorV3(8, 1e8, 200);
         ManualAggregatorV3 quoteFeed = new ManualAggregatorV3(8, 2000e8, 150);
-        ChainlinkReferenceOracle oracle =
-            new ChainlinkReferenceOracle(baseFeed, false, quoteFeed, false, 6, 18);
+        ChainlinkReferenceOracle oracle = new ChainlinkReferenceOracle(
+            baseFeed, false, quoteFeed, false, 6, 18, IChainlinkAggregatorV3(address(0)), 0
+        );
 
         (uint256 priceWad,, uint256 latestFeedTs) = oracle.latestPriceWad();
 

@@ -8,6 +8,7 @@ contract ManualAggregatorV3 is IChainlinkAggregatorV3 {
 
     int256 internal answer;
     uint80 internal roundId;
+    uint256 internal startedAt;
     uint256 internal updatedAt;
     uint80 internal answeredInRound;
 
@@ -20,7 +21,13 @@ contract ManualAggregatorV3 is IChainlinkAggregatorV3 {
     }
 
     function latestRoundData() external view returns (uint80, int256, uint256, uint256, uint80) {
-        return (roundId, answer, 0, updatedAt, answeredInRound);
+        return (roundId, answer, startedAt, updatedAt, answeredInRound);
+    }
+
+    /// @dev For sequencer-uptime-feed style rounds where `startedAt` carries the
+    /// timestamp the current status began.
+    function setStartedAt(uint256 startedAt_) external {
+        startedAt = startedAt_;
     }
 
     function setRoundData(int256 answer_, uint256 updatedAt_) external {
