@@ -283,6 +283,26 @@ contract OracleAnchoredLVRHook is IHooks {
         open = auctionStartTs[id] != 0;
     }
 
+    /// @notice Router/indexer-facing health check: true when a swap through this
+    /// pool can currently execute, i.e. the pool is configured and its oracle is
+    /// fresh and in-range. Returns false instead of reverting so integrators can
+    /// filter pools without spending a failed simulation. Direction-specific fee
+    /// levels (including toxic-direction fail-closed above `maxFee`) are the job
+    /// of `previewSwapFee`.
+    function quotable(PoolKey calldata key) external view returns (bool) {
+        Config memory cfg = config[key.toId()];
+        if (address(cfg.oracle) == address(0)) return false;
+        try cfg.oracle.latestPriceWad() returns (
+            uint256 priceWad, uint256 updatedAt, uint256
+        ) {
+            if (priceWad == 0 || block.timestamp > updatedAt + cfg.maxOracleAge) return false;
+            uint256 scaled = FullMath.mulDiv(FixedPointMathLib.sqrt(priceWad), Q96, SQRT_WAD);
+            return scaled >= TickMath.MIN_SQRT_PRICE && scaled < TickMath.MAX_SQRT_PRICE;
+        } catch {
+            return false;
+        }
+    }
+
     function minWidthTicks(PoolKey calldata key) external view returns (uint256) {
         PoolId id = key.toId();
         Config memory cfg = _loadConfig(id);

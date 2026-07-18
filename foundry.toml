@@ -6,6 +6,9 @@ out = "out"
 libs = ["lib"]
 solc = "toolchain/solc-0.8.26"
 evm_version = "cancun"
+# Point periphery's inner v4-core at the top-level checkout (same commit) so
+# V4Quoter and this repo's contracts share one set of core types.
+remappings = ["@uniswap/v4-core/=lib/v4-core/"]
 optimizer = true
 optimizer_runs = 10_000
 via_ir = true
