@@ -36,6 +36,14 @@ USD_TABLE_PATH = (
 OBSERVED_FLOW_PATH = REPO_ROOT / "reports" / "observed_flow_lp_uplift_windows.csv"
 OUTPUT_CSV_PATH = REPO_ROOT / "reports" / "lp_apr_uplift.csv"
 OUTPUT_MD_PATH = REPO_ROOT / "reports" / "lp_apr_uplift.md"
+CHART_PATH = REPO_ROOT / "reports" / "charts" / "chart_lp_uplift_vs_static.png"
+
+INK_DARK = "#116655"
+INK_DARK_TEXT = "#0b4437"
+INK_LIGHT = "#9ec9bf"
+INK_MUTED = "#5a736c"
+INK_CONNECTOR = "#b9c4c0"
+INK_GRID = "#e5e9e8"
 
 # Recommended cell from the October 2025 grid (see README key results).
 RECOMMENDED_CELL = {
@@ -302,10 +310,84 @@ def write_outputs(rows: List[Dict[str, Decimal]]) -> None:
     OUTPUT_MD_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def write_chart(rows: List[Dict[str, Decimal]]) -> bool:
+    """Dumbbell chart of the uplift per pool: the distance between the solid
+    (ex-dislocation) and hollow (full-month) dots is the Oct 10-11 contribution.
+    Skipped quietly when matplotlib is unavailable (the CSV/MD outputs do not
+    depend on it)."""
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError:
+        print("matplotlib unavailable; skipped %s" % CHART_PATH)
+        return False
+
+    ordered = sorted(rows, key=lambda row: row["uplift_bps_tvl_month"])
+    labels = [str(row["pool"]) for row in ordered]
+    full = [float(row["uplift_bps_tvl_month"]) for row in ordered]
+    ex_dislocation = [float(row["uplift_bps_tvl_month_ex_dislocation"]) for row in ordered]
+    positions = list(range(len(ordered)))
+
+    fig, ax = plt.subplots(figsize=(9.0, 3.9))
+    for y, (full_value, ex_value) in enumerate(zip(full, ex_dislocation)):
+        ax.plot([ex_value, full_value], [y, y], color=INK_CONNECTOR, linewidth=2, zorder=1)
+    ax.scatter(
+        full, positions, s=64, color="white", edgecolor=INK_LIGHT, linewidth=2.4,
+        zorder=2, label="full October month",
+    )
+    ax.scatter(
+        ex_dislocation, positions, s=72, color=INK_DARK,
+        zorder=3, label="ex Oct 10-11 dislocation",
+    )
+    for y, (full_value, ex_value) in enumerate(zip(full, ex_dislocation)):
+        ax.annotate(
+            "%s" % format(round(ex_value), ","), (ex_value, y), xytext=(0, 10),
+            textcoords="offset points", ha="center", fontsize=9,
+            color=INK_DARK_TEXT, fontweight="bold",
+        )
+        ax.annotate(
+            "%s" % format(round(full_value), ","), (full_value, y), xytext=(0, -17),
+            textcoords="offset points", ha="center", fontsize=9, color=INK_MUTED,
+        )
+
+    ax.set_yticks(positions)
+    ax.set_yticklabels(labels)
+    ax.set_xlabel("LP uplift over the static-fee baseline (bps of pool TVL in the month)")
+    ax.set_title(
+        "Modeled LP-uplift ceiling vs static fees - October 2025, recommended cell",
+        loc="left", fontsize=12, fontweight="bold",
+    )
+    for side in ("top", "right", "left"):
+        ax.spines[side].set_visible(False)
+    ax.grid(axis="x", color=INK_GRID, linewidth=0.8)
+    ax.set_axisbelow(True)
+    ax.tick_params(axis="y", length=0)
+    ax.margins(x=0.06, y=0.22)
+    ax.legend(frameon=False, loc="lower right", fontsize=9)
+    fig.text(
+        0.012, 0.012,
+        "Baseline = static-fee v3/v4 pool at the venue tier; recapture at the mechanism's"
+        " modeled ceiling.\nObserved-flow floor: LP net never below the baseline in 54"
+        " replayed windows (higher in 49). Details: reports/lp_apr_uplift.md",
+        fontsize=7.2, color=INK_MUTED,
+    )
+    fig.tight_layout(rect=(0, 0.09, 1, 1))
+    CHART_PATH.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(CHART_PATH, dpi=200)
+    plt.close(fig)
+    return True
+
+
 def main() -> None:
     rows = build_rows()
     write_outputs(rows)
-    print("wrote %s and %s" % (OUTPUT_CSV_PATH, OUTPUT_MD_PATH))
+    wrote_chart = write_chart(rows)
+    print(
+        "wrote %s and %s%s"
+        % (OUTPUT_CSV_PATH, OUTPUT_MD_PATH, (" and %s" % CHART_PATH) if wrote_chart else "")
+    )
 
 
 if __name__ == "__main__":

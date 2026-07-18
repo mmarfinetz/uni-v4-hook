@@ -24,11 +24,11 @@ Across `44` replay-clean frozen windows (`7,019` swaps), every exact-replay fee-
 
 ![Fee identity vs oracle gap](study_artifacts/one_page_proof_2026_03_31/fee_identity_vs_oracle_gap.svg)
 
-The next chart shows how real toxic swaps split stale-loss value between LP recovery and remaining arbitrage surplus across swap sizes and fee schedules.
+The fee-identity chart proves the fee-accounting claim. The LP-facing summary of the October 2025 grid is the uplift over a static-fee v3/v4 pool, in bps of each pool's TVL, with the Oct 10-11 dislocation split out; solid dots are the crash-robust figures and the connector length is the dislocation's contribution. [reports/lp_apr_uplift.md](reports/lp_apr_uplift.md) carries the full table, the ceiling assumptions, and the observed-flow floor (LP net never below the static-fee baseline in 54 replayed real-swap windows, higher in 49).
 
-![LVR split by swap size and fee rate](study_artifacts/one_page_proof_2026_03_31/lvr_split_by_size_and_fee_rate.svg)
+![LP uplift vs static fees](reports/charts/chart_lp_uplift_vs_static.png)
 
-These charts prove the fee-accounting claim. The October 2025 grid in [reports/](reports/) is the separate mechanism-design test for the Dutch-auction repricing path.
+The October 2025 grid in [reports/](reports/) is the separate mechanism-design test for the Dutch-auction repricing path.
 
 ## Key Results
 
@@ -39,7 +39,7 @@ The claims are ordered from strongest to most assumption-dependent:
 - Selectivity (observed-flow replay): the hook-based auction rule improves LP net in `28` of `54` windows, leaves `26` unchanged, and worsens none, with a `0.98%` trigger rate versus `5.82%` for the broad all-stale rule.
 - Clearing (October 2025 grid, `124 / 124` pool-windows across WETH/USDC, WBTC/USDC, LINK/WETH, and UNI/WETH): the recommended cell — `trigger_gap_bps=10`, `base_fee_bps=5`, `start_concession_bps=10`, `concession_growth_bps_per_sec=0.5`, `max_fee_bps=2500` — maintains a `1.0` clear rate on all four pools. Auction eligibility is the current pool-oracle stale gap in bps: `stale_gap_bps_before >= trigger_gap_bps`.
 - The frequently quoted `99.9%` mean recapture is the mechanical ceiling implied by the mechanism assumptions, not an independent empirical finding: with a single rational solver, zero gas, and captive flow, a clearing auction returns everything except the roughly `10 bps` concession by construction. The informative outputs are the clear rate, the trigger selectivity, and the solver payout scale.
-- Solver economics are the main protocol-design caveat: the modeled total solver payout is about `$12.9k` across `7,414` filled auctions, or `$1.74` per filled auction before gas and overhead. Mainnet gas would make most fills unprofitable; low-cost L2 deployment or batched correction is needed for the mechanism to attract solvers.
+- Solver economics are the main protocol-design caveat: the modeled total solver payout is about `$12.9k` across `7,414` filled auctions, or `$1.74` per filled auction before gas and overhead. With measured fill gas (`231k` through the router including the hook's oracle path), break-even gas prices are `1.9-2.9` gwei for the WETH/USDC and LINK/WETH payout scale and under `0.3` gwei for the smaller pools ([reports/solver_economics_gas_aware.md](reports/solver_economics_gas_aware.md)): every pool clears with margin at Base-typical gas, mainnet only supports the two larger pools in quiet regimes, so low-cost L2 deployment or batched correction is needed for the mechanism to attract solvers.
 - LP-facing yield framing ([reports/lp_apr_uplift.md](reports/lp_apr_uplift.md)): against each pool's mid-study TVL, the recommended cell's *modeled recovery ceiling* sits `184` to `264` bps of TVL above the static-fee baseline for the October month on WETH/USDC, WBTC/USDC, and UNI/WETH (`102` to `193` bps excluding the Oct 10-11 dislocation windows), and `2,069` bps on LINK/WETH (`539` ex-dislocation, whose stale losses the dislocation dominates). The baseline describes both v3 and a hookless v4 pool. These inherit the mechanical-ceiling caveat above; October 2025 is a high-volatility month, so annualized values are upper bounds, not expected yields.
 
 ## Headline Tables And Figures
@@ -75,6 +75,13 @@ The selected policy uses the stale-gap bps gate. Solver gas, solver edge, and re
 
 ## What The Hook Does
 
+Every mechanism below traces to a research artifact and a pinning test —
+[docs/design_traceability.md](docs/design_traceability.md) is the claim-by-claim
+map, anchored by a live Python↔Solidity parity suite
+(`ANVIL_URL=... python3 -m unittest script.test_python_solidity_parity`) that
+checks the deployed contract returns the same fees, classifications, and width
+guards as the replay engine that produced the backtest results.
+
 [src/OracleAnchoredLVRHook.sol](src/OracleAnchoredLVRHook.sol) implements three controls:
 
 - `beforeSwap`: reads a fresh oracle price, classifies toxic direction, overrides the LP fee, and lazily opens or closes the pool's Dutch auction from the pre-swap stale gap.
@@ -89,6 +96,7 @@ Core mechanics:
 - the hook tracks oracle volatility through an EWMA-style `sigma^2` update
 - LP admission uses width and centering guards derived from oracle risk
 - `auctionStatus` exposes the current eligibility, clock, and scheduled concession for solvers
+- the pool is quotable by Uniswap's standard `V4Quoter` with no hook-specific integration (proven in [test/OracleAnchoredLVRHookQuoter.t.sol](test/OracleAnchoredLVRHookQuoter.t.sol)), and `quotable` gives routers a non-reverting health check — see [docs/routing_integration.md](docs/routing_integration.md)
 
 [src/oracles/ChainlinkReferenceOracle.sol](src/oracles/ChainlinkReferenceOracle.sol) supplies the reference price, either from one Chainlink feed or a base/quote ratio assembled from two feeds.
 
@@ -144,7 +152,6 @@ See [docs/python_tooling_map.md](docs/python_tooling_map.md) before moving Pytho
 
 ## Open Questions
 
-- Add gas-aware solver economics for mainnet and lower-cost L2s such as Base and Arbitrum.
 - Add competitive routing so user flow can choose between hooked pools, other onchain pools, CEX venues, or no trade.
 - Extend beyond October 2025 and test multi-solver dynamics, oracle disagreement, and LP repositioning under the width guard.
 
@@ -153,5 +160,10 @@ See [docs/python_tooling_map.md](docs/python_tooling_map.md) before moving Pytho
 - [lvr_v4_hook_paper_dutch_auction_v2.pdf](lvr_v4_hook_paper_dutch_auction_v2.pdf)
 - [docs/research_results_v2.md](docs/research_results_v2.md)
 - [docs/system_backtest_flow.md](docs/system_backtest_flow.md)
+- [docs/concession_tuning_lvf.md](docs/concession_tuning_lvf.md)
+- [docs/oracle_granularity.md](docs/oracle_granularity.md)
+- [docs/design_traceability.md](docs/design_traceability.md)
+- [docs/routing_integration.md](docs/routing_integration.md)
+- [docs/market_validation_2026_07.md](docs/market_validation_2026_07.md)
 - [docs/python_tooling_map.md](docs/python_tooling_map.md)
 - [reports/README.md](reports/README.md)
