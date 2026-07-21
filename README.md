@@ -2,6 +2,12 @@
 
 `uni-v4-hook` is a Foundry research repo for an oracle-anchored Uniswap v4 hook that targets loss-versus-rebalancing (LVR) on stale pools with dynamic toxic-flow fees, oracle freshness checks, LP width/centering guards, and an on-chain Dutch-auction repricing path (a gap-triggered, time-growing concession on the toxic surcharge).
 
+**Live instrument:** [lvr-minimizer.vercel.app](https://lvr-minimizer.vercel.app) —
+a real-time dashboard over the live Base Sepolia USDC/WETH deployment: stale-gap
+gauge, fee previews, Dutch-auction state, wallet-driven pool operation, and a raw
+EVM bus inspector logging every call, return, revert, and event the page touches
+(source in [site/](site/)).
+
 ## Current Research Draft
 
 The current shareable draft is:

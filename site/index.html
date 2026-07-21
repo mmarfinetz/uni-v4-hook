@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LVR Minimizer — Uniswap v4 Hook that Recaptures LVR for LPs · Live on Base Sepolia</title>
+<meta name="description" content="A Uniswap v4 hook that recaptures loss-versus-rebalancing (LVR) for LPs: exact toxic-flow fees, an on-chain Dutch-auction repricing path, and a live Base Sepolia USDC/WETH deployment with raw EVM inspection.">
+<link rel="canonical" href="https://lvr-minimizer.vercel.app/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://lvr-minimizer.vercel.app/">
+<meta property="og:title" content="LVR Minimizer — Uniswap v4 hook, live instrument">
+<meta property="og:description" content="Stale prices tax LPs. This hook taxes them back: exact toxic-flow fees + a permissionless on-chain Dutch auction, running live on Base Sepolia with every EVM call inspectable.">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="LVR Minimizer — Uniswap v4 hook, live instrument">
+<meta name="twitter:description" content="Exact toxic-flow fees + a permissionless Dutch-auction repricing path. Live on Base Sepolia, raw EVM logs included.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="brand">LVR<em>·</em>HOOK <em>/ live instrument</em></div>
+    <nav>
+      <a href="#instrument">Instrument</a>
+      <a href="#interact">Operate</a>
+      <a href="#bus">EVM Bus</a>
+      <a href="#evidence">Evidence</a>
+      <a href="https://github.com/mmarfinetz/uni-v4-hook" target="_blank">GitHub ↗</a>
+    </nav>
+    <span id="netchip">connecting…</span>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <h1>Stale prices tax LPs.<br>This hook <span class="hl">taxes them back.</span></h1>
+    <p class="sub">
+      <b>OracleAnchoredLVRHook</b> is a Uniswap v4 hook that prices toxic flow exactly —
+      benign swaps pay a 5&nbsp;bps base fee while informed flow trading against a stale pool
+      pays the surcharge <b>f*&nbsp;=&nbsp;e^{|z|/2}&nbsp;−&nbsp;1</b> — and runs a permissionless
+      on-chain Dutch auction so the pool still gets repriced, with the recaptured value going
+      to LPs. No protocol fee. Everything below reads the <b>live USDC/WETH deployment on Base Sepolia</b>,
+      backed by Chainlink’s USDC/USD and ETH/USD feeds,
+      and every EVM call this page makes is logged raw in the <a href="#bus">bus inspector</a>.
+    </p>
+    <div class="statstrip">
+      <div class="stat"><div class="v">1.0e−64</div><div class="k">max fee-law residual, exact replay (7,019 swaps)</div></div>
+      <div class="stat"><div class="v">51 / 54</div><div class="k">observed-flow windows improved · zero worsened</div></div>
+      <div class="stat"><div class="v">124 / 124</div><div class="k">auctions cleared, Oct 2025 grid, four pools</div></div>
+      <div class="stat"><div class="v">100%</div><div class="k">of recaptured value goes to LPs — no protocol fee</div></div>
+    </div>
+  </div>
+</section>
+
+<section id="instrument">
+  <div class="wrap">
+    <div class="seclabel"><span class="idx">01</span> live instrument — base sepolia USDC/WETH pool</div>
+    <div class="gauge-card">
+      <div class="gauge-head">
+        <div><span class="gap-big" id="gapbig">—</span> <small id="gapunits"></small></div>
+        <div class="dirn" id="dirn">reading pool and oracle state…</div>
+      </div>
+      <svg id="gauge" preserveAspectRatio="none"></svg>
+      <div class="failclosed" id="failclosed">
+        ORACLE STALE — the hook is failing closed: swaps and fee previews revert rather than
+        quote against a dead reference. This is designed behavior when the real Chainlink
+        rounds are older than the configured max age. The raw revert selector is in the bus log.
+      </div>
+    </div>
+
+    <div class="gridpanels">
+      <div class="panel">
+        <h3>oracle <span>ChainlinkReferenceOracle</span></h3>
+        <div class="kv"><span class="k">reference price (WETH/USDC)</span><span class="v" id="ora-price">—</span></div>
+        <div class="kv"><span class="k">pool price</span><span class="v" id="pool-price">—</span></div>
+        <div class="kv"><span class="k">active liquidity</span><span class="v" id="pool-liq">—</span></div>
+        <div class="kv"><span class="k">oldest feed age</span><span class="v" id="ora-age">—</span></div>
+        <div class="kv"><span class="k">max age (fail-closed)</span><span class="v dim" id="cfg-maxage">—</span></div>
+        <div class="kv"><span class="k">base feed</span><span class="v dim" id="feed-base">—</span></div>
+        <div class="kv"><span class="k">base age</span><span class="v dim" id="feed-base-age">—</span></div>
+        <div class="kv"><span class="k">quote feed</span><span class="v dim" id="feed-quote">—</span></div>
+        <div class="kv"><span class="k">quote age</span><span class="v dim" id="feed-quote-age">—</span></div>
+      </div>
+      <div class="panel">
+        <h3>fees <span>previewSwapFee</span></h3>
+        <div class="kv"><span class="k">toxic direction</span><span class="v" id="fee-toxic">—</span></div>
+        <div class="kv"><span class="k">benign direction</span><span class="v" id="fee-benign">—</span></div>
+        <div class="kv"><span class="k">base / max</span><span class="v dim"><span id="cfg-base">—</span></span></div>
+        <div class="kv"><span class="k">fee cap</span><span class="v dim" id="cfg-max">—</span></div>
+      </div>
+      <div class="panel">
+        <h3>dutch auction <span>auctionStatus</span></h3>
+        <div class="kv"><span class="k">state</span><span class="v" id="auc-elig">—</span></div>
+        <div class="kv"><span class="k">clock</span><span class="v" id="auc-clock">—</span></div>
+        <div class="kv"><span class="k">concession (live)</span><span class="v" id="auc-conc">—</span></div>
+        <div class="kv"><span class="k">toxic fee w/ concession</span><span class="v" id="auc-fee">—</span></div>
+      </div>
+      <div class="panel">
+        <h3>auction config <span>recommended cell</span></h3>
+        <div class="kv"><span class="k">trigger gap</span><span class="v" id="cfg-trigger">—</span></div>
+        <div class="kv"><span class="k">concession growth</span><span class="v" id="cfg-growth">—</span></div>
+        <div class="kv"><span class="k">selected by</span><span class="v dim">324-set grid, Oct 2025</span></div>
+        <div class="kv"><span class="k">theory anchor</span><span class="v dim">LVF-optimal 0.4–1.9 bps/s</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="interact">
+  <div class="wrap">
+    <div class="seclabel"><span class="idx">02</span> operate the live pool — real Chainlink feed data</div>
+    <div class="walletbar">
+      <button id="connect">connect wallet</button>
+      <span id="addr"></span>
+      <span class="bal" id="bal"></span>
+      <span>chain: Base Sepolia (84532) · gas from any <a href="https://faucets.chain.link/base-sepolia" target="_blank">faucet</a></span>
+    </div>
+    <div class="actions">
+      <div class="act">
+        <div class="t">1 · read live state</div>
+        <div class="d">Pull the pool slot, hook config, Chainlink feed rounds, oracle price, fee previews, and auction status from Base Sepolia.</div>
+        <button id="refreshNow">refresh reads</button>
+      </div>
+      <div class="act">
+        <div class="t">2 · fund + approve</div>
+        <div class="d">Use real Base Sepolia USDC/WETH. Approvals go to the deployed v4 test routers; WETH is the canonical Base Sepolia wrapped ETH contract.</div>
+        <div class="movebar">
+          <input id="wrapAmount" inputmode="decimal" value="0.01" aria-label="ETH amount to wrap">
+          <button id="wrapWeth" data-needs-wallet disabled>wrap WETH</button>
+        </div>
+        <button id="approveRouters" data-needs-wallet disabled>approve routers</button>
+        <div class="mini-kv"><span>liquidity approvals</span><span class="v dim" id="allow-liq">—</span></div>
+        <div class="mini-kv"><span>swap approvals</span><span class="v dim" id="allow-swap">—</span></div>
+      </div>
+      <div class="act">
+        <div class="t">3 · add active liquidity</div>
+        <div class="d">Adds a wide USDC/WETH position around the oracle tick through the deployed v4 liquidity helper. This is real testnet liquidity, not a mock feed.</div>
+        <div class="movebar">
+          <input id="liqUnits" inputmode="numeric" value="1000000000000" aria-label="liquidity units">
+          <button id="addLiquidity" data-needs-wallet disabled>add liquidity</button>
+        </div>
+        <div class="mini-kv"><span>tick range</span><span class="v dim" id="liq-range">—</span></div>
+      </div>
+      <div class="act">
+        <div class="t">4 · poke the auction</div>
+        <div class="d">Permissionless: if the real Chainlink/pool gap is trigger-eligible, anyone can start the Dutch concession clock.</div>
+        <button id="poke" data-needs-wallet disabled>pokeAuction()</button>
+        <div class="mini-kv"><span>auction step</span><span class="v dim" id="step-auction">—</span></div>
+      </div>
+      <div class="act">
+        <div class="t">5 · fill toward oracle</div>
+        <div class="d">Executes a normal exact-input v4 swap in the toxic repricing direction, capped at the Chainlink reference sqrt price.</div>
+        <div class="movebar">
+          <input id="fillAmount" inputmode="decimal" value="10" aria-label="fill input amount">
+          <button id="fill" data-needs-wallet disabled>fill</button>
+        </div>
+        <div class="mini-kv"><span>direction</span><span class="v dim" id="fill-dir">—</span></div>
+        <div class="mini-kv"><span>input token</span><span class="v dim" id="fill-token">—</span></div>
+      </div>
+    </div>
+    <p class="note">
+      <b>Real oracle mode:</b> the feed contracts are Chainlink testnet feeds; this page exposes no feed setters and no token minting.
+      The helper routers are shared testnet infrastructure for this instrument, so use demo-sized amounts.
+    </p>
+  </div>
+</section>
+
+<section id="bus">
+  <div class="wrap">
+    <div class="seclabel"><span class="idx">03</span> raw evm bus — every call, return, revert, and event this page touches</div>
+    <div class="businspector">
+      <div class="bushead">
+        <span>bus inspector</span>
+        <span class="spacer"></span>
+        <label><input type="checkbox" id="quietreads"> hide polling reads</label>
+        <label><input type="checkbox" id="pausebus"> pause</label>
+        <button id="clearbus" class="ghost" style="padding:3px 10px;font-size:10.5px">clear</button>
+      </div>
+      <div id="buslog"></div>
+    </div>
+    <p class="note">Click any row for the raw <b>calldata / returndata / topics</b> next to the decoded fields.
+    Reverts show their 4-byte selector mapped to the hook’s custom errors (e.g. <b>OracleStale()</b> — fail-closed working as designed).</p>
+  </div>
+</section>
+
+<section id="evidence">
+  <div class="wrap">
+    <div class="seclabel"><span class="idx">04</span> the evidence chain</div>
+    <div class="pitchgrid">
+      <div class="pitch">
+        <h4>Backtest → contract, mechanically</h4>
+        <p>A live parity suite deploys the Solidity to Anvil and asserts it returns the same fees,
+        toxicity classifications, and width guards as the Python replay engine that produced the results.
+        The claim-by-claim map is in
+        <a href="https://github.com/mmarfinetz/uni-v4-hook/blob/main/docs/design_traceability.md" target="_blank">design_traceability.md</a>.</p>
+      </div>
+      <div class="pitch">
+        <h4>Router-grade quotability</h4>
+        <p>Uniswap’s own V4Quoter prices this pool exactly — auction open or closed — with no custom integration,
+        and it fails cleanly when the oracle is stale. See
+        <a href="https://github.com/mmarfinetz/uni-v4-hook/blob/main/docs/routing_integration.md" target="_blank">routing_integration.md</a>.</p>
+      </div>
+      <div class="pitch">
+        <h4>Solver economics, measured</h4>
+        <p>231k gas per fill, measured. Break-even gas prices per pool and venue scenarios in
+        <a href="https://github.com/mmarfinetz/uni-v4-hook/blob/main/reports/solver_economics_gas_aware.md" target="_blank">the gas-aware table</a> —
+        every studied pool clears with margin at Base-typical gas.</p>
+      </div>
+      <div class="pitch">
+        <h4>LP uplift vs static fees</h4>
+        <p>Modeled recovery ceiling of 184–264 bps of TVL/month above a static-fee baseline (Oct 2025, three majors;
+        documented as a ceiling, not a yield). Floor: 51/54 real-flow windows better, none worse.
+        <a href="https://github.com/mmarfinetz/uni-v4-hook/blob/main/reports/lp_apr_uplift.md" target="_blank">lp_apr_uplift.md</a>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>hook <a href="https://sepolia.basescan.org/address/0x22081E668dC0f43B6166561Ac4A6Df359AA88880" target="_blank">0x2208…8880</a></span>
+    <span>oracle <a href="https://sepolia.basescan.org/address/0xA68812AA66A2417BDFAFF9a45BD9A7578C5A3202" target="_blank">0xA688…3202</a></span>
+    <span>pool <a href="https://sepolia.basescan.org/address/0x036CbD53842c5426634e7929541eC2318f3dCF7e" target="_blank">USDC</a>/<a href="https://sepolia.basescan.org/address/0x4200000000000000000000000000000000000006" target="_blank">WETH</a></span>
+    <span>feeds <a href="https://sepolia.basescan.org/address/0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165" target="_blank">USDC/USD</a> · <a href="https://sepolia.basescan.org/address/0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1" target="_blank">ETH/USD</a></span>
+    <span>routers <a href="https://sepolia.basescan.org/address/0xB9729C4Ff9ffbe34F65a2DbBFDB412A344Cc5154" target="_blank">liquidity</a> · <a href="https://sepolia.basescan.org/address/0x8054C37cF5C23d0186EFc0F61D7F021b5DF854e4" target="_blank">swap</a></span>
+    <span>pool manager <a href="https://sepolia.basescan.org/address/0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408" target="_blank">0x05E7…3408</a></span>
+    <span><a href="https://github.com/mmarfinetz/uni-v4-hook" target="_blank">github.com/mmarfinetz/uni-v4-hook</a></span>
+    <span>Uniswap Hook Incubator · cohort 10 · public good — no token, no protocol fee</span>
+  </div>
+</footer>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
