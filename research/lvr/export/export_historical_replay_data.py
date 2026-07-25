@@ -287,6 +287,16 @@ class RpcClient:
         if not requests:
             return []
 
+        # Some free-tier RPC plans (e.g. drpc) reject JSON-RPC batches above a
+        # small size. RPC_MAX_BATCH splits every batch transparently; results
+        # keep their order. Unset or 0 preserves the original single-batch path.
+        max_batch = int(os.environ.get("RPC_MAX_BATCH", "0") or 0)
+        if max_batch > 0 and len(requests) > max_batch:
+            combined: list[Any] = []
+            for offset in range(0, len(requests), max_batch):
+                combined.extend(self.batch_call(requests[offset:offset + max_batch]))
+            return combined
+
         cached_results: list[Any | None] = []
         pending_requests: list[tuple[str, list[Any]]] = []
         pending_positions: list[int] = []
@@ -402,6 +412,10 @@ def _retryable_rpc_error(error: Any) -> bool:
         "try again",
         "overloaded",
         "capacity",
+        # drpc free tier intermittently fails to route archive requests; the
+        # same request usually succeeds on a later attempt.
+        "route your request",
+        "suitable provider",
     )
     return any(fragment in message for fragment in retryable_fragments)
 

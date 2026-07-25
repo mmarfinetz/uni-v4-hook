@@ -9,7 +9,9 @@ import io
 import json
 import sys
 import zipfile
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+UTC = timezone.utc  # datetime.UTC alias is 3.11+; this keeps 3.9/3.10 working
 from decimal import Decimal, getcontext
 from pathlib import Path
 from typing import Any

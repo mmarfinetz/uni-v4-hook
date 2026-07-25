@@ -189,6 +189,14 @@ repo already deploys.
    [`solver_bot.md`](solver_bot.md#permissionless-surface).
 4. **Paper strengthening** — connect `concessionGrowthWadPerSec` tuning to the
    closed-form loss-versus-fair results in [arXiv 2406.00113](https://arxiv.org/abs/2406.00113).
+5. **Methodology corrections — DONE 2026-07-24** ([`methodology_limitations.md`](methodology_limitations.md)).
+   Two material fixes changed the honest headline: (a) the `99.9%` recapture was
+   measured against the hook's own Chainlink oracle; re-measured against a faster
+   Binance truth, Chainlink lags the CEX by `~21 bps` median and **true recapture
+   is ~78%** on mainnet feeds (higher on Base). (b) The recommended cell was tuned
+   at zero gas; a gas-aware re-tune shows concession *growth* is irrelevant and
+   *start* concession is the LP↔filler dial. Both feed the pitch honesty and the
+   production parameter choice.
 
 ## 5. UHI 10 fit
 
