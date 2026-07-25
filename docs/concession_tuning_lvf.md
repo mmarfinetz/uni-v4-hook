@@ -57,7 +57,9 @@ The structural difference is the denominator: a raw Dutch auction cedes
 surcharge**, and never less than the base fee reaches the LP. The October 2025
 grid's `99.9%` mean recapture is `c(τ_fill) ≈ 0.1%` in this vocabulary — the
 mechanical-ceiling caveat in the README maps to the paper's single-rational-arb,
-zero-gas assumption regime.
+zero-gas assumption regime. Note this is recapture of the *oracle-visible*
+stale-loss; true recapture against a faster CEX reference is ~78% on mainnet
+feeds ([`methodology_limitations.md`](methodology_limitations.md)).
 
 ## First-principles choice of `g`
 
