@@ -39,7 +39,7 @@ body {
 
 /* phosphor scanline atmosphere lives on the panels (no fixed overlays —
    full-viewport fixed pseudo-elements stall some compositors) */
-.gauge-card, .panel, .businspector, .act, .pitch, .statstrip {
+.gauge-card, .panel, .businspector, .act, .pitch, .statstrip, .impacttable {
   background-image:
     repeating-linear-gradient(0deg, rgba(0,0,0,0.09) 0 1px, transparent 1px 3px);
 }
@@ -186,6 +186,36 @@ button.ghost:hover { background: var(--line-bright); color: var(--ink); }
 .note { font-size: 11.5px; color: var(--ink-faint); margin-top: 14px; max-width: 760px; }
 .note b { color: var(--ink-dim); }
 
+/* ── impact ── */
+.impactgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.impact-summary .kv { font-size: 12.5px; }
+.impacttable {
+  border: 1px solid var(--line-bright); background: #0a0906;
+  margin-top: 14px;
+}
+.impacthead {
+  display: flex; align-items: center; gap: 16px; padding: 10px 16px;
+  border-bottom: 1px solid var(--line); font-size: 11px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--amber-dim);
+}
+.impacthead .spacer { flex: 1; }
+.impactrows { font-size: 12px; }
+.impactrow {
+  display: grid;
+  grid-template-columns: minmax(78px, 0.8fr) minmax(104px, 1.1fr) minmax(108px, 1.1fr) minmax(118px, 1.2fr) minmax(118px, 1.2fr) minmax(86px, 0.9fr);
+  gap: 12px; align-items: baseline; padding: 8px 16px; border-bottom: 1px solid #16120b;
+}
+.impactrow:last-child { border-bottom: none; }
+.impactrow.head {
+  color: var(--ink-faint); font-size: 10px; letter-spacing: 0.08em;
+  text-transform: uppercase; background: rgba(255,180,84,0.04);
+}
+.impactrow.muted { display: block; color: var(--ink-faint); }
+.impactrow .pos { color: var(--green); }
+.impactrow .neg { color: var(--red); }
+.impactrow .dim { color: var(--ink-faint); }
+.impactrow a { border-bottom: none; }
+
 /* ── inspector ── */
 .businspector {
   border: 1px solid var(--line-bright); background: #0a0906;
@@ -252,4 +282,6 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 26px; }
   nav { display: none; }
   .movebar { flex-direction: column; align-items: stretch; }
   .movebar input, .movebar button { width: 100%; }
+  .impactrow { grid-template-columns: 1fr; gap: 2px; }
+  .impactrow.head { display: none; }
 }

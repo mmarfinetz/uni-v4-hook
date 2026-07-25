@@ -73,6 +73,12 @@ const routerAbi = parseAbi([
   "function swap(PoolKey key, SwapParams params, TestSettings testSettings, bytes hookData) payable returns (int256 delta)",
 ]);
 const allEventAbis = [...hookAbi, ...pmAbi, ...erc20Abi].filter((f) => f.type === "event");
+const EVENT_TOPICS = {
+  swap: "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+  initialize: "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
+  auctionOpened: "0xaa9d399007abfa8fb3c641e33ef4a6db65e5a7b06b4dbe2f43ef2189f14df8c1",
+  riskUpdated: "0xb85847ced2828900ff254c1567f7d59c4dcc98a2becf910e2a4bc76d237c1cb2",
+};
 
 const ERROR_NAMES = {};
 for (const sig of ["OracleStale()", "InvalidOraclePrice()", "InvalidConfig()", "InvalidPool()",
@@ -91,6 +97,12 @@ const TICK_SPACING = 60;
 const LIQUIDITY_HALF_WIDTH_TICKS = 12000;
 const MIN_USABLE_TICK = -887220;
 const MAX_USABLE_TICK = 887220;
+const WAD = 10n ** 18n;
+const HALF_BPS_WAD = 50_000_000_000_000n;
+const FEE_SCALE = 1_000_000_000_000n;
+const FEE_DENOMINATOR = 1_000_000n;
+const BPS_DENOMINATOR = 10_000n;
+const STATIC_BASELINE_FEE = 3000;
 
 // ── visitor telemetry ──────────────────────────────────────────────────────
 const VISITOR_ID_KEY = "lvrhook.visitor";
@@ -197,10 +209,10 @@ function fmtArgs(args) {
 // logged eth_call: raw JSON-RPC so the wire bytes (incl. revert selectors)
 // land in the inspector exactly as the node returned them
 let rpcId = 1;
-async function rawEthCall(to, data) {
+async function rawEthCall(to, data, blockTag = "latest") {
   const res = await fetch(RPC, {
     method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: rpcId++, method: "eth_call", params: [{ to, data }, "latest"] }),
+    body: JSON.stringify({ jsonrpc: "2.0", id: rpcId++, method: "eth_call", params: [{ to, data }, blockTag] }),
   });
   return res.json();
 }
@@ -253,6 +265,15 @@ function fmtPrice(v) {
   if (Math.abs(v) >= 0.000001) return v.toFixed(8);
   return v.toExponential(4);
 }
+function fmtUsd(v, places = 4) {
+  if (!Number.isFinite(v)) return "—";
+  const sign = v < 0 ? "-" : "";
+  const x = Math.abs(v);
+  if (x >= 1000) return `${sign}$${x.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  if (x >= 1) return `${sign}$${x.toFixed(places)}`;
+  if (x >= 0.0001) return `${sign}$${x.toFixed(6)}`;
+  return `${sign}$${x.toExponential(2)}`;
+}
 function fmtFeedAnswer(answer) {
   const n = Number(answer) / 10 ** A.feedDecimals;
   if (!Number.isFinite(n)) return "—";
@@ -270,6 +291,14 @@ function formatUnits(value, decimals, places = 4) {
 function fmtInt(value) {
   return BigInt(value).toLocaleString();
 }
+function fmtPct(value, places = 2) {
+  if (!Number.isFinite(value)) return "—";
+  return `${value.toFixed(places)}%`;
+}
+function fmtSignedUsd(v, places = 4) {
+  if (!Number.isFinite(v)) return "—";
+  return `${v >= 0 ? "+" : ""}${fmtUsd(v, places)}`;
+}
 function toTxHex(value) {
   const v = BigInt(value);
   return "0x" + v.toString(16);
@@ -281,6 +310,69 @@ function parseAmountInput(id, decimals, fallback) {
 }
 function slotOffset(slot, offset) {
   return "0x" + (BigInt(slot) + BigInt(offset)).toString(16).padStart(64, "0");
+}
+function absBigInt(value) {
+  return value < 0n ? -value : value;
+}
+function gapPremiumWad(refSqrt, poolSqrt) {
+  const ref = BigInt(refSqrt), pool = BigInt(poolSqrt);
+  if (ref > pool) return { premiumWad: (ref * WAD) / pool - WAD, oracleAbove: true };
+  if (pool > ref) return { premiumWad: (pool * WAD) / ref - WAD, oracleAbove: false };
+  return { premiumWad: 0n, oracleAbove: false };
+}
+function wholeAmount(raw, decimals) {
+  return Number(raw) / 10 ** decimals;
+}
+function rawPriceFromSqrt(sqrt) {
+  return sqrtToPrice(sqrt);
+}
+function sqrtFromRawPrice(price) {
+  if (!Number.isFinite(price) || price <= 0) return 0n;
+  return BigInt(Math.floor(Math.sqrt(price) * Number(Q96)));
+}
+function tokenValueUsdc(raw, tokenIndex, refSqrt) {
+  const amount = wholeAmount(raw, tokenIndex === 0 ? A.token0Decimals : A.token1Decimals);
+  if (tokenIndex === 0) return amount;
+  const wethPerUsdc = rawToWholePrice(rawPriceFromSqrt(refSqrt));
+  return wethPerUsdc > 0 ? amount / wethPerUsdc : 0;
+}
+function feeValueUsdc(inputRaw, inputTokenIndex, feeUnits, refSqrt) {
+  const feeRaw = (inputRaw * BigInt(Math.max(0, feeUnits))) / FEE_DENOMINATOR;
+  return tokenValueUsdc(feeRaw, inputTokenIndex, refSqrt);
+}
+function unconcededFeeUnits(premiumWad) {
+  const alpha = BigInt(S.cfg?.alphaBps ?? 10000);
+  const surchargeWad = (BigInt(premiumWad) * alpha) / BPS_DENOMINATOR;
+  return (S.cfg?.baseFee ?? 500) + Number(surchargeWad / FEE_SCALE);
+}
+function impliedConcessionPct(actualFeeUnits, noConcessionFeeUnits) {
+  const base = S.cfg?.baseFee ?? 500;
+  const denom = noConcessionFeeUnits - base;
+  if (denom <= 0) return 0;
+  return Math.max(0, Math.min(100, ((noConcessionFeeUnits - actualFeeUnits) / denom) * 100));
+}
+function cfgConcessionPctAt(startTs, blockTs) {
+  if (!S.cfg || !startTs || !blockTs) return null;
+  const elapsed = Math.max(0, Number(blockTs) - Number(startTs));
+  let wad = S.cfg.startConcessionWad + S.cfg.concessionGrowthWadPerSec * BigInt(elapsed);
+  if (wad > S.cfg.maxConcessionWad) wad = S.cfg.maxConcessionWad;
+  return Number(wad) / 1e16;
+}
+function eventSort(a, b) {
+  const ab = typeof a.blockNumber === "bigint" ? a.blockNumber : BigInt(a.blockNumber);
+  const bb = typeof b.blockNumber === "bigint" ? b.blockNumber : BigInt(b.blockNumber);
+  if (ab !== bb) return ab < bb ? -1 : 1;
+  const ai = Number(a.logIndex ?? 0), bi = Number(b.logIndex ?? 0);
+  return ai - bi;
+}
+function displayAmount(raw, tokenIndex, places = 6) {
+  return `${formatUnits(absBigInt(raw), tokenIndex === 0 ? A.token0Decimals : A.token1Decimals, places)} ${tokenIndex === 0 ? A.token0Symbol : A.token1Symbol}`;
+}
+function shortHash(hash) {
+  return hash ? `${hash.slice(0, 8)}…${hash.slice(-4)}` : "tx";
+}
+function setImpact(id, text, cls) {
+  set(id, text, cls);
 }
 
 // ── state + refresh ─────────────────────────────────────────────────────────
@@ -538,14 +630,24 @@ async function rawGetLogs(filter) {
 }
 const hexBlock = (n) => "0x" + n.toString(16);
 
-async function loadEvents() {
+function normalizeLog(lg) {
+  return {
+    ...lg,
+    blockNumber: typeof lg.blockNumber === "bigint" ? lg.blockNumber : BigInt(lg.blockNumber),
+    logIndex: typeof lg.logIndex === "number" ? lg.logIndex : Number(lg.logIndex ?? 0),
+    topics: lg.topics,
+    data: lg.data,
+  };
+}
+
+async function fetchEventTail() {
   // The load-balanced public RPC caps eth_getLogs ranges inconsistently (some
   // backends allow 10k blocks, some 2k). Walk backwards with an adaptive chunk:
   // halve on range errors instead of giving up.
   let chunk = 1800n;
   const MAX_REQUESTS = 120;
   let latest;
-  try { latest = await client.getBlockNumber(); } catch { return; }
+  try { latest = await client.getBlockNumber(); } catch { return { collected: [], scanned: 0n, requests: 0 }; }
   let to = latest, collected = [], requests = 0, scanned = 0n, foundAtScan = -1n;
   while (requests < MAX_REQUESTS && to > 0n) {
     const from = to > chunk ? to - chunk : 0n;
@@ -559,9 +661,18 @@ async function loadEvents() {
       scanned += to - from + 1n;
       if (collected.length && foundAtScan < 0n) foundAtScan = scanned;
       to = from - 1n;
-      // stop a little past the first events found, or once the log is rich
-      if (foundAtScan >= 0n && scanned > foundAtScan + chunk * 4n) break;
-      if (collected.length > 150) break;
+      const topics = collected.map((l) => l.topics?.[0]);
+      const swapCount = topics.filter((t) => t === EVENT_TOPICS.swap).length;
+      const hasPriceAnchor =
+        topics.includes(EVENT_TOPICS.initialize) ||
+        topics.includes(EVENT_TOPICS.auctionOpened) ||
+        swapCount >= 3;
+      const hasSwapAndRisk = swapCount > 0 && topics.includes(EVENT_TOPICS.riskUpdated);
+      // Keep one chunk of context beyond the first hit. If the log tail lacks
+      // a prior swap/init price, the impact analyzer falls back to a historical
+      // slot0 read at the block immediately before the swap.
+      if (foundAtScan >= 0n && (hasSwapAndRisk || hasPriceAnchor) && scanned > foundAtScan + chunk) break;
+      if (collected.length > 220) break;
     } catch (e) {
       requests += 2;
       const msg = String(e?.message ?? e);
@@ -573,11 +684,237 @@ async function loadEvents() {
       break;
     }
   }
-  collected.sort((a, b) => parseInt(a.blockNumber, 16) - parseInt(b.blockNumber, 16));
+  collected = collected.map(normalizeLog).sort(eventSort);
+  return { collected, scanned, requests };
+}
+
+function decodeEvent(lg) {
+  try {
+    return decodeEventLog({ abi: allEventAbis, data: lg.data, topics: lg.topics });
+  } catch {
+    return null;
+  }
+}
+
+const blockTsCache = new Map();
+async function blockTimestamp(blockNumber) {
+  const key = blockNumber.toString();
+  if (!blockTsCache.has(key)) {
+    const b = await client.getBlock({ blockNumber });
+    blockTsCache.set(key, Number(b.timestamp));
+  }
+  return blockTsCache.get(key);
+}
+
+const historicalSqrtCache = new Map();
+async function historicalPoolSqrt(blockNumber) {
+  const key = blockNumber.toString();
+  if (historicalSqrtCache.has(key)) return historicalSqrtCache.get(key);
+  const data = encodeFunctionData({ abi: pmAbi, functionName: "extsload", args: [SLOT0] });
+  try {
+    const resp = await rawEthCall(A.poolManager, data, hexBlock(blockNumber));
+    if (resp.error || !resp.result) throw new Error(resp.error?.message || "missing result");
+    const word = decodeFunctionResult({ abi: pmAbi, functionName: "extsload", data: resp.result });
+    const sqrt = BigInt(word) & ((1n << 160n) - 1n);
+    historicalSqrtCache.set(key, sqrt);
+    busLog({ kind: "CALL", title: "extsload() historical slot0", meta: `block ${blockNumber}`,
+      raw: { to: A.poolManager, data, result: resp.result },
+      decoded: `<span class="fld">sqrtPriceX96=</span>${sqrt}`, quiet: true });
+    return sqrt;
+  } catch {
+    historicalSqrtCache.set(key, null);
+    return null;
+  }
+}
+
+function referenceSqrtFromRiskPrice(priceWad) {
+  return sqrtFromRawPrice(Number(priceWad) / 1e18);
+}
+
+function gapBpsFromPremium(premiumWad) {
+  return Number(premiumWad) / Number(HALF_BPS_WAD);
+}
+
+function directionFromAmounts(amount0, amount1) {
+  if (amount0 < 0n) return { inputToken: 0, inputRaw: -amount0, outputToken: 1, outputRaw: absBigInt(amount1) };
+  if (amount1 < 0n) return { inputToken: 1, inputRaw: -amount1, outputToken: 0, outputRaw: absBigInt(amount0) };
+  return null;
+}
+
+async function buildImpactRows(logs) {
+  const rows = [];
+  let poolSqrt = null;
+  let referenceSqrt = null;
+  let lastOracleTs = null;
+  let auctionStartTs = 0;
+  let auctionPremiumWad = null;
+
+  for (const lg of logs) {
+    const ev = decodeEvent(lg);
+    if (!ev) continue;
+
+    if (ev.eventName === "Initialize") {
+      poolSqrt = BigInt(ev.args.sqrtPriceX96);
+      continue;
+    }
+
+    if (ev.eventName === "RiskUpdated") {
+      referenceSqrt = referenceSqrtFromRiskPrice(ev.args.lastOraclePriceWad);
+      lastOracleTs = Number(ev.args.lastOracleTs);
+      continue;
+    }
+
+    if (ev.eventName === "AuctionOpened") {
+      auctionStartTs = Number(ev.args.startTs);
+      auctionPremiumWad = BigInt(ev.args.gapPremiumWad);
+      continue;
+    }
+
+    if (ev.eventName === "AuctionClosed") {
+      auctionStartTs = 0;
+      auctionPremiumWad = null;
+      continue;
+    }
+
+    if (ev.eventName !== "Swap") continue;
+    const postSqrt = BigInt(ev.args.sqrtPriceX96);
+    const amount0 = BigInt(ev.args.amount0);
+    const amount1 = BigInt(ev.args.amount1);
+    const dir = directionFromAmounts(amount0, amount1);
+    const feeUnits = Number(ev.args.fee);
+    const blockTs = await blockTimestamp(lg.blockNumber);
+    const preSqrt = poolSqrt ?? (lg.blockNumber > 0n ? await historicalPoolSqrt(lg.blockNumber - 1n) : null);
+
+    let premiumWad = null;
+    if (referenceSqrt && preSqrt) {
+      premiumWad = gapPremiumWad(referenceSqrt, preSqrt).premiumWad;
+    } else if (auctionPremiumWad != null) {
+      premiumWad = auctionPremiumWad;
+    }
+
+    poolSqrt = postSqrt;
+    if (!dir || premiumWad == null) continue;
+
+    const gapBps = gapBpsFromPremium(premiumWad);
+    const trigger = S.cfg?.triggerGapBps ?? 10;
+    if (gapBps < Math.max(1, trigger * 0.75)) continue;
+
+    const noConcessionFeeUnits = unconcededFeeUnits(premiumWad);
+    const baseFee = S.cfg?.baseFee ?? 500;
+    const lpSurchargeUnits = Math.max(0, feeUnits - baseFee);
+    const solverConcessionUnits = Math.max(0, noConcessionFeeUnits - feeUnits);
+    const feeRefSqrt = referenceSqrt || postSqrt;
+    const hookFeeUsdc = feeValueUsdc(dir.inputRaw, dir.inputToken, feeUnits, feeRefSqrt);
+    const staticFeeUsdc = feeValueUsdc(dir.inputRaw, dir.inputToken, STATIC_BASELINE_FEE, feeRefSqrt);
+    const lpSurchargeUsdc = feeValueUsdc(dir.inputRaw, dir.inputToken, lpSurchargeUnits, feeRefSqrt);
+    const solverConcessionUsdc = feeValueUsdc(dir.inputRaw, dir.inputToken, solverConcessionUnits, feeRefSqrt);
+    const concessionPct = cfgConcessionPctAt(auctionStartTs, blockTs)
+      ?? impliedConcessionPct(feeUnits, noConcessionFeeUnits);
+    const feedAgeSec = lastOracleTs ? Math.max(0, blockTs - lastOracleTs) : null;
+    const prePoolPrice = preSqrt ? rawToWholePrice(rawPriceFromSqrt(preSqrt)) : null;
+    const postPoolPrice = rawToWholePrice(rawPriceFromSqrt(postSqrt));
+
+    rows.push({
+      blockNumber: lg.blockNumber,
+      blockTs,
+      transactionHash: lg.transactionHash,
+      sender: ev.args.sender,
+      input: displayAmount(dir.inputRaw, dir.inputToken),
+      output: displayAmount(dir.outputRaw, dir.outputToken),
+      feeUnits,
+      noConcessionFeeUnits,
+      hookFeeUsdc,
+      staticFeeUsdc,
+      lpSurchargeUsdc,
+      solverConcessionUsdc,
+      concessionPct,
+      feedAgeSec,
+      gapBps,
+      trigger,
+      beforeAfterGap: `${gapBps.toFixed(2)} → 0.00 bps`,
+      priceMove: `${prePoolPrice ? fmtPrice(prePoolPrice) : "?"} → ${fmtPrice(postPoolPrice)}`,
+      useful: gapBps >= trigger,
+      beforeFullConcession: concessionPct < 99.95,
+      agedFeed: feedAgeSec != null && feedAgeSec > 3600,
+    });
+  }
+
+  return rows.sort((a, b) => (a.blockNumber === b.blockNumber ? 0 : a.blockNumber > b.blockNumber ? -1 : 1));
+}
+
+function sumRows(rows, field) {
+  return rows.reduce((acc, row) => acc + (Number.isFinite(row[field]) ? row[field] : 0), 0);
+}
+
+function impactRatio(numerator, denominator) {
+  return denominator > 0 ? (numerator / denominator) * 100 : 0;
+}
+
+function renderImpactRows(rows) {
+  const fillCount = rows.length;
+  const hookFees = sumRows(rows, "hookFeeUsdc");
+  const staticFees = sumRows(rows, "staticFeeUsdc");
+  const lpSurcharge = sumRows(rows, "lpSurchargeUsdc");
+  const solverConcession = sumRows(rows, "solverConcessionUsdc");
+  const splitTotal = lpSurcharge + solverConcession;
+  const beforeCap = rows.filter((r) => r.beforeFullConcession).length;
+  const useful = rows.filter((r) => r.useful).length;
+  const aged = rows.filter((r) => r.agedFeed).length;
+  const last = rows[0];
+
+  setImpact("impact-fills", fillCount ? `${fillCount}` : "0", fillCount ? "green" : "dim");
+  setImpact("impact-hook-fees", fmtUsd(hookFees), hookFees > 0 ? "green" : "dim");
+  setImpact("impact-static-fees", fmtUsd(staticFees), "dim");
+  setImpact("impact-vs-static", fmtSignedUsd(hookFees - staticFees), hookFees >= staticFees ? "green" : "red");
+  setImpact("impact-lp-surcharge", fmtUsd(lpSurcharge), lpSurcharge > 0 ? "green" : "dim");
+  setImpact("impact-solver-conc", fmtUsd(solverConcession), solverConcession > 0 ? "amber" : "dim");
+  setImpact("impact-solver-share", fmtPct(impactRatio(solverConcession, splitTotal)), solverConcession > 0 ? "amber" : "green");
+  setImpact("impact-before-cap", fillCount ? `${beforeCap}/${fillCount}` : "0/0", beforeCap ? "green" : "amber");
+  setImpact("impact-useful", fillCount ? `${useful}/${fillCount}` : "0/0", useful ? "green" : "dim");
+  setImpact("impact-aged", fillCount ? `${aged}/${fillCount}` : "0/0", aged ? "amber" : "dim");
+  setImpact("impact-last-gap", last ? `${last.gapBps.toFixed(2)} bps` : "—", last?.useful ? "green" : "dim");
+  setImpact("impact-last-fee", last ? `${last.feeUnits} ppm` : "—", last?.feeUnits > (S.cfg?.baseFee ?? 500) ? "green" : "amber");
+
+  const target = $("impactRows");
+  if (!target) return;
+  if (!rows.length) {
+    target.innerHTML = `<div class="impactrow muted">No repricing fills found in the scanned event tail.</div>`;
+    return;
+  }
+
+  const body = rows.slice(0, 10).map((r) => {
+    const split = `${fmtUsd(r.lpSurchargeUsdc)} LP / ${fmtUsd(r.solverConcessionUsdc)} solver`;
+    const timing = `${r.beforeFullConcession ? "before" : "at"} 100% · ${fmtPct(r.concessionPct, 1)} · feed ${r.feedAgeSec == null ? "?" : fmtAge(r.feedAgeSec)}`;
+    return `<div class="impactrow">
+      <span><a href="${EXPLORER}/tx/${r.transactionHash}" target="_blank">${shortHash(r.transactionHash)}</a></span>
+      <span>${r.beforeAfterGap}</span>
+      <span>${r.input} → ${r.output}</span>
+      <span>${fmtUsd(r.hookFeeUsdc)} <span class="dim">vs ${fmtUsd(r.staticFeeUsdc)}</span></span>
+      <span>${split}</span>
+      <span class="${r.beforeFullConcession ? "pos" : "dim"}">${timing}</span>
+    </div>`;
+  }).join("");
+  target.innerHTML = `<div class="impactrow head">
+    <span>tx</span><span>gap before/after</span><span>fill</span><span>LP fee vs static</span><span>surcharge split</span><span>timing</span>
+  </div>${body}`;
+}
+
+async function refreshImpact(logs = null) {
+  const target = $("impactRows");
+  if (target) target.innerHTML = `<div class="impactrow muted">scanning Base Sepolia PoolManager logs…</div>`;
+  const eventLogs = logs ?? (await fetchEventTail()).collected;
+  const rows = await buildImpactRows(eventLogs);
+  renderImpactRows(rows);
+  return rows;
+}
+
+async function loadEvents() {
+  const { collected, scanned, requests } = await fetchEventTail();
+  await refreshImpact(collected);
   for (const lg of collected) {
     decodeAndLogEvent(
-      { ...lg, blockNumber: BigInt(lg.blockNumber), topics: lg.topics, data: lg.data },
-      `block ${parseInt(lg.blockNumber, 16)}`
+      lg,
+      `block ${lg.blockNumber}`
     );
   }
   busLog({ kind: "LOG", title: `event tail: ${collected.length} events over the last ${scanned.toLocaleString()} blocks`, meta: `eth_getLogs ×${requests}` });
@@ -731,6 +1068,9 @@ for (const [id, fn] of Object.entries(actions)) {
   }));
 }
 $("fillAmount")?.addEventListener("input", (e) => { e.target.dataset.dirty = "1"; });
+$("refreshImpact")?.addEventListener("click", () => refreshImpact().catch((e) => {
+  busLog({ kind: "ERR", title: "impact refresh failed", meta: (e?.message ?? "error").slice(0, 90) });
+}));
 
 // ── boot ────────────────────────────────────────────────────────────────────
 trackVisit("pageview");
@@ -742,7 +1082,6 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 busLog({ kind: "CALL", title: "instrument boot — every EVM read/write on this page is logged here", meta: RPC });
-refresh();
-loadEvents();
+refresh().finally(() => loadEvents());
 setInterval(refresh, 5000);
 window.addEventListener("resize", () => S.preview01 && render());

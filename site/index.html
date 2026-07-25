@@ -12,7 +12,7 @@
 <meta property="og:description" content="Stale prices tax LPs. This hook taxes them back: exact toxic-flow fees + a permissionless on-chain Dutch auction, running live on Base Sepolia with every EVM call inspectable.">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="LVR Minimizer — Uniswap v4 hook, live instrument">
-<meta name="twitter:description" content="Exact toxic-flow fees + a permissionless Dutch-auction repricing path. Live on Base Sepolia, raw EVM logs included.">
+<meta name="twitter:description" content="Exact toxic-flow fees + a permissionless Dutch-auction repricing path, recapturing ~78% of true CEX-measured LVR for LPs. Live on Base Sepolia, raw EVM logs included.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
@@ -25,6 +25,7 @@
     <div class="brand">LVR<em>·</em>HOOK <em>/ live instrument</em></div>
     <nav>
       <a href="#instrument">Instrument</a>
+      <a href="#impact">LP Impact</a>
       <a href="#interact">Operate</a>
       <a href="#bus">EVM Bus</a>
       <a href="#evidence">Evidence</a>
@@ -41,15 +42,15 @@
       <b>OracleAnchoredLVRHook</b> is a Uniswap v4 hook that prices toxic flow exactly —
       benign swaps pay a 5&nbsp;bps base fee while informed flow trading against a stale pool
       pays the surcharge <b>f*&nbsp;=&nbsp;e^{|z|/2}&nbsp;−&nbsp;1</b> — and runs a permissionless
-      on-chain Dutch auction so the pool still gets repriced, with the recaptured value going
-      to LPs. No protocol fee. Everything below reads the <b>live USDC/WETH deployment on Base Sepolia</b>,
+      on-chain Dutch auction, an <b>open market of autonomous repricing agents</b>, so the pool
+      still gets repriced, with the recaptured value going to LPs. No protocol fee. Everything below reads the <b>live USDC/WETH deployment on Base Sepolia</b>,
       backed by Chainlink’s USDC/USD and ETH/USD feeds,
       and every EVM call this page makes is logged raw in the <a href="#bus">bus inspector</a>.
     </p>
     <div class="statstrip">
       <div class="stat"><div class="v">1.0e−64</div><div class="k">max fee-law residual, exact replay (7,019 swaps)</div></div>
       <div class="stat"><div class="v">51 / 54</div><div class="k">observed-flow windows improved · zero worsened</div></div>
-      <div class="stat"><div class="v">124 / 124</div><div class="k">auctions cleared, Oct 2025 grid, four pools</div></div>
+      <div class="stat"><div class="v">~78%</div><div class="k">of true CEX-measured LVR recaptured (mainnet feeds; more on Base)</div></div>
       <div class="stat"><div class="v">100%</div><div class="k">of recaptured value goes to LPs — no protocol fee</div></div>
     </div>
   </div>
@@ -109,9 +110,60 @@
   </div>
 </section>
 
+<section id="impact">
+  <div class="wrap">
+    <div class="seclabel"><span class="idx">02</span> lp impact — repricing value, fee split, and solver timing</div>
+    <div class="impactgrid">
+      <div class="panel impact-summary">
+        <h3>event-attributable fees <span>recent fills</span></h3>
+        <div class="kv"><span class="k">repricing fills found</span><span class="v" id="impact-fills">—</span></div>
+        <div class="kv"><span class="k">hook LP fees</span><span class="v" id="impact-hook-fees">—</span></div>
+        <div class="kv"><span class="k">30 bps static model</span><span class="v" id="impact-static-fees">—</span></div>
+        <div class="kv"><span class="k">hook vs static</span><span class="v" id="impact-vs-static">—</span></div>
+      </div>
+      <div class="panel impact-summary">
+        <h3>auction split <span>LPs vs solver</span></h3>
+        <div class="kv"><span class="k">LP surcharge kept</span><span class="v" id="impact-lp-surcharge">—</span></div>
+        <div class="kv"><span class="k">solver concession</span><span class="v" id="impact-solver-conc">—</span></div>
+        <div class="kv"><span class="k">solver share of surcharge</span><span class="v" id="impact-solver-share">—</span></div>
+        <div class="kv"><span class="k">fills before 100%</span><span class="v" id="impact-before-cap">—</span></div>
+      </div>
+      <div class="panel impact-summary">
+        <h3>auction usefulness <span>oracle-gap fills</span></h3>
+        <div class="kv"><span class="k">useful auctions cleared</span><span class="v" id="impact-useful">—</span></div>
+        <div class="kv"><span class="k">aged-feed fills &gt; 1h</span><span class="v" id="impact-aged">—</span></div>
+        <div class="kv"><span class="k">last fill gap</span><span class="v" id="impact-last-gap">—</span></div>
+        <div class="kv"><span class="k">last fill fee</span><span class="v" id="impact-last-fee">—</span></div>
+      </div>
+    </div>
+    <div class="impacttable">
+      <div class="impacthead">
+        <span>recent repricing fills</span>
+        <span class="spacer"></span>
+        <button id="refreshImpact" class="ghost" style="padding:3px 10px;font-size:10.5px">refresh impact</button>
+      </div>
+      <div class="impactrows" id="impactRows">
+        <div class="impactrow muted">loading on-chain fills…</div>
+      </div>
+    </div>
+    <p class="note">
+      Impact rows are derived from PoolManager swap logs and hook config. The static baseline is a 30&nbsp;bps
+      counterfactual on the same observed fill notional; a separate live hookless USDC/WETH baseline pool is not deployed.
+    </p>
+  </div>
+</section>
+
 <section id="interact">
   <div class="wrap">
-    <div class="seclabel"><span class="idx">02</span> operate the live pool — real Chainlink feed data</div>
+    <div class="seclabel"><span class="idx">03</span> operate the live pool — real Chainlink feed data</div>
+    <p class="note" style="margin:0 0 14px">
+      <b>You are the agent.</b> Poke + fill is the entire permissionless agent interface —
+      perceive the auction through the public views above, then act with an ordinary swap.
+      No registration, allowlist, or bespoke fill call; existing arb bots are already
+      compatible agents. Coordination is the auction clock, and <b>beforeSwap</b> binds every
+      fill to the LPs' policy. Details in
+      <a href="https://github.com/mmarfinetz/uni-v4-hook/blob/main/docs/solver_bot.md" target="_blank">solver_bot.md</a>.
+    </p>
     <div class="walletbar">
       <button id="connect">connect wallet</button>
       <span id="addr"></span>
@@ -170,7 +222,7 @@
 
 <section id="bus">
   <div class="wrap">
-    <div class="seclabel"><span class="idx">03</span> raw evm bus — every call, return, revert, and event this page touches</div>
+    <div class="seclabel"><span class="idx">04</span> raw evm bus — every call, return, revert, and event this page touches</div>
     <div class="businspector">
       <div class="bushead">
         <span>bus inspector</span>
@@ -188,7 +240,7 @@
 
 <section id="evidence">
   <div class="wrap">
-    <div class="seclabel"><span class="idx">04</span> the evidence chain</div>
+    <div class="seclabel"><span class="idx">05</span> the evidence chain</div>
     <div class="pitchgrid">
       <div class="pitch">
         <h4>Backtest → contract, mechanically</h4>
@@ -210,10 +262,27 @@
         every studied pool clears with margin at Base-typical gas.</p>
       </div>
       <div class="pitch">
+        <h4>An open agent market</h4>
+        <p>Repricing runs as a permissionless market of autonomous agents. The descending-concession
+        auction coordinates competing fillers on-chain, and <b>beforeSwap</b> binds every fill to the
+        LPs' policy — failing closed on non-compliant swaps — so no registry or agent attestation is
+        needed. The whole agent interface is three public views plus an ordinary swap; a stranger poke
+        and a stranger fill are pinned by test. See
+        <a href="https://github.com/mmarfinetz/uni-v4-hook/blob/main/docs/solver_bot.md" target="_blank">solver_bot.md</a>.</p>
+      </div>
+      <div class="pitch">
         <h4>LP uplift vs static fees</h4>
         <p>Modeled recovery ceiling of 184–264 bps of TVL/month above a static-fee baseline (Oct 2025, three majors;
-        documented as a ceiling, not a yield). Floor: 51/54 real-flow windows better, none worse.
+        documented as a ceiling, not a yield, and inheriting the recapture caveat below). Floor: 51/54 real-flow windows better, none worse.
         <a href="https://github.com/mmarfinetz/uni-v4-hook/blob/main/reports/lp_apr_uplift.md" target="_blank">lp_apr_uplift.md</a>.</p>
+      </div>
+      <div class="pitch">
+        <h4>Honest recapture, not 99.9%</h4>
+        <p>The oft-quoted “99.9% recapture” is recapture of the <b>oracle-visible</b> stale-loss. Measured against a faster
+        Binance reference while the hook keeps Chainlink as its oracle, the feed lags spot by <b>~21 bps</b> median, so true
+        recapture is <b>~78%</b> on mainnet feeds — higher on Base’s tighter 0.15% feed, with a faster oracle as the path to more.
+        Every limitation is catalogued in
+        <a href="https://github.com/mmarfinetz/uni-v4-hook/blob/main/docs/methodology_limitations.md" target="_blank">methodology_limitations.md</a>.</p>
       </div>
     </div>
   </div>
