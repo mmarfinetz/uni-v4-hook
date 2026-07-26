@@ -33,6 +33,10 @@ UNI_USD_FEED = "0x553303d460EE0afB37EdFf9bE42922D8FF63220e"
 # real-world case for weekend/market-closure staleness — the same effect that
 # will dominate tokenized equities on permissioned pools.
 XAU_USD_FEED = "0x214eD9Da11D2fbe465a6fc601a91E62EbEc1a0D6"
+# Onchain EUR/USD. Like gold, EURC/USD is a market-hours feed: forex closes
+# Fri ~17:00 ET to Sun ~17:00 ET, so weekend windows isolate the same
+# closure-staleness effect on a pair with genuine macro volatility.
+EURC_USD_FEED = "0x04F84020Fdf10d9ee64D1dcC2986EDF2F556DA11"
 
 
 @dataclass(frozen=True)
@@ -82,6 +86,15 @@ POOL_REGISTRY: dict[str, PoolSpec] = {
         base_feed=XAU_USD_FEED,
         quote_feed=USDC_USD_FEED,
         window_prefix="paxg_usdc_500_month",
+    ),
+    # EURC is token0 (0x1aBa… < 0xA0b8…), USDC token1. The deep mainnet venue
+    # (~$56M) for the pair whose Base deployment is the launch target.
+    "eurc_usdc_500": PoolSpec(
+        slug="eurc_usdc_500",
+        pool="0x95dbb3c7546f22bce375900abfdd64a4e5bd73d6",
+        base_feed=EURC_USD_FEED,
+        quote_feed=USDC_USD_FEED,
+        window_prefix="eurc_usdc_500_month",
     ),
 }
 
