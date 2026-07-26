@@ -11,26 +11,58 @@ Stdlib-only Python (3.9+); all chain access goes through the Foundry `cast` bina
 Pure decision/math helpers are unit-tested in
 [`script/test_solver_bot.py`](../script/test_solver_bot.py).
 
-## Permissionless surface
+## An open agent market
 
-This bot is a convenience, not a privileged actor. The auction requires no solver
-registration, allowlist, or hook-specific calldata:
+This bot is not "the solver" — it is one reference agent in a permissionless market of
+autonomous repricing agents. The auction turns stale-price correction into an open agent
+market: any address can perceive the auction state, decide from a public policy, and act,
+with no registration, allowlist, or hook-specific calldata. Permissionlessness is what
+makes this a *market* of competing agents rather than a bot the protocol operates.
 
-- `pokeAuction(key)` is callable by any address (it only reads the oracle and pool
-  price and updates the clock), and `auctionStatus(key)` / `previewSwapFee(key, dir)`
-  are public views, so any keeper or arb bot can watch and time fills.
-- A fill is a plain v4 swap through any router; the concession-discounted fee is
-  applied by `beforeSwap` regardless of who the swap sender is.
-- The only owner-gated functions are `setConfig` and `setRiskState` (pool
-  parameters); the owner has no role in auction operation.
+The agent loop is three public functions and an ordinary swap:
+
+- **Perceive** — `auctionStatus(key)` and `previewSwapFee(key, dir)` are public views, so
+  any keeper or arb bot can watch the gap, the auction clock, and the scheduled
+  concession.
+- **Decide** — the pure policy helpers (`should_poke`, `should_fill`,
+  `toxic_zero_for_one` in [`script/solver_bot.py`](../script/solver_bot.py), unit-tested
+  in [`script/test_solver_bot.py`](../script/test_solver_bot.py)) map that state to an
+  action, with no operator in the loop.
+- **Act** — `pokeAuction(key)` is callable by any address (it only reads the oracle and
+  pool price and updates the clock), and the fill itself is a plain v4 swap through any
+  router; the concession-discounted fee is applied by `beforeSwap` regardless of who the
+  swap sender is. There is no bespoke fill call to integrate.
+
+The only owner-gated functions are `setConfig` and `setRiskState` (pool parameters); the
+owner has no role in auction operation.
+
+**Coordination and policy compliance are on-chain, not off-chain.** Agent standards such
+as ERC-8001 (multi-agent EIP-712 acceptance attestations) and ERC-8196
+(agent-authenticated wallets that prove an action complies with the owner's policy) place
+coordination and compliance in an off-chain identity layer. This mechanism achieves the
+same guarantees at the settlement layer, which is precisely why it stays permissionless:
+
+| Concern | Agent-identity ERCs (8001 / 8196) | This mechanism |
+| --- | --- | --- |
+| Coordinate competing agents | Off-chain EIP-712 acceptance attestations | Public descending-concession clock; agents race the price, no messaging |
+| Enforce the owner's (LP) policy | Agent supplies a cryptographic proof of compliance | `beforeSwap` enforces the fee / oracle / concession policy at execution and fails closed on any non-compliant fill |
+| Authorize the agent | Registry or agent-authenticated wallet | None — any address; policy binds the *action*, not the *actor* |
+
+The inversion is the point: ERC-8196 wants an agent to *prove* its action complies with
+the owner's policy; the hook makes the proof unnecessary because a non-compliant fill
+cannot settle. LPs get the guarantee without an agent-identity layer.
 
 `test_auction_permissionless_strangerPokesAndStrangerFills` in
 [`test/OracleAnchoredLVRHookAuction.t.sol`](../test/OracleAnchoredLVRHookAuction.t.sol)
-pins this end-to-end: a non-owner address opens the clock and a second non-owner
-fills through the standard router at the aged concession. Consequence for solver
-economics: existing arbitrage bots can fill profitable auctions without integrating
-anything beyond a fee preview, so the mechanism does not depend on a bespoke solver
-network forming.
+pins this end-to-end: a non-owner address opens the clock and a second non-owner fills
+through the standard router at the aged concession. Consequence for solver economics:
+existing arbitrage bots are already compatible agents — they can fill profitable auctions
+without integrating anything beyond a fee preview, so the mechanism does not depend on a
+bespoke solver network forming.
+
+> These are *autonomous economic agents* — deterministic policy over public state, not
+> learned models. The "agent market" claim is about open, unlicensed participation and
+> on-chain coordination, not AI.
 
 ## Demo pool
 
@@ -63,6 +95,24 @@ Configuration comes from flags or the environment (`HOOK`, `TOKEN0`, `TOKEN1`,
 `SWAP_ROUTER`, `BASE_FEED`, `QUOTE_FEED`, `RPC_URL`/`BASE_SEPOLIA_RPC_URL`,
 `PRIVATE_KEY`/`DEPLOYER_KEY`); the repo-local `.env` carries the demo values.
 
+### Signing
+
+`cast send --private-key <KEY>` would put the key in the process table, where any
+local user can read it with `ps`. The bot therefore prefers an **encrypted
+keystore account**, which keeps every secret off argv — cast decrypts the
+keystore itself and takes the password from the file named by `ETH_PASSWORD`:
+
+```bash
+cast wallet import keeper --interactive          # one-time; prompts for the key
+printf '<password>' > ~/.keeper.pass && chmod 600 ~/.keeper.pass
+export KEYSTORE_ACCOUNT=keeper ETH_PASSWORD=~/.keeper.pass
+```
+
+`PRIVATE_KEY`/`DEPLOYER_KEY` still works and takes the argv path, but warns once
+per run. Keep it for throwaway testnet keys only; use the keystore for any key
+that controls real liquidity. (`cast --interactive` cannot be used
+programmatically — it prompts on `/dev/tty`, not stdin.)
+
 ```bash
 set -a; source .env; set +a
 python3 script/solver_bot.py status
@@ -70,10 +120,42 @@ python3 script/solver_bot.py make-gap --bps 30      # move the reference 30 bps
 python3 script/solver_bot.py run --interval 15 --min-concession-wad 3e15 --keep-fresh
 ```
 
-`run` polls, pokes an unstarted eligible auction, and fills once the concession
-reaches `--min-concession-wad`. `--keep-fresh` re-stamps the demo feeds when they
-approach staleness. `make-gap` accepts negative bps to move the reference below the
-pool.
+`run` polls continuously, pokes when the current gap and stored auction clock are
+out of sync, and fills once the concession reaches `--min-concession-wad`. That
+means it starts a fresh clock when an above-trigger gap appears, and it also
+closes any old stored clock while the gap is below trigger so the next auction
+does not inherit stale concession. `--keep-fresh` re-stamps the demo feeds when
+they approach staleness. `make-gap` accepts negative bps to move the reference
+below the pool.
+
+## Real USDC/WETH pool
+
+The real Base Sepolia USDC/WETH deployment uses live Chainlink testnet feeds, so
+do not use `make-gap`, `refresh-oracle`, or `--keep-fresh` against it. Those
+commands are only for the permissionless manual-feed demo pool above.
+
+For the real pool, run the keeper with explicit token decimals and conservative
+directional fill caps:
+
+```bash
+python3 script/solver_bot.py \
+  --rpc-url https://sepolia.base.org \
+  --hook 0x22081E668dC0f43B6166561Ac4A6Df359AA88880 \
+  --token0 0x036CbD53842c5426634e7929541eC2318f3dCF7e \
+  --token1 0x4200000000000000000000000000000000000006 \
+  --base-feed 0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165 \
+  --quote-feed 0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1 \
+  --swap-router 0x8054C37cF5C23d0186EFc0F61D7F021b5DF854e4 \
+  --token0-decimals 6 \
+  --token1-decimals 18 \
+  --amount0-in 10 \
+  --amount1-in 0.003 \
+  status
+```
+
+Replace `status` with `run --interval 15 --min-concession-wad 3e15` to operate
+the loop. `pokeAuction` is permissionless and cheap; fills require the keeper
+wallet to hold and approve the input token for the swap router.
 
 ## What the live demo showed (Base Sepolia, 2026-07-10)
 

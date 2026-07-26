@@ -3,11 +3,14 @@ import unittest
 from script.solver_bot import (
     HALF_BPS_WAD,
     WAD,
+    Chain,
     decode_balance_delta,
     feed_answer_for_gap,
     gap_premium_wad,
     gap_trigger_bps,
     parse_cast_values,
+    parse_raw_units,
+    parse_units,
     position_value_token1,
     should_fill,
     should_poke,
@@ -44,10 +47,11 @@ class GapMathTest(unittest.TestCase):
 
 
 class DecisionTest(unittest.TestCase):
-    def test_pokes_only_unstarted_eligible_auctions(self):
+    def test_pokes_when_auction_state_needs_sync(self):
         self.assertTrue(should_poke(True, 0))
         self.assertFalse(should_poke(True, 123))
         self.assertFalse(should_poke(False, 0))
+        self.assertTrue(should_poke(False, 123))
 
     def test_fill_requires_open_clock_and_threshold(self):
         self.assertTrue(should_fill(True, 100, 2 * 10**15, 10**15, False))
@@ -101,6 +105,43 @@ class CastParsingTest(unittest.TestCase):
             parse_cast_values(out),
             ["true", "1000000", "79228162514264337593543950336"],
         )
+
+
+class AmountParsingTest(unittest.TestCase):
+    def test_parse_units_handles_token_decimals(self):
+        self.assertEqual(parse_units("10", 6), 10_000_000)
+        self.assertEqual(parse_units("0.003", 18), 3_000_000_000_000_000)
+        self.assertEqual(parse_units("1_000.25", 6), 1_000_250_000)
+
+    def test_parse_units_rejects_excess_precision(self):
+        with self.assertRaises(ValueError):
+            parse_units("0.0000001", 6)
+
+    def test_parse_raw_units_accepts_scientific_integer_notation(self):
+        self.assertEqual(parse_raw_units("100e18"), 100 * 10**18)
+        self.assertEqual(parse_raw_units(None), None)
+
+
+class SignerSecrecyTest(unittest.TestCase):
+    """A signing key in argv is readable by any local user via `ps`."""
+
+    KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+
+    def test_keystore_account_keeps_every_secret_off_argv(self):
+        # The keystore path is the one safe for keys holding real value: cast
+        # decrypts it itself, reading the password from ETH_PASSWORD.
+        argv = Chain("http://rpc", self.KEY, "keeper")._signer_args()
+        self.assertEqual(argv, ["--account", "keeper"])
+        self.assertNotIn(self.KEY, argv)
+
+    def test_keystore_wins_when_both_are_configured(self):
+        chain = Chain("http://rpc", self.KEY, "keeper")
+        self.assertNotIn(self.KEY, chain._signer_args())
+
+    def test_send_requires_some_signer(self):
+        self.assertFalse(Chain("http://rpc", None).can_send)
+        self.assertTrue(Chain("http://rpc", None, "keeper").can_send)
+        self.assertTrue(Chain("http://rpc", self.KEY).can_send)
 
 
 if __name__ == "__main__":

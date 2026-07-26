@@ -31,6 +31,7 @@ import os
 import subprocess
 import sys
 import time
+from decimal import Decimal, InvalidOperation
 from typing import List, Optional, Tuple
 
 WAD = 10**18
@@ -74,9 +75,13 @@ def toxic_zero_for_one(oracle_above_pool: bool) -> bool:
 
 
 def should_poke(eligible: bool, start_ts: int) -> bool:
-    """Poke when a trigger-eligible gap exists but the clock has not started,
-    so the concession accrues from gap birth rather than from the first swap."""
-    return eligible and start_ts == 0
+    """Poke when on-chain auction state is stale relative to the current gap.
+
+    Above trigger, this starts the clock so concession accrues from gap birth.
+    Below trigger, this clears any old clock so the next eligible gap does not
+    inherit aged concession from a previous auction.
+    """
+    return (eligible and start_ts == 0) or (not eligible and start_ts != 0)
 
 
 def should_fill(
@@ -130,14 +135,86 @@ def parse_cast_values(output: str) -> List[str]:
     return values
 
 
+def parse_units(value: str, decimals: int) -> int:
+    """Parse a human token amount into raw units without binary-float rounding."""
+    try:
+        amount = Decimal(str(value).replace("_", ""))
+    except InvalidOperation as exc:
+        raise ValueError("invalid token amount: %s" % value) from exc
+    if amount <= 0:
+        raise ValueError("token amount must be positive: %s" % value)
+    scale = Decimal(10) ** decimals
+    raw = amount * scale
+    if raw != raw.to_integral_value():
+        raise ValueError("%s has more than %d decimal places" % (value, decimals))
+    return int(raw)
+
+
+def parse_raw_units(value: Optional[str]) -> Optional[int]:
+    """Parse a legacy raw-unit amount, accepting decimal/scientific notation."""
+    if value is None:
+        return None
+    try:
+        raw = Decimal(str(value).replace("_", ""))
+    except InvalidOperation as exc:
+        raise ValueError("invalid raw amount: %s" % value) from exc
+    if raw <= 0 or raw != raw.to_integral_value():
+        raise ValueError("raw amount must be a positive integer: %s" % value)
+    return int(raw)
+
+
 # ---------------------------------------------------------------------------
 # Chain access via cast
 # ---------------------------------------------------------------------------
 
 class Chain:
-    def __init__(self, rpc_url: str, private_key: Optional[str]):
+    """Chain access via `cast`.
+
+    Signing material never reaches argv. `cast send --private-key <KEY>` would
+    expose the key in the process table to any local user (`ps aux`), so this
+    class prefers an encrypted keystore account and otherwise streams a raw key
+    to `cast --interactive` over stdin.
+    """
+
+    def __init__(
+        self,
+        rpc_url: str,
+        private_key: Optional[str],
+        keystore_account: Optional[str] = None,
+    ):
         self.rpc_url = rpc_url
         self.private_key = private_key
+        self.keystore_account = keystore_account
+        self._warned_argv_key = False
+
+    @property
+    def can_send(self) -> bool:
+        return bool(self.keystore_account or self.private_key)
+
+    def _signer_args(self) -> List[str]:
+        """Return the signing argv for `cast`, preferring the keystore.
+
+        With a keystore account nothing secret touches argv: cast decrypts the
+        keystore itself, taking the password from the file named by ETH_PASSWORD.
+        (`--interactive` is not usable here — cast prompts on /dev/tty, not
+        stdin, so it cannot be fed headlessly.) A raw --private-key remains as an
+        explicit opt-in for throwaway testnet keys and warns once, since argv is
+        world-readable via `ps`.
+        """
+        if self.keystore_account:
+            return ["--account", self.keystore_account]
+        if not self._warned_argv_key:
+            self._warned_argv_key = True
+            print(
+                "[warn] signing with --private-key: the key is visible in the "
+                "process table (ps) to any local user. Use a keystore for any "
+                "key holding real value:\n"
+                "       cast wallet import keeper --interactive\n"
+                "       printf '<pw>' > ~/.keeper.pass && chmod 600 ~/.keeper.pass\n"
+                "       export KEYSTORE_ACCOUNT=keeper ETH_PASSWORD=~/.keeper.pass",
+                file=sys.stderr,
+            )
+        return ["--private-key", self.private_key]
 
     def call(self, target: str, sig: str, *args: str) -> List[str]:
         cmd = ["cast", "call", target, sig, *args, "--rpc-url", self.rpc_url]
@@ -151,11 +228,14 @@ class Chain:
     TRANSIENT_SEND_ERRORS = ("replacement transaction underpriced", "nonce too low")
 
     def send(self, target: str, sig: str, *args: str) -> str:
-        if not self.private_key:
-            raise RuntimeError("no PRIVATE_KEY/DEPLOYER_KEY configured for sending")
+        if not self.can_send:
+            raise RuntimeError(
+                "no signer configured: set KEYSTORE_ACCOUNT (preferred, see "
+                "`cast wallet import`) or PRIVATE_KEY/DEPLOYER_KEY"
+            )
         cmd = [
             "cast", "send", target, sig, *args,
-            "--rpc-url", self.rpc_url, "--private-key", self.private_key, "--json",
+            "--rpc-url", self.rpc_url, *self._signer_args(), "--json",
         ]
         attempts = 3
         for attempt in range(attempts):
@@ -195,6 +275,9 @@ class SolverBot:
         self.tick_upper = cfg.tick_upper
         self.seed_liquidity = cfg.seed_liquidity
         self.caller = os.environ.get("DEPLOYER_ADDRESS")
+        self.amount0_in = parse_units(cfg.amount0_in, cfg.token0_decimals)
+        self.amount1_in = parse_units(cfg.amount1_in, cfg.token1_decimals)
+        self.legacy_amount_in_raw = parse_raw_units(cfg.amount_in_raw)
         self._pool_manager = None  # type: Optional[str]
         self.key_tuple = "(%s,%s,%d,%d,%s)" % (
             cfg.token0, cfg.token1, DYNAMIC_FEE_FLAG, cfg.tick_spacing, cfg.hook
@@ -309,7 +392,7 @@ class SolverBot:
             self.hook, "pokeAuction(%s)" % POOL_KEY_ABI, self.key_tuple
         )
 
-    def fill(self, amount_in: int, baseline: bool = False) -> str:
+    def fill(self, amount_in: Optional[int] = None, baseline: bool = False) -> str:
         premium, above, _, ref, _ = self.read_gap()
         key_tuple = self.key_tuple
         if baseline:
@@ -318,6 +401,12 @@ class SolverBot:
         if premium == 0:
             raise RuntimeError("no gap to reprice")
         zero_for_one = toxic_zero_for_one(above)
+        if amount_in is None:
+            amount_in = (
+                self.legacy_amount_in_raw
+                if self.legacy_amount_in_raw is not None
+                else self.amount0_in if zero_for_one else self.amount1_in
+            )
         swap_params = "(%s,-%d,%d)" % (str(zero_for_one).lower(), amount_in, ref)
         return self.chain.send(
             self.swap_router, SWAP_ABI, key_tuple, swap_params, "(false,false)", "0x"
@@ -382,7 +471,7 @@ class SolverBot:
 
     # -- loop ---------------------------------------------------------------
 
-    def tick(self, min_concession_wad: int, amount_in: int, keep_fresh: bool) -> str:
+    def tick(self, min_concession_wad: int, amount_in: Optional[int], keep_fresh: bool) -> str:
         if keep_fresh:
             # Half the demo config's default 24h max oracle age, with margin.
             self.refresh_oracle(max_age_secs=6 * 3600)
@@ -426,13 +515,31 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--rpc-url", default=os.environ.get("RPC_URL")
                    or os.environ.get("BASE_SEPOLIA_RPC_URL"))
     p.add_argument("--private-key", default=os.environ.get("PRIVATE_KEY")
-                   or os.environ.get("DEPLOYER_KEY"))
+                   or os.environ.get("DEPLOYER_KEY"),
+                   help="raw key; streamed to cast over stdin, never argv. "
+                        "Prefer --keystore-account.")
+    p.add_argument("--keystore-account",
+                   default=os.environ.get("KEYSTORE_ACCOUNT")
+                   or os.environ.get("ETH_KEYSTORE_ACCOUNT"),
+                   help="encrypted keystore account in ~/.foundry/keystores "
+                        "(create with `cast wallet import <name> --interactive`); "
+                        "set ETH_PASSWORD to the path of its password file")
     p.add_argument("--hook", default=os.environ.get("HOOK"))
     p.add_argument("--token0", default=os.environ.get("TOKEN0"))
     p.add_argument("--token1", default=os.environ.get("TOKEN1"))
     p.add_argument("--swap-router", default=os.environ.get("SWAP_ROUTER"))
     p.add_argument("--base-feed", default=os.environ.get("BASE_FEED"))
     p.add_argument("--quote-feed", default=os.environ.get("QUOTE_FEED"))
+    p.add_argument("--token0-decimals", type=int,
+                   default=int(os.environ.get("TOKEN0_DECIMALS", "18")))
+    p.add_argument("--token1-decimals", type=int,
+                   default=int(os.environ.get("TOKEN1_DECIMALS", "18")))
+    p.add_argument("--amount0-in", default=os.environ.get("AMOUNT0_IN", "100"),
+                   help="token0 exact-input cap in human units")
+    p.add_argument("--amount1-in", default=os.environ.get("AMOUNT1_IN", "100"),
+                   help="token1 exact-input cap in human units")
+    p.add_argument("--amount-in-raw", default=os.environ.get("AMOUNT_IN_RAW"),
+                   help="legacy raw exact-input cap for both directions")
     p.add_argument("--tick-spacing", type=int,
                    default=int(os.environ.get("TICK_SPACING", "60")))
     p.add_argument("--liquidity-router", default=os.environ.get("LIQUIDITY_ROUTER"))
@@ -451,8 +558,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("compare")
 
     fill = sub.add_parser("fill")
-    fill.add_argument("--amount-in", type=float, default=100e18,
-                      help="max exact-in size; the ref price limit truncates it")
+    fill.add_argument("--amount-in", default=None,
+                      help="legacy raw exact-in size; prefer --amount0-in/--amount1-in")
     fill.add_argument("--pool", choices=("hooked", "baseline"), default="hooked")
 
     gap = sub.add_parser("make-gap")
@@ -464,7 +571,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--max-iterations", type=int, default=0,
                      help="stop after N ticks (0 = forever)")
     run.add_argument("--min-concession-wad", type=float, default=1e15)
-    run.add_argument("--amount-in", type=float, default=100e18)
+    run.add_argument("--amount-in", default=None,
+                     help="legacy raw exact-in size; prefer --amount0-in/--amount1-in")
     run.add_argument("--keep-fresh", action="store_true",
                      help="re-stamp demo feeds every tick so they never go stale")
     return p
@@ -472,12 +580,16 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     args = build_parser().parse_args()
+    if getattr(args, "amount_in", None) is not None:
+        args.amount_in_raw = args.amount_in
     for required in ("rpc_url", "hook", "token0", "token1"):
         if not getattr(args, required):
             print("missing --%s (or its environment variable)" % required.replace("_", "-"))
             return 2
 
-    bot = SolverBot(Chain(args.rpc_url, args.private_key), args)
+    bot = SolverBot(
+        Chain(args.rpc_url, args.private_key, args.keystore_account), args
+    )
 
     if args.command == "status":
         eligible, start_ts, concession, premium_status = bot.auction_status()
@@ -494,7 +606,7 @@ def main() -> int:
         bot.refresh_oracle()
         log("feeds re-stamped")
     elif args.command == "fill":
-        log("fill tx: %s" % bot.fill(int(args.amount_in), args.pool == "baseline"))
+        log("fill tx: %s" % bot.fill(None, args.pool == "baseline"))
     elif args.command == "compare":
         bot.compare()
     elif args.command == "make-gap":
@@ -503,7 +615,7 @@ def main() -> int:
         i = 0
         while True:
             try:
-                bot.tick(int(args.min_concession_wad), int(args.amount_in), args.keep_fresh)
+                bot.tick(int(args.min_concession_wad), None, args.keep_fresh)
             except CallReverted as exc:
                 log("read reverted (stale oracle or missing config?): %s" % exc)
             except RuntimeError as exc:
