@@ -28,6 +28,11 @@ USDC_USD_FEED = "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6"
 WBTC_USD_FEED = "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c"
 LINK_USD_FEED = "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c"
 UNI_USD_FEED = "0x553303d460EE0afB37EdFf9bE42922D8FF63220e"
+# Tokenized gold (PAXG). XAU/USD is a market-hours feed: it stops updating when
+# spot gold closes (Fri ~17:00 ET to Sun ~18:00 ET), so this pool is the clean
+# real-world case for weekend/market-closure staleness — the same effect that
+# will dominate tokenized equities on permissioned pools.
+XAU_USD_FEED = "0x214eD9Da11D2fbe465a6fc601a91E62EbEc1a0D6"
 
 
 @dataclass(frozen=True)
@@ -67,6 +72,16 @@ POOL_REGISTRY: dict[str, PoolSpec] = {
         base_feed=UNI_USD_FEED,
         quote_feed=WETH_USD_FEED,
         window_prefix="uni_weth_3000_month",
+    ),
+    # PAXG is token0 (0x4580… < 0xA0b8…), USDC token1, so base/quote map to
+    # XAU/USD and USDC/USD per the hook's feed convention. ~$2.2M TVL, ~166
+    # swaps/day, and the only liquid RWA pair with a real Chainlink feed.
+    "paxg_usdc_500": PoolSpec(
+        slug="paxg_usdc_500",
+        pool="0x5ae13baaef0620fdae1d355495dc51a17adb4082",
+        base_feed=XAU_USD_FEED,
+        quote_feed=USDC_USD_FEED,
+        window_prefix="paxg_usdc_500_month",
     ),
 }
 
