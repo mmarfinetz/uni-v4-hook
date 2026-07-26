@@ -77,23 +77,25 @@ POOL_REGISTRY: dict[str, PoolSpec] = {
         quote_feed=WETH_USD_FEED,
         window_prefix="uni_weth_3000_month",
     ),
-    # PAXG is token0 (0x4580… < 0xA0b8…), USDC token1, so base/quote map to
-    # XAU/USD and USDC/USD per the hook's feed convention. ~$2.2M TVL, ~166
+    # PAXG is token0 (0x4580… < 0xA0b8…), USDC token1. The replay's reference
+    # convention is token0-per-token1, so base_feed is token1's asset (USDC/USD)
+    # and quote_feed is token0's (XAU/USD) — verified: pool 0.000230 vs ref 1/4328. ~$2.2M TVL, ~166
     # swaps/day, and the only liquid RWA pair with a real Chainlink feed.
     "paxg_usdc_500": PoolSpec(
         slug="paxg_usdc_500",
         pool="0x5ae13baaef0620fdae1d355495dc51a17adb4082",
-        base_feed=XAU_USD_FEED,
-        quote_feed=USDC_USD_FEED,
+        base_feed=USDC_USD_FEED,
+        quote_feed=XAU_USD_FEED,
         window_prefix="paxg_usdc_500_month",
     ),
-    # EURC is token0 (0x1aBa… < 0xA0b8…), USDC token1. The deep mainnet venue
+    # EURC is token0 (0x1aBa… < 0xA0b8…), USDC token1; base/quote swapped for the
+    # same token0-per-token1 reason as PAXG. The deep mainnet venue
     # (~$56M) for the pair whose Base deployment is the launch target.
     "eurc_usdc_500": PoolSpec(
         slug="eurc_usdc_500",
         pool="0x95dbb3c7546f22bce375900abfdd64a4e5bd73d6",
-        base_feed=EURC_USD_FEED,
-        quote_feed=USDC_USD_FEED,
+        base_feed=USDC_USD_FEED,
+        quote_feed=EURC_USD_FEED,
         window_prefix="eurc_usdc_500_month",
     ),
 }
