@@ -1,0 +1,3024 @@
+{
+  "block_range": {
+    "from_block": 23479243,
+    "to_block": 23700766
+  },
+  "pools": [
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "slug": "weth_usdc_3000",
+      "window_prefix": "weth_usdc_3000_month"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "slug": "wbtc_usdc_500",
+      "window_prefix": "wbtc_usdc_500_month"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "slug": "link_weth_3000",
+      "window_prefix": "link_weth_3000_month"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "slug": "uni_weth_3000",
+      "window_prefix": "uni_weth_3000_month"
+    }
+  ],
+  "resolved_time_bounds": {
+    "from_block_resolution": "block_at_or_before_timestamp",
+    "from_timestamp": 1759276800,
+    "to_block_resolution": "block_at_or_after_timestamp",
+    "to_timestamp": 1761955199
+  },
+  "stride_blocks": 7200,
+  "study_name": "month_scale_dutch_auction_backtest",
+  "window_generation": "fixed_block_windows",
+  "window_size_blocks": 7200,
+  "windows": [
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23479243,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23486442,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23479243_23486442_w01",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23486443,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23493642,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23486443_23493642_w02",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23493643,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23500842,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23493643_23500842_w03",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23500843,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23508042,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23500843_23508042_w04",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23508043,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23515242,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23508043_23515242_w05",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23515243,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23522442,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23515243_23522442_w06",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23522443,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23529642,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23522443_23529642_w07",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23529643,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23536842,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23529643_23536842_w08",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23536843,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23544042,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23536843_23544042_w09",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23544043,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23551242,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23544043_23551242_w10",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23551243,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23558442,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23551243_23558442_w11",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23558443,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23565642,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23558443_23565642_w12",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23565643,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23572842,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23565643_23572842_w13",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23572843,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23580042,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23572843_23580042_w14",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23580043,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23587242,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23580043_23587242_w15",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23587243,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23594442,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23587243_23594442_w16",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23594443,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23601642,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23594443_23601642_w17",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23601643,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23608842,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23601643_23608842_w18",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23608843,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23616042,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23608843_23616042_w19",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23616043,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23623242,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23616043_23623242_w20",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23623243,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23630442,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23623243_23630442_w21",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23630443,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23637642,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23630443_23637642_w22",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23637643,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23644842,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23637643_23644842_w23",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23644843,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23652042,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23644843_23652042_w24",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23652043,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23659242,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23652043_23659242_w25",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23659243,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23666442,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23659243_23666442_w26",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23666443,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23673642,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23666443_23673642_w27",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23673643,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23680842,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23673643_23680842_w28",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23680843,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23688042,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23680843_23688042_w29",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23688043,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23695242,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23688043_23695242_w30",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "from_block": 23695243,
+      "input_dir": null,
+      "market_base_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23700766,
+      "window_family": "weth_usdc_3000_month",
+      "window_id": "weth_usdc_3000_month_23695243_23700766_w31",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23479243,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23486442,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23479243_23486442_w01",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23486443,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23493642,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23486443_23493642_w02",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23493643,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23500842,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23493643_23500842_w03",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23500843,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23508042,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23500843_23508042_w04",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23508043,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23515242,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23508043_23515242_w05",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23515243,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23522442,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23515243_23522442_w06",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23522443,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23529642,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23522443_23529642_w07",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23529643,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23536842,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23529643_23536842_w08",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23536843,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23544042,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23536843_23544042_w09",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23544043,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23551242,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23544043_23551242_w10",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23551243,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23558442,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23551243_23558442_w11",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23558443,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23565642,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23558443_23565642_w12",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23565643,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23572842,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23565643_23572842_w13",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23572843,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23580042,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23572843_23580042_w14",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23580043,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23587242,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23580043_23587242_w15",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23587243,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23594442,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23587243_23594442_w16",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23594443,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23601642,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23594443_23601642_w17",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23601643,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23608842,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23601643_23608842_w18",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23608843,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23616042,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23608843_23616042_w19",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23616043,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23623242,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23616043_23623242_w20",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23623243,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23630442,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23623243_23630442_w21",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23630443,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23637642,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23630443_23637642_w22",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23637643,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23644842,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23637643_23644842_w23",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23644843,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23652042,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23644843_23652042_w24",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23652043,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23659242,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23652043_23659242_w25",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23659243,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23666442,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23659243_23666442_w26",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23666443,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23673642,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23666443_23673642_w27",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23673643,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23680842,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23673643_23680842_w28",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23680843,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23688042,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23680843_23688042_w29",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23688043,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23695242,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23688043_23695242_w30",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "from_block": 23695243,
+      "input_dir": null,
+      "market_base_feed": "0xF4030086522a5bEEa4988F8cA5B36DbC97BeE88c",
+      "market_quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+      "quote_feed": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23700766,
+      "window_family": "wbtc_usdc_500_month",
+      "window_id": "wbtc_usdc_500_month_23695243_23700766_w31",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23479243,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23486442,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23479243_23486442_w01",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23486443,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23493642,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23486443_23493642_w02",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23493643,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23500842,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23493643_23500842_w03",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23500843,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23508042,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23500843_23508042_w04",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23508043,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23515242,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23508043_23515242_w05",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23515243,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23522442,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23515243_23522442_w06",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23522443,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23529642,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23522443_23529642_w07",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23529643,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23536842,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23529643_23536842_w08",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23536843,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23544042,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23536843_23544042_w09",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23544043,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23551242,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23544043_23551242_w10",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23551243,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23558442,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23551243_23558442_w11",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23558443,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23565642,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23558443_23565642_w12",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23565643,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23572842,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23565643_23572842_w13",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23572843,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23580042,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23572843_23580042_w14",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23580043,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23587242,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23580043_23587242_w15",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23587243,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23594442,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23587243_23594442_w16",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23594443,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23601642,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23594443_23601642_w17",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23601643,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23608842,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23601643_23608842_w18",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23608843,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23616042,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23608843_23616042_w19",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23616043,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23623242,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23616043_23623242_w20",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23623243,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23630442,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23623243_23630442_w21",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23630443,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23637642,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23630443_23637642_w22",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23637643,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23644842,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23637643_23644842_w23",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23644843,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23652042,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23644843_23652042_w24",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23652043,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23659242,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23652043_23659242_w25",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23659243,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23666442,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23659243_23666442_w26",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23666443,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23673642,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23666443_23673642_w27",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23673643,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23680842,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23673643_23680842_w28",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23680843,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23688042,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23680843_23688042_w29",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23688043,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23695242,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23688043_23695242_w30",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "from_block": 23695243,
+      "input_dir": null,
+      "market_base_feed": "0x2c1D072e956AFFC0D435Cb7AC38EF18d24d9127c",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23700766,
+      "window_family": "link_weth_3000_month",
+      "window_id": "link_weth_3000_month_23695243_23700766_w31",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23479243,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23486442,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23479243_23486442_w01",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23486443,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23493642,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23486443_23493642_w02",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23493643,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23500842,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23493643_23500842_w03",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23500843,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23508042,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23500843_23508042_w04",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23508043,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23515242,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23508043_23515242_w05",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23515243,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23522442,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23515243_23522442_w06",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23522443,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23529642,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23522443_23529642_w07",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23529643,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23536842,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23529643_23536842_w08",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23536843,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23544042,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23536843_23544042_w09",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23544043,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23551242,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23544043_23551242_w10",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23551243,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23558442,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23551243_23558442_w11",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23558443,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23565642,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23558443_23565642_w12",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23565643,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23572842,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23565643_23572842_w13",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23572843,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23580042,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23572843_23580042_w14",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23580043,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23587242,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23580043_23587242_w15",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23587243,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23594442,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23587243_23594442_w16",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23594443,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23601642,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23594443_23601642_w17",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23601643,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23608842,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23601643_23608842_w18",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23608843,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23616042,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23608843_23616042_w19",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23616043,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23623242,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23616043_23623242_w20",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23623243,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23630442,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23623243_23630442_w21",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23630443,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23637642,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23630443_23637642_w22",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23637643,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23644842,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23637643_23644842_w23",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23644843,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23652042,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23644843_23652042_w24",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23652043,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23659242,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23652043_23659242_w25",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23659243,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23666442,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23659243_23666442_w26",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23666443,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23673642,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23666443_23673642_w27",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23673643,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23680842,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23673643_23680842_w28",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23680843,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23688042,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23680843_23688042_w29",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23688043,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23695242,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23688043_23695242_w30",
+      "window_kind": "block_range"
+    },
+    {
+      "base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "from_block": 23695243,
+      "input_dir": null,
+      "market_base_feed": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+      "market_quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "markout_extension_blocks": 300,
+      "oracle_lookback_blocks": 4800,
+      "oracle_sources": [
+        {
+          "name": "chainlink",
+          "oracle_updates_path": "chainlink_reference_updates.csv"
+        }
+      ],
+      "pool": "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+      "quote_feed": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
+      "regime": "stress",
+      "replay_error_tolerance": 0.001,
+      "require_exact_replay": false,
+      "to_block": 23700766,
+      "window_family": "uni_weth_3000_month",
+      "window_id": "uni_weth_3000_month_23695243_23700766_w31",
+      "window_kind": "block_range"
+    }
+  ]
+}

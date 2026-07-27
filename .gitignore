@@ -50,3 +50,6 @@ study_artifacts/month_2025_10_usd_floor/figures/recapture_vs_solver_share_fronti
 study_artifacts/one_page_proof_2026_03_31/fee_law_curvature_vs_half_gap.svg
 outreach/
 audit/
+
+# Backtest working data (multi-GB). Runner scripts/manifests are force-added.
+exports/
