@@ -62,22 +62,41 @@ Observed pool-vs-oracle gaps on PAXG/USDC are much wider than crypto pairs:
 **p10 51 bps, median 75 bps, p90 92 bps** in a representative window. That is the
 coarse-feed thesis showing up directly in the data.
 
-However, the gold run has an **unexplained inconsistency that blocks conclusions**:
-`hook_rejected_fee_cap` reports 42.8% of swaps refused at the fee cap and a
-toxic clip rate of 0.985, but the exact fee law at the observed median gap
-(75 bps) yields a ~38 bps fee against a 2500 bps cap — three orders of magnitude
-of headroom. Those cannot both be true. Until that is reconciled, the gold
-numbers below are **not** to be cited:
+However, **the gold run is invalid and must not be cited.** The simulated pool
+diverges catastrophically: within a single 24-hour window it walks from the
+reference price `0.000231` to `0.269` — a **1000× divergence** — driven by
+implausible price impact (a ~$37 swap moving the pool >10%). Once the gap
+exceeds ~6,400 bps the exact fee law correctly computes a fee above the 2500 bps
+cap, so the hook starts refusing swaps; that is a *downstream symptom*, not the
+cause. Invalid outputs: trigger rate 0.00% in all 24 windows, auction adds
+$0.00 over hook-only, LP vs fixed-fee +$2,274, 56.5% volume loss.
 
-- trigger rate 0.00% in all 24 windows (auction never opens)
-- auction adds exactly $0.00 over the hook-only counterfactual
-- LP vs fixed-fee +$2,274 total
-- 56.5% volume loss at matched staleness tolerance
+### Trace so far (root cause not yet isolated)
 
-Next step: trace `hook_rejected_fee_cap` accounting for the 18/6-decimal pair to
-determine whether the fee-cap path mis-scales for a token0 with 18 decimals and
-a small raw price (~2.3e-4), which is the configuration that distinguishes this
-pool from every previously studied pair.
+Ruled out:
+
+- **Reference orientation.** Both code paths agree: `dutch_auction_swaps.csv`
+  and the strategy `series.csv` report the same gaps (median 75, p90 92 bps).
+- **Reserve-scale formula.** `virtual_reserves` returns `x = scale/√P`,
+  `y = scale·√P`, and `y/x == P` exactly for both PAXG/USDC and WETH/USDC.
+  Virtual reserves run 8–58× actual balances, which is normal for v3
+  concentrated liquidity. (An earlier note claiming a 138,194× reserve error was
+  wrong — it mis-mapped `x` to token0; `y` is the token0 leg.)
+- **Missing input fields.** `lvr_historical_replay.py:1221` only normalises raw
+  amounts when `token0_decimals` is present, and `reserve_scale` silently
+  returns `1.0` when `liquidity` is missing — but both columns are 100%
+  populated on every PAXG and WETH row, so neither fallback fires.
+
+Still open: what makes a ~$37 swap move a pool with ~59.9k PAXG / ~259M USDC of
+virtual reserves by >10%. The distinguishing feature of this pool versus every
+previously studied pair is the decimals direction — token0 has **more** decimals
+than token1 (18 vs 6, i.e. −12 rather than WETH/USDC's +12) with a small raw
+price (~2.3e-4).
+
+Next step: instrument the pool-update path directly — call it with a single real
+PAXG swap sample and compare the returned `pool_price_after` against a hand-
+computed constant-product result, which localises the mis-scaling to one
+expression.
 
 ## Correction to earlier RWA framing
 
