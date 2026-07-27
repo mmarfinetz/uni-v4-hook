@@ -71,7 +71,49 @@ cap, so the hook starts refusing swaps; that is a *downstream symptom*, not the
 cause. Invalid outputs: trigger rate 0.00% in all 24 windows, auction adds
 $0.00 over hook-only, LP vs fixed-fee +$2,274, 56.5% volume loss.
 
-### Trace so far (root cause not yet isolated)
+### Root cause: pipeline price orientation (isolated 2026-07-27)
+
+`simulate_swap` is **correct as written**. `virtual_reserves` defines
+`reserve1/reserve0 == price`, i.e. the standard `amount1/amount0` convention,
+and `test_replay_calibrates_depth_from_exported_liquidity` feeds it a price of
+~1000 in exactly that convention and passes.
+
+**The data pipeline feeds it the reciprocal.** Both the observed pool-price
+series and the Chainlink reference series are carried as *quote-per-base*
+(token0-per-token1 for these pools), so the two reserve legs are swapped: swap
+amounts land on the wrong side and price impact is mis-scaled.
+
+Measured per-swap price impact against actual on-chain moves (`sqrtPriceX96`
+before/after), median over one window:
+
+| pool | as fed today | with price inverted | want |
+| --- | ---: | ---: | ---: |
+| WETH/USDC | 0.00× | **1.00×** | 1.00× |
+| EURC/USDC | 1.18× | **1.00×** | 1.00× |
+| PAXG/USDC | 4,486× | **1.00×** | 1.00× |
+
+So this is **not** PAXG-specific: every studied pool is affected. It is merely
+catastrophic on PAXG (extreme decimals asymmetry, 18 vs 6, and a raw price of
+~2.3e-4) and mild-to-invisible elsewhere, because toxic repricing clamps the
+simulated pool back to the reference each time it executes — a brake that never
+engages on PAXG because the capped-out fee refuses those swaps.
+
+**The fix belongs in the data layer, not the engine.** Inverting inside
+`simulate_swap` was tried and rejected: it contradicts the function's documented
+contract and breaks 8 tests that legitimately encode the `amount1/amount0`
+convention. The correct change is to orient the pool-price and reference series
+consistently as `amount1/amount0` per pool — the manifest already carries an
+`invert_external_reference` flag built for exactly this, so the work is to set
+orientation per pool rather than to rewrite the math.
+
+**Blast radius — this invalidates published economic numbers.** Because the
+correction changes simulated price impact for every pool, the October 2025 grid
+and every 2026 study must be re-run, and the quote-unit semantics re-derived
+(`lvr_historical_replay` documents metrics as "token1 / quote units", while the
+USD conversion table implies token0 for WETH/USDC — that inconsistency has to be
+resolved before regenerating LP-uplift and solver-economics tables or the paper).
+
+### Earlier trace notes
 
 Ruled out:
 
