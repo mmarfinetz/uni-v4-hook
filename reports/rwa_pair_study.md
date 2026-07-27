@@ -150,3 +150,55 @@ a full day of staleness to transact at all. The mechanism wants *fast* feeds.
 EURC/USDC — a market-hours pair with an unusually tight Base feed — is the
 defensible RWA-adjacent target; tokenized equities and funds on 24h NAV feeds
 are not, until low-latency reference infrastructure exists for them.
+
+---
+
+## Fix applied and re-validated (2026-07-27)
+
+**The fix.** `run_backtest_batch` hardcoded `invert_price=True` at both series
+sites, carrying pool prices as quote-per-base while `simulate_swap` requires
+`amount1/amount0`. Corrected to `invert_price=False`, and the pool registry now
+sets `base_feed` to **token0's** asset for every pool so the reference matches —
+which is also the convention the deployed hook uses.
+
+**Validation.** Simulated per-swap price impact now matches actual on-chain
+moves, and simulated pools track the reference instead of running away:
+
+| pool | sim vs on-chain impact | final sim-vs-reference gap |
+| --- | ---: | ---: |
+| WETH/USDC | 1.00× | 14.5 bps |
+| EURC/USDC | 1.00× | 24.6 bps |
+| PAXG/USDC | 1.01× | 0.9 bps |
+
+(Previously: WETH 0.00×, EURC 1.18×, PAXG 4,486× and a 66,000 bps runaway.)
+All 173 tests pass; the engine is untouched.
+
+**Result changes — the published numbers were materially wrong.**
+
+| study | metric | before | after |
+| --- | --- | ---: | ---: |
+| WETH/USDC | fee-cap rejections | 30.6% | **0.0%** |
+| WETH/USDC | trigger rate | 4.04% | **0.02%** |
+| WETH/USDC | LP vs fixed-fee | $144,265 | **$114** |
+| EURC/USDC | LP vs fixed-fee | $19,825 | **$24,956** |
+| PAXG/USDC | windows with fills | 0 / 24 | **24 / 24** |
+| PAXG/USDC | LP vs fixed-fee | $2,274 | **$327,149** |
+
+Two things to take seriously:
+
+1. **The WETH/USDC advantage largely disappears** once price impact is simulated
+   correctly. The old run had the hook refusing 30.6% of swaps at the fee cap —
+   implausible on a tight, fast feed — which manufactured both the trigger events
+   and the LP gain. Corrected, ETH/USDC gaps are small enough that the auction
+   almost never fires.
+2. **The value concentrates in coarse-feed pairs.** Gold, with ~75 bps median
+   gaps from a 0.3%/24h feed, now triggers on 24.91% of swaps and shows the
+   largest LP gain. This *reverses* the "correction to earlier RWA framing"
+   written above: the mechanism earns most where the reference is slow — while
+   still only capturing the oracle-visible share of true LVR (~78%, see
+   `reference_lag_recapture.md`). Both facts hold at once and must be stated together.
+
+**Everything downstream must be regenerated**: the October 2025 grid,
+`lp_apr_uplift`, `solver_economics*`, the parameter-sensitivity tables, and both
+paper PDFs all rest on the uncorrected simulation. Treat every published
+economic number as stale until re-run.

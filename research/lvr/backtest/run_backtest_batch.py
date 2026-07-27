@@ -490,7 +490,10 @@ def run_window(
         str(export_dir / "pool_snapshot.json"),
         str(export_dir / "swap_samples.csv"),
         strategy="observed_pool",
-        invert_price=True,
+        # amount1/amount0, matching simulate_swap's virtual_reserves contract and
+        # the deployed hook. Inverting here swapped the reserve legs and
+        # mis-scaled simulated price impact on every pool.
+        invert_price=False,
     )
     observed_series_path = window_dir / "observed_pool_series.csv"
     write_rows_csv(str(observed_series_path), OBSERVED_POOL_SERIES_FIELDNAMES, observed_pool_rows)
@@ -1128,7 +1131,7 @@ def emit_exact_replay_artifacts(
     series_rows, replay_error_rows = backend.build_series(
         str(export_dir / "swap_samples.csv"),
         strategy="exact_replay",
-        invert_price=True,
+        invert_price=False,
     )
     if not series_rows:
         raise DataSourceUnavailable(f"window_id={window_id}: exact replay produced zero series rows.")
