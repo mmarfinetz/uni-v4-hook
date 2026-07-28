@@ -8,8 +8,8 @@ The auction is fillable at a profit only below the break-even gas price.
 
 | Pool | Filled auctions | Avg payout / fill | Break-even (measured 231,159 gas) | Break-even (conservative 350,000 gas) |
 | --- | ---: | ---: | ---: | ---: |
+| WETH/USDC | 1,242 | $2.95 | 3.03 gwei | 2.00 gwei |
 | LINK/WETH | 3,163 | $2.79 | 2.87 gwei | 1.89 gwei |
-| WETH/USDC | 1,242 | $2.77 | 2.84 gwei | 1.87 gwei |
 | UNI/WETH | 2,209 | $0.26 | 0.26 gwei | 0.17 gwei |
 | WBTC/USDC | 800 | $0.12 | 0.12 gwei | 0.08 gwei |
 
@@ -17,8 +17,8 @@ The auction is fillable at a profit only below the break-even gas price.
 
 | Pool | Ethereum L1, quiet | Ethereum L1, typical | Ethereum L1, busy | Base / OP-stack, typical | Base / OP-stack, busy |
 | --- | ---: | ---: | ---: | ---: | ---: |
+| WETH/USDC | +$2.21 | −$0.00 | −$11.80 | +$2.93 | +$2.80 |
 | LINK/WETH | +$2.05 | −$0.16 | −$11.96 | +$2.77 | +$2.64 |
-| WETH/USDC | +$2.03 | −$0.19 | −$11.99 | +$2.75 | +$2.61 |
 | UNI/WETH | −$0.48 | −$2.69 | −$14.50 | +$0.24 | +$0.10 |
 | WBTC/USDC | −$0.62 | −$2.83 | −$14.64 | +$0.10 | −$0.04 |
 

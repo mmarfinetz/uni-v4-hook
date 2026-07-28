@@ -6,12 +6,12 @@ The largest one-step movement in cross-pool recapture comes from `base_fee_bps` 
 
 | Parameter | Direction | Delta Recapture (mean, pp) | Delta Recapture (std, pp) | Pools improved / 4 |
 | --- | --- | ---: | ---: | ---: |
-| `base_fee_bps` | up | -0.986049 | 0.562620 | 0 |
-| `start_concession_bps` | up | -0.699985 | 0.000013 | 0 |
-| `trigger_gap_bps` | up | -0.576773 | 0.424254 | 0 |
+| `base_fee_bps` | up | -0.980930 | 0.559511 | 0 |
+| `start_concession_bps` | up | -0.699986 | 0.000013 | 0 |
+| `trigger_gap_bps` | up | -0.571557 | 0.425765 | 0 |
 | `start_concession_bps` | down | 0.199997 | 0.000004 | 4 |
-| `base_fee_bps` | down | -0.088199 | 0.074820 | 0 |
-| `trigger_gap_bps` | down | -0.061182 | 0.042075 | 0 |
+| `base_fee_bps` | down | -0.087401 | 0.075077 | 0 |
+| `trigger_gap_bps` | down | -0.060466 | 0.042095 | 0 |
 | `max_fee_bps` | down | -0.025048 | 0.038045 | 0 |
 | `concession_growth_bps_per_sec` | down | 0.000000 | 0.000000 | 0 |
 | `concession_growth_bps_per_sec` | up | 0.000000 | 0.000000 | 0 |

@@ -19,7 +19,7 @@ improved in 28 of 54 windows and worsened in none.
 
 | Pool | TVL | Gross stale value | Hook recapture (ceiling) | Static-fee recapture | LP uplift (month) | Uplift (bps of TVL, month) | ex Oct 10-11 (bps) | Annualized (% of TVL) |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| WETH/USDC | $72.63M | $3.43M | 99.9% | 52.6% | $1.63M | 224 | 166 | 27% |
+| WETH/USDC | $72.63M | $3.66M | 99.9% | 52.1% | $1.75M | 241 | 176 | 29% |
 | WBTC/USDC | $2.92M | $92.7k | 99.9% | 16.9% | $77.0k | 264 | 193 | 31% |
 | LINK/WETH | $32.23M | $8.83M | 99.9% | 24.4% | $6.67M | 2069 | 539 | 246% |
 | UNI/WETH | $19.12M | $565.1k | 99.9% | 37.7% | $351.3k | 184 | 102 | 22% |

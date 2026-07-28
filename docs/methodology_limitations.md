@@ -72,6 +72,47 @@ searchers, raise the start concession to ~50 bps so a fill clears Base gas by ~2
 ~$275/window in LP recapture versus the ~$144k benign-flow benefit. See
 [`concession_tuning_lvf.md`](concession_tuning_lvf.md) for the theory frame.
 
+## 2b. Inverted price convention in the pool simulator **[fixed]**
+
+**The problem.** `simulate_swap` builds virtual reserves as `reserve0 = L/sqrt(P)`,
+`reserve1 = L*sqrt(P)`, so it requires `P` in the standard **amount1/amount0**
+convention. The pipeline carries prices as token0-per-token1 and fed it the
+reciprocal, which swaps the two reserve legs: swap amounts land on the wrong side
+and simulated price impact is wrong by orders of magnitude. Measured against the
+actual on-chain move for the same swap:
+
+| Pool | as-fed | inverted | actual |
+| --- | --- | --- | --- |
+| PAXG/USDC | 2637.4 bps (**4,608x**) | 0.57234 bps | 0.57231 bps |
+| WETH/USDC | 0.00000 bps | 0.00563 bps | 0.00562 bps |
+
+The error is unbounded for pools whose price is far from 1, which is why it first
+surfaced on tokenized gold (PAXG ~4,300 USDC) rather than on the majors.
+
+**The correction.** `simulate_swap` now inverts on entry and converts back on
+exit. After the fix, simulated impact matches on-chain reality on every studied
+pool: WETH/USDC 0.99x, WBTC/USDC 0.96x, LINK/WETH 0.99x, UNI/WETH 0.97x.
+
+**Impact on published results — smaller than feared.** The October 2025 grid was
+re-run end to end (124/124 windows, 1,296 grid rows). The grid derives its gaps
+from the observed pool series against the reference rather than from a simulated
+trajectory, so it is largely insensitive to this bug:
+
+- LINK/WETH, UNI/WETH, WBTC/USDC: **bit-identical** on recapture, clear rate,
+  trigger events, and payout bps.
+- WETH/USDC: unchanged except `lp_net_quote_token` (-3434.44 -> -0.869) and
+  `fixed_fee_v3_recapture` (52.571% -> 52.101%).
+- The recommended cell still wins, so `DeployPool.s.sol` defaults are unchanged.
+
+The `lp_net` move is a **unit change, not an economic one**: quote units are
+token1, so WETH/USDC is now denominated in WETH rather than USDC (-0.869 WETH at
+the study's $4,215/ETH is -$3,663 vs. the old -$3,434). The USD conversion table
+was corrected accordingly (WETH/USDC multiplier 1.0 -> the ETH price, matching
+what LINK/WETH and UNI/WETH already used). Net effect on published USD figures:
+solver payout `$1.74 -> $1.77` per fill and `$12.9k -> $13.2k` total; WETH/USDC
+LP uplift `224 -> 241` bps of TVL/month. **Every headline range in the README is
+unchanged** (`184-264`, `102-193`, LINK `2,069`/`539`).
+
 ## 3. Flow invariance / induced benign volume **[caveat]**
 
 The replay uses swaps that actually occurred on a 30-bps un-hooked pool. It

@@ -24,8 +24,11 @@ class LpAprUpliftTest(unittest.TestCase):
 
     def test_gross_stale_value_matches_solver_economics_table(self):
         # reports/solver_economics_table.md publishes the same gross values.
+        # WETH/USDC moved 3.43e6 -> 3.66e6 with the amount1/amount0 price-convention
+        # fix: quote units are token1, so it converts at the study ETH/USD rate
+        # rather than 1.0. The other three pools are unchanged.
         expected = {
-            "WETH/USDC": Decimal("3.43e6"),
+            "WETH/USDC": Decimal("3.66e6"),
             "WBTC/USDC": Decimal("92.7e3"),
             "LINK/WETH": Decimal("8.83e6"),
             "UNI/WETH": Decimal("565.1e3"),

@@ -15,9 +15,12 @@ class BuildRowsTest(unittest.TestCase):
         filled = sum(row["filled"] for row in self.rows)
         payout = sum(row["payout_usd"] for row in self.rows)
         self.assertEqual(filled, Decimal(7414))
-        # Published table: $12.9k total, $1.74 average per filled auction.
-        self.assertAlmostEqual(float(payout), 12_930, delta=100)
-        self.assertAlmostEqual(float(payout / filled), 1.74, delta=0.01)
+        # Published table: $13.2k total, $1.77 average per filled auction.
+        # (Was $12.9k/$1.74 before the amount1/amount0 price-convention fix:
+        # quote units are token1, so WETH/USDC converts at the study ETH/USD
+        # rate rather than 1.0. The other three pools are unchanged.)
+        self.assertAlmostEqual(float(payout), 13_154, delta=100)
+        self.assertAlmostEqual(float(payout / filled), 1.77, delta=0.01)
 
     def test_breakeven_scales_inversely_with_gas(self):
         for row in self.rows:
