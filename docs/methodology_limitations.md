@@ -113,6 +113,43 @@ solver payout `$1.74 -> $1.77` per fill and `$12.9k -> $13.2k` total; WETH/USDC
 LP uplift `224 -> 241` bps of TVL/month. **Every headline range in the README is
 unchanged** (`184-264`, `102-193`, LINK `2,069`/`539`).
 
+### Reconciling the two trigger rates
+
+The re-run surfaced an apparent contradiction: the October grid's trigger count
+was unchanged by the fix (1,242 events), while the 2026 windows showed their
+trigger rate collapse from ~2.7% to ~0.13%. Both are correct — they measure
+different rules, and only one depends on the simulated trajectory.
+
+| | rule | source of pool price | Oct 2025 WETH/USDC (25,726 swaps) |
+| --- | --- | --- | --- |
+| **Broad eligibility** | `gap >= trigger_gap_bps` and stale loss > 0 | observed on-chain series | 1,242 events = **4.83%** |
+| **Selective** | `auction_beats_hook`: only when the hook's own fee still leaves LP net-negative | simulated trajectory | 46 events = **0.18%** |
+
+The grid counts broad eligibility from the *observed* pool series, so it is
+structurally immune to the `simulate_swap` bug — which is exactly why its numbers
+came back bit-identical. The replay's default `trigger_mode="auction_beats_hook"`
+gates on `hook_lp_net < 0`, which is computed from the *simulated* pool, so it
+absorbed the full error: pre-fix the simulated pool diverged wildly, inflating
+gross LVR until the hook looked net-negative and the auction opened constantly.
+
+**The decisive evidence that the fix is right:** post-fix, the selective rate on
+October (0.136%) and on the independent 2026 sample (0.133%) agree to three
+decimal places. Pre-fix they disagreed by 20x. Two unrelated datasets converging
+only after the correction is strong confirmation.
+
+**What this means for the mechanism.** The auction is needed far less often than
+the pre-fix numbers implied: the exact toxic-flow fee alone handles the large
+majority of stale-price events, and the Dutch auction is the tail escape valve
+for the ~0.2% of swaps where the fee alone would leave LPs net-negative. That
+*strengthens* the selectivity claim (fewer interventions, none harmful) while
+lowering the auction's share of LP economics. Recapture and clear-rate figures in
+the grid are computed on the broad rule and are unaffected.
+
+**Still to check:** the 54-window observed-flow study behind the README's
+`0.98%` selective / `5.82%` broad figures runs through the same replay path, so
+its selective number is likely inflated for the same reason and should be re-run
+before those specific figures are quoted again.
+
 ## 3. Flow invariance / induced benign volume **[caveat]**
 
 The replay uses swaps that actually occurred on a 30-bps un-hooked pool. It
