@@ -211,6 +211,8 @@ def _fmt_usd(value: Decimal) -> str:
 
 
 def write_outputs(rows: List[Dict[str, Decimal]]) -> None:
+    # Observed-flow sign counts are quoted in two places below, so resolve once.
+    counts = observed_flow_counts()
     fieldnames = [
         "pool",
         "tvl_usd",
@@ -246,7 +248,8 @@ def write_outputs(rows: List[Dict[str, Decimal]]) -> None:
         "zero gas, captive flow; see the README key-results caveat), not a realized",
         "yield. The empirically grounded companions are the exact fee-law validation,",
         "the 124/124 auction clear rate, and the observed-flow replay in which LP net",
-        "improved in 28 of 54 windows and worsened in none.",
+        "beat the static-fee baseline in %d of %d windows and lost in none."
+        % (counts["positive"], counts["windows"]),
         "",
         "| Pool | TVL | Gross stale value | Hook recapture (ceiling) | Static-fee"
         " recapture | LP uplift (month) | Uplift (bps of TVL, month) | ex Oct 10-11"
@@ -268,7 +271,6 @@ def write_outputs(rows: List[Dict[str, Decimal]]) -> None:
                 row["uplift_pct_tvl_annualized"],
             )
         )
-    counts = observed_flow_counts()
     lines += [
         "",
         "The study month (October 2025, %.1f days of windows) includes the Oct 10-11"
@@ -284,7 +286,7 @@ def write_outputs(rows: List[Dict[str, Decimal]]) -> None:
         "",
         "The ceiling above uses a modeled repricer. The floor companion replays real",
         "historical swaps (54 windows across seven pools, observed-flow ablation",
-        "study re-run 2026-07-16 with corrected reference orientation) through the",
+        "study re-run 2026-07-30 under the corrected amount1/amount0 convention) through the",
         "hook+auction and static-fee policies on identical reconstructed pool state.",
         "Against the static-fee policy, LP net was higher in **%d of %d windows**,"
         % (counts["positive"], counts["windows"]),
