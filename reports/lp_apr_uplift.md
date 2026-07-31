@@ -38,8 +38,8 @@ The ceiling above uses a modeled repricer. The floor companion replays real
 historical swaps (54 windows across seven pools, observed-flow ablation
 study re-run 2026-07-16 with corrected reference orientation) through the
 hook+auction and static-fee policies on identical reconstructed pool state.
-Against the static-fee policy, LP net was higher in **49 of 54 windows**,
-unchanged in 5, and lower in **0** (per-window values frozen in
+Against the static-fee policy, LP net was higher in **54 of 54 windows**,
+unchanged in 0, and lower in **0** (per-window values frozen in
 `reports/observed_flow_lp_uplift_windows.csv`).
 
 Provenance note: the original May 2026 run fed external reference feeds in

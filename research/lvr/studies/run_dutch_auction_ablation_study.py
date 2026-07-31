@@ -67,16 +67,21 @@ class PolicyConfig:
     reserve_mode: str
 
 
-# Pools whose base (feed) asset is token0: external reference feeds quote the
-# base asset in quote-asset units, which is the reciprocal of the replay's
-# token0-per-token1 pool-price convention, so their external reference series
-# must be inverted at window build time (pool-derived deep_pool series are
-# already in pool convention).
+# Families whose cached external reference series must be inverted to reach the
+# replay's token1/token0 (amount1/amount0) convention.
+#
+# The cached inputs were all exported as quote-asset-per-base-asset. That equals
+# token1/token0 whenever the *base* asset is token0 — true for wbtc_usdc_500
+# (WBTC/USDC), wbtc_weth_500 and dai_usdc_100 — so those need no inversion. It is
+# the reciprocal only where the stablecoin sorts first, i.e. the weth_usdc pools
+# (token0 = USDC), which are therefore the ones inverted here.
+#
+# This set is the complement of the pre-2026-07-29 list, which targeted the
+# token0-per-token1 convention the pipeline used before the amount1/amount0 fix
+# (see docs/methodology_limitations.md).
 INVERTED_EXTERNAL_REFERENCE_FAMILIES = (
-    "wbtc_usdc_500",
-    "wbtc_weth_500",
-    "link_weth_3000",
-    "uni_weth_3000",
+    "weth_usdc_3000",
+    "weth_usdc_500",
 )
 
 

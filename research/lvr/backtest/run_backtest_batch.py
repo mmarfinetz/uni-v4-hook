@@ -930,7 +930,18 @@ def materialize_cached_window_inputs(
             block_key="block_number",
             max_block=markout_to_block,
         )
-        if window.invert_external_reference and source.name != "deep_pool":
+        # These cached fixtures store the two reference kinds in *different*
+        # orientations, so they need separate rules now that the observed series
+        # is amount1/amount0 (see build_actual_series `invert_price=False`):
+        #
+        #   deep_pool  - pool-derived, always token0-per-token1 in the fixtures
+        #                (weth_usdc 2165 vs pool 4.6e-4; wbtc_usdc 1.43e-5 vs pool
+        #                69953), so it always needs inverting.
+        #   feed series - quote-asset-per-base-asset, which already equals
+        #                amount1/amount0 wherever the base asset is token0. Only
+        #                the families in INVERTED_EXTERNAL_REFERENCE_FAMILIES
+        #                (stablecoin sorts first) are reciprocal.
+        if source.name == "deep_pool" or window.invert_external_reference:
             filtered_source_rows = invert_reference_rows(filtered_source_rows)
         write_rows_csv(str(materialized_source_path), source_fieldnames, filtered_source_rows)
 

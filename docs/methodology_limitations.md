@@ -145,10 +145,15 @@ for the ~0.2% of swaps where the fee alone would leave LPs net-negative. That
 lowering the auction's share of LP economics. Recapture and clear-rate figures in
 the grid are computed on the broad rule and are unaffected.
 
-**Still to check:** the 54-window observed-flow study behind the README's
-`0.98%` selective / `5.82%` broad figures runs through the same replay path, so
-its selective number is likely inflated for the same reason and should be re-run
-before those specific figures are quoted again.
+**Resolved 2026-07-30.** The 54-window observed-flow study was re-run under the
+corrected convention. The selective rate rose to `2.28%` (broad `3.33%`), and LP
+net improved in `14` windows, was unchanged in `40`, and **worsened in none**;
+against the static-fee baseline LP net was higher in all `54`. The pre-fix
+`0.98%`/`5.82%` pair overstated the selectivity gap. Re-running it required two
+further fixes: the cached fixtures store `deep_pool` (pool-derived, always
+token0-per-token1) and feed series in different orientations, so they need
+separate inversion rules, and `INVERTED_EXTERNAL_REFERENCE_FAMILIES` is now the
+complement of its pre-fix contents.
 
 ## 3. Flow invariance / induced benign volume **[caveat]**
 

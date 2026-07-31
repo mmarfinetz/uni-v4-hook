@@ -15,7 +15,7 @@ The historical replay inputs are exported by
 from **on-chain `AnswerUpdated` / OCR `NewTransmission` logs of the real mainnet
 Chainlink feeds** — not from CEX spot series. The reference series in the October
 2025 grid therefore updates exactly as coarsely as the production oracle does, and
-the headline results (clear rate, `0.98%` trigger selectivity, recapture ceiling)
+the headline results (clear rate, trigger selectivity, recapture ceiling)
 were measured against a feed-granular reference. There is no sim-to-prod gap in
 the trigger mechanism itself.
 
