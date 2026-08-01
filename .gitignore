@@ -53,3 +53,7 @@ audit/
 
 # Backtest working data (multi-GB). Runner scripts/manifests are force-added.
 exports/
+
+# Cached intermediate from the deepanalyze research pass (3MB, regenerable by
+# rerunning fresh_grid.py against reports/sensitivity_grid_windows.csv).
+study_artifacts/deepanalyze_pass/*.pkl
