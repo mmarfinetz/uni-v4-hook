@@ -6,6 +6,8 @@ from pathlib import Path
 from script.flow_classification import load_label_config
 from script.oracle_gap_predictiveness import (
     build_gap_bucket_rows,
+    latest_preceding_update,
+    oracle_precedes_swap,
     build_oracle_signal_dataset,
     load_series_rows,
     parse_oracle_specs,
@@ -201,6 +203,67 @@ class OracleGapPredictivenessTest(unittest.TestCase):
             self.assertEqual(len(dataset_rows), 1)
             self.assertAlmostEqual(dataset_rows[0]["oracle_price"], 1.02)
             self.assertEqual(dataset_rows[0]["oracle_log_index"], 4)
+
+    def test_offchain_reference_falls_back_to_strictly_earlier_row(self) -> None:
+        """A same-second off-chain row cannot be proved to precede the swap.
+
+        Regression: claiming precedence handed the classifier a row that
+        `_is_ambiguous_ordering` then rejected, so every swap on a 1-second CEX
+        feed resolved to `uncertain` and the reference was unusable (binance:
+        6,975/6,975 uncertain, 0% recall).
+        """
+        from research.lvr.backtest.lvr_historical_replay import OracleUpdate
+
+        def upd(ts, block=None):
+            return OracleUpdate(timestamp=ts, price=1.0, block_number=block,
+                                tx_hash=None, log_index=None, source="test")
+
+        swap = {"timestamp": 100, "block_number": None}
+
+        # off-chain (no block on either side): same second is not provable
+        self.assertFalse(oracle_precedes_swap(upd(100), swap))
+        self.assertTrue(oracle_precedes_swap(upd(99), swap))
+
+        # the selector therefore returns the strictly-earlier row
+        chosen = latest_preceding_update([upd(98), upd(99), upd(100), upd(101)], swap)
+        self.assertEqual(chosen.timestamp, 99)
+
+        # on-chain rows keep block-level tie-breaking
+        onchain_swap = {"timestamp": 100, "block_number": 50}
+        self.assertTrue(oracle_precedes_swap(upd(100, block=49), onchain_swap))
+        self.assertFalse(oracle_precedes_swap(upd(100, block=51), onchain_swap))
+
+    def test_precision_ignores_unresolved_candidates(self) -> None:
+        """Precision is TP/(TP+FP); unresolved candidates must not count as failures.
+
+        Regression for the denominator bug that divided by every candidate. With
+        ~92% of candidates unresolved in the real corpus this understated the
+        trigger roughly 57x (0.017 reported vs ~0.97 actual).
+        """
+        base = {
+            "oracle_name": "chainlink",
+            "oracle_path": "/tmp/chainlink.csv",
+            "oracle_stale": False,
+            "oracle_gap_bps": 8.0,
+            "oracle_signed_gap_bps": 8.0,
+            "markout_12s": 1.0,
+        }
+        dataset_rows = [
+            {**base, "decision_label": "toxic_candidate", "outcome_label": "toxic_confirmed"},
+            {**base, "decision_label": "toxic_candidate", "outcome_label": "benign_confirmed"},
+        ] + [
+            # eight candidates whose ex-post outcome never resolved
+            {**base, "decision_label": "toxic_candidate", "outcome_label": "uncertain"}
+            for _ in range(8)
+        ]
+
+        summary = summarize_oracle_predictiveness(dataset_rows, [12])[0]
+
+        # 1 TP, 1 FP, 8 unresolved -> precision 0.5 over the decided subset,
+        # not 0.1 over all ten candidates.
+        self.assertEqual(summary["toxic_candidate_count"], 10)
+        self.assertEqual(summary["toxic_candidate_decided_count"], 2)
+        self.assertAlmostEqual(summary["toxic_candidate_precision"], 0.5)
 
     def test_summary_and_bucket_rows_capture_predictive_gap_signal(self) -> None:
         dataset_rows = [

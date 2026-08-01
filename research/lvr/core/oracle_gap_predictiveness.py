@@ -330,7 +330,18 @@ def summarize_oracle_predictiveness(
             "uncertain_decision_rate": _ratio(uncertain_count, sample_count),
             "toxic_confirmed_count": toxic_confirmed_count,
             "benign_confirmed_count": benign_confirmed_count,
-            "toxic_candidate_precision": _ratio(toxic_true_positive_count, toxic_candidate_count),
+            # Precision is TP / (TP + FP). Dividing by every candidate instead
+            # counts each unresolved (`outcome_label == "uncertain"`) candidate as
+            # a failure; since ~92% of candidates never resolve, that understated
+            # the trigger by roughly 57x (0.017 reported vs 0.97 actual).
+            # `toxic_candidate_decided_count` publishes the denominator so the
+            # coverage behind the ratio stays visible.
+            "toxic_candidate_decided_count": toxic_true_positive_count
+            + toxic_false_positive_count,
+            "toxic_candidate_precision": _ratio(
+                toxic_true_positive_count,
+                toxic_true_positive_count + toxic_false_positive_count,
+            ),
             "toxic_candidate_recall": _ratio(toxic_true_positive_count, toxic_confirmed_count),
             "toxic_candidate_false_positive_rate": _ratio(
                 toxic_false_positive_count,
@@ -438,7 +449,17 @@ def oracle_precedes_swap(update: OracleUpdate, point: dict[str, Any]) -> bool:
 
     point_block = _optional_int(point, "block_number")
     if update.block_number is None or point_block is None:
-        return True
+        # Same second, and at least one side has no on-chain ordering (an
+        # off-chain reference such as a CEX kline series). Their true order
+        # within the second is unknowable, so this row cannot be *proved* to
+        # precede the swap: decline it and let the caller fall back to the
+        # latest strictly-earlier row, whose ordering is provable.
+        #
+        # Claiming precedence here selected a row that
+        # `flow_classification._is_ambiguous_ordering` then rejected as
+        # unorderable, so every swap on a 1-second CEX feed resolved to
+        # `uncertain` (binance: 6,975/6,975) and the reference was unusable.
+        return False
     if update.block_number < point_block:
         return True
     if update.block_number > point_block:
@@ -555,6 +576,7 @@ def run_oracle_gap_predictiveness(
         "uncertain_decision_rate",
         "toxic_confirmed_count",
         "benign_confirmed_count",
+        "toxic_candidate_decided_count",
         "toxic_candidate_precision",
         "toxic_candidate_recall",
         "toxic_candidate_false_positive_rate",

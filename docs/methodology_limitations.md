@@ -155,6 +155,55 @@ token0-per-token1) and feed series in different orientations, so they need
 separate inversion rules, and `INVERTED_EXTERNAL_REFERENCE_FAMILIES` is now the
 complement of its pre-fix contents.
 
+## 2c. Trigger-quality metrics: two defects, and what they revealed **[fixed]**
+
+An independent research pass over the export corpus (656 windows, 402,846 swaps)
+surfaced two defects in how trigger quality is measured. Both are fixed; together
+they change the reading of the trigger from "barely works" to "precise but
+oracle-limited".
+
+**Precision was computed with the wrong denominator.**
+`toxic_candidate_precision` divided true positives by *every* candidate,
+including the ~92% whose ex-post outcome never resolves — silently scoring each
+unresolved candidate as a failure. Reported precision was `0.017`, i.e. worse
+than random against a 0.46 toxic base rate. Corrected to `TP / (TP + FP)`, with a
+new `toxic_candidate_decided_count` column publishing the denominator so the
+coverage behind the ratio stays visible. Recall and the false-positive rate were
+already correct, so **the low recall is real, not a reporting artifact.**
+
+**An off-chain reference could not be classified at all.** The row selector
+(`oracle_precedes_swap`) claimed a same-second row precedes the swap, while the
+classifier (`_is_ambiguous_ordering`) rejected that same row as unorderable.
+For an on-chain feed this never bites, because block/log index breaks the tie.
+For a 1-second CEX series it ties **100%** of the time and carries no block
+number, so every swap resolved to `uncertain`: binance was 6,975/6,975 unusable.
+The selector now declines same-second rows it cannot prove precede the swap and
+falls back to the latest strictly-earlier row, whose ordering is provable — at
+most one second of extra staleness on a 1s feed.
+
+**What the corrected metrics show.** Same trigger rule, same swaps, same windows;
+only the reference oracle changes:
+
+| reference | recall | precision | uncertain |
+| --- | ---: | ---: | ---: |
+| binance (CEX, 1s) | **70.0%** | 95.0% | 443 |
+| pyth | 68.3% | 94.5% | 455 |
+| deep_pool | 51.8% | 88.5% | 348 |
+| chainlink | **28.0%** | **100.0%** | 888 |
+
+Chainlink is the most precise reference and the least complete: it fires only
+when certain and misses 72% of confirmed-toxic flow. Moving to a
+continuously-updating reference buys **+42pp of recall for 5pp of precision**.
+
+**The design conclusion:** recall is oracle-limited, not rule-limited. The
+classification rule is sound — the misses are swaps whose signed gap is negative
+because the CEX moved before Chainlink updated, so the information is simply
+absent from the signal at decision time. This is the same limit as the ~78%
+oracle-visible LVR fraction in §1, measured from the classifier side, and it
+prices the upgrade to a low-latency reference in concrete terms. Caveat: each
+oracle labels its own ground truth, so `toxic_confirmed` differs slightly across
+rows (1,014 for binance vs 1,022); treat the comparison as directional.
+
 ## 3. Flow invariance / induced benign volume **[caveat]**
 
 The replay uses swaps that actually occurred on a 30-bps un-hooked pool. It
