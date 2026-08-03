@@ -74,6 +74,8 @@ _INVERTIBLE_PRICE_FIELDS = ("price", "reference_price")
 _INVERTIBLE_WAD_FIELDS = ("price_wad", "reference_price_wad")
 
 
+from research.lvr.core.regime import measure_regime
+
 def invert_reference_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     """Reorient reference rows from quote-asset-per-base-asset to the replay's
     token0-per-token1 pool convention (used when the base asset is token0)."""
@@ -131,7 +133,14 @@ class BacktestManifest:
 class AggregateManifestSummaryRow:
     window_id: str
     pool: str
+    # `regime` is the manifest's *declared* label and is not measured:
+    # build_month_backtest_manifest defaults it to "stress", so every month-scale
+    # window carried that label regardless of market conditions. The two fields
+    # below are measured from the primary reference series, so the regime
+    # breakdown the reporting layer expects reflects the data.
     regime: str
+    realized_vol_annualised_pct: float | None
+    measured_regime: str | None
     oracle_updates: int
     swap_samples: int
     confirmed_label_rate: float | None
@@ -642,10 +651,15 @@ def run_window(
 
     confirmed_label_rate = compute_confirmed_label_rate(oracle_gap_result["dataset"])
     label_horizons = [int(value) for value in load_label_config(args.label_config)["markout_horizons_seconds"]]
+    measured_vol_pct, measured_regime = measure_regime(
+        _reference_series_for_regime(resolved_oracle_sources[0].oracle_updates_path)
+    )
     summary_row = AggregateManifestSummaryRow(
         window_id=window.window_id,
         pool=window.pool,
         regime=window.regime,
+        realized_vol_annualised_pct=measured_vol_pct,
+        measured_regime=measured_regime,
         oracle_updates=int(export_summary["oracle_updates"]),
         swap_samples=int(export_summary["swap_samples"]),
         confirmed_label_rate=confirmed_label_rate,
@@ -1174,6 +1188,21 @@ def emit_exact_replay_artifacts(
         "replay_error_stats_path": replay_error_stats_path,
         "replay_error_stats": replay_error_stats,
     }
+
+
+def _reference_series_for_regime(oracle_updates_path: str) -> list[tuple[int, float]]:
+    """(timestamp, price) pairs from a reference series, for regime measurement.
+
+    Returns an empty list on any parse problem so an unmeasurable window yields a
+    null regime rather than failing the batch or defaulting to a label.
+    """
+    series: list[tuple[int, float]] = []
+    for update in load_oracle_updates(oracle_updates_path):
+        try:
+            series.append((int(update.timestamp), float(update.price)))
+        except (TypeError, ValueError):
+            continue
+    return series
 
 
 def resolve_oracle_sources(

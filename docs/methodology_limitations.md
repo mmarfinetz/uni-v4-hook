@@ -216,6 +216,47 @@ directly to the routing PMF gate in [`routing_integration.md`](routing_integrati
 Mitigation: treat benign-flow-driven LP uplift as a range, not a point, and do not
 claim benign revenue the pool cannot yet attract.
 
+## 3b. Regime was declared, not measured **[fixed]**
+
+**The problem.** `regime` was a manifest label, not an observation.
+`build_month_backtest_manifest` defaults `--regime stress`, so every month-scale
+window (October 2025, the 2026 months, PAXG, EURC) carried "stress" regardless of
+what the market did — while `run_backtest_validation_report` requires a
+normal/stress breakdown it could therefore never receive. The corpus contained
+**no calm-market evidence at all**, so any claim that the hook generalises across
+regimes was unsupported by data.
+
+**The correction.** `research/lvr/core/regime.py` derives the label from the
+primary reference series: realized volatility of the same feed the hook reads,
+annualised, with windows at or above 100% annualised marked "stress". Calm crypto
+majors sit near 40–70% and the hook's own bootstrap prior (5% daily) is already
+~95% annualised, so the cut marks "unambiguously not calm" rather than splitting
+the typical range. Unmeasurable windows return `None` rather than defaulting, so
+they stay out of the breakdown instead of padding one side of it. Every window
+summary now carries `realized_vol_annualised_pct` and `measured_regime` alongside
+the declared `regime`, which is retained for provenance.
+
+**What it shows on October 2025** (declared: 124/124 stress):
+
+| pool | measured stress | measured normal | realized vol range |
+| --- | ---: | ---: | --- |
+| LINK/WETH | 14 | 17 | 47–684% |
+| UNI/WETH | 11 | 20 | 40–776% |
+| WETH/USDC | 3 | 28 | 24–246% |
+| WBTC/USDC | 1 | 30 | 12–168% |
+| **total** | **29** | **95** | |
+
+Two independent sanity checks: the single most volatile window in **all four
+pools is `w10` — October 10**, the known dislocation, recovered without being
+told about it; and the ordering across pools (WBTC calmest, LINK/UNI most
+volatile) matches their liquidity and market cap. The corpus now has **95
+calm-market windows** where it previously had zero.
+
+**Still open:** the regime split exists in the window summaries but the
+validation report and the published tables have not yet been re-cut along it, so
+"how the hook performs in calm markets specifically" is now answerable from the
+data but is not yet a published result.
+
 ## 4. Single-solver, continuous-clock idealization **[caveat]**
 
 The model grows the concession continuously and assumes one filler. On Base the
