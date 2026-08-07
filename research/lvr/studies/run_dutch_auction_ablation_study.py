@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import os
 import random
 import sys
@@ -20,6 +21,10 @@ if str(REPO_ROOT) not in sys.path:
 
 from research.lvr.backtest.lvr_historical_replay import write_rows_csv
 from research.lvr.backtest.run_backtest_batch import run_backtest_batch
+from research.lvr.core.regime import (
+    DEFAULT_STRESS_VOL_ANNUALISED_PCT,
+    measured_regime_from_summary,
+)
 
 FROZEN_STUDY_ROOT = REPO_ROOT / "study_artifacts" / "dutch_auction_ablation_2026_03_28"
 FROZEN_INPUTS_ROOT = FROZEN_STUDY_ROOT / "inputs"
@@ -323,6 +328,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--auction-min-lp-uplift-quote", type=float, default=0.0)
     parser.add_argument("--auction-min-lp-uplift-stale-loss-bps", type=float, default=100.0)
     parser.add_argument("--auction-solver-payment-hook-cap-multiple", type=float, default=1.0)
+    parser.add_argument(
+        "--regime-stress-threshold-pct",
+        type=float,
+        default=DEFAULT_STRESS_VOL_ANNUALISED_PCT,
+    )
     parser.add_argument("--allow-toxic-overshoot", action="store_true")
     parser.add_argument("--label-config", default=str(CONFIG_ROOT / "label_config.json"))
     parser.add_argument("--rpc-timeout", type=int, default=45)
@@ -381,7 +391,15 @@ def run_study(args: argparse.Namespace) -> dict[str, Any]:
         "manifest_path": _relative_path_for_output(manifest_path, output_root),
         "window_count": len(manifest_payload["windows"]),
         "pools": sorted({str(row["pool"]) for row in ablation_rows}),
-        "regimes": sorted({str(row["regime"]) for row in ablation_rows}),
+        "regimes": sorted(
+            {str(row["regime"]) for row in ablation_rows if row.get("regime") is not None}
+        ),
+        "measured_regime_window_count": sum(
+            1 for row in ablation_rows if row.get("regime") is not None
+        ),
+        "unmeasurable_regime_window_count": sum(
+            1 for row in ablation_rows if row.get("regime") is None
+        ),
         "non_weth_usdc_pool_count": sum(
             1 for pool in sorted({str(row["pool"]) for row in ablation_rows}) if pool not in {
                 "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
@@ -583,6 +601,7 @@ def make_batch_args(
         max_retries=args.max_retries,
         retry_backoff_seconds=args.retry_backoff_seconds,
         max_retry_sleep_seconds=args.max_retry_sleep_seconds,
+        regime_stress_threshold_pct=args.regime_stress_threshold_pct,
     )
 
 
@@ -614,22 +633,54 @@ def build_ablation_rows(
         if old_window is None or new_window is None:
             raise ValueError(f"Missing policy summary row for window_id={window_id}.")
         manifest_window = manifest_windows[window_id]
-        old_lp = float(old_window.get("dutch_auction_lp_net_vs_hook_quote") or 0.0)
-        new_lp = float(new_window.get("dutch_auction_lp_net_vs_hook_quote") or 0.0)
+        old_regime = measured_regime_from_summary(old_window)
+        new_regime = measured_regime_from_summary(new_window)
+        if old_regime != new_regime:
+            raise ValueError(
+                f"Measured regime differs by policy for window_id={window_id}: "
+                f"old={old_regime!r}, new={new_regime!r}."
+            )
+        old_lp = _required_finite_metric(
+            old_window,
+            "dutch_auction_lp_net_vs_hook_quote",
+            window_id=window_id,
+            policy="old",
+        )
+        new_lp = _required_finite_metric(
+            new_window,
+            "dutch_auction_lp_net_vs_hook_quote",
+            window_id=window_id,
+            policy="new",
+        )
+        old_trigger_rate = _required_finite_metric(
+            old_window,
+            "dutch_auction_trigger_rate",
+            window_id=window_id,
+            policy="old",
+        )
+        new_trigger_rate = _required_finite_metric(
+            new_window,
+            "dutch_auction_trigger_rate",
+            window_id=window_id,
+            policy="new",
+        )
         rows.append(
             {
                 "window_id": window_id,
                 "window_family": str(manifest_window.get("window_family") or ""),
                 "pool": str(manifest_window["pool"]),
-                "regime": str(manifest_window["regime"]),
+                "regime": new_regime,
+                "declared_regime": str(manifest_window["regime"]),
+                "realized_vol_annualised_pct": new_window.get(
+                    "realized_vol_annualised_pct"
+                ),
                 "prefix_swap_count": int(manifest_window.get("window_prefix_swap_count") or 0),
                 "old_lp_uplift_vs_hook_quote": old_lp,
                 "new_lp_uplift_vs_hook_quote": new_lp,
                 "delta_lp_uplift_vs_hook_quote": new_lp - old_lp,
-                "old_trigger_rate": float(old_window.get("dutch_auction_trigger_rate") or 0.0),
-                "new_trigger_rate": float(new_window.get("dutch_auction_trigger_rate") or 0.0),
-                "delta_trigger_rate": float(new_window.get("dutch_auction_trigger_rate") or 0.0)
-                - float(old_window.get("dutch_auction_trigger_rate") or 0.0),
+                "old_trigger_rate": old_trigger_rate,
+                "new_trigger_rate": new_trigger_rate,
+                "delta_trigger_rate": new_trigger_rate - old_trigger_rate,
                 "old_fill_rate": float(old_window.get("dutch_auction_fill_rate") or 0.0),
                 "new_fill_rate": float(new_window.get("dutch_auction_fill_rate") or 0.0),
                 "old_failclosed_rate": float(old_window.get("dutch_auction_oracle_failclosed_rate") or 0.0),
@@ -637,6 +688,31 @@ def build_ablation_rows(
             }
         )
     return rows
+
+
+def _required_finite_metric(
+    row: dict[str, Any],
+    key: str,
+    *,
+    window_id: str,
+    policy: str,
+) -> float:
+    value = row.get(key)
+    if value in (None, ""):
+        raise ValueError(
+            f"window_id={window_id}: {policy} policy summary is missing required metric {key}."
+        )
+    try:
+        result = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"window_id={window_id}: {policy} policy metric {key} is not numeric: {value!r}."
+        ) from exc
+    if not math.isfinite(result):
+        raise ValueError(
+            f"window_id={window_id}: {policy} policy metric {key} is not finite: {value!r}."
+        )
+    return result
 
 
 def build_bootstrap_summary(
@@ -657,7 +733,9 @@ def build_bootstrap_summary(
         "overall": summarize_metric_rows(ablation_rows, family_by_window, samples, seed),
         "by_regime": {},
     }
-    for regime in sorted({str(row["regime"]) for row in ablation_rows}):
+    for regime in sorted(
+        {str(row["regime"]) for row in ablation_rows if row.get("regime") is not None}
+    ):
         regime_rows = [row for row in ablation_rows if str(row["regime"]) == regime]
         summary["by_regime"][regime] = summarize_metric_rows(regime_rows, family_by_window, samples, seed)
     return summary

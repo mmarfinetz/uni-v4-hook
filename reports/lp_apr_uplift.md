@@ -36,11 +36,19 @@ bound, not an expected yield.
 
 The ceiling above uses a modeled repricer. The floor companion replays real
 historical swaps (54 windows across seven pools, observed-flow ablation
-study re-run 2026-07-30 under the corrected amount1/amount0 convention) through the
-hook+auction and static-fee policies on identical reconstructed pool state.
+frozen 2026-08-03 after the amount1/amount0 and same-second ordering corrections)
+through the hook+auction and static-fee policies on identical reconstructed
+pool state.
 Against the static-fee policy, LP net was higher in **54 of 54 windows**,
 unchanged in 0, and lower in **0** (per-window values frozen in
 `reports/observed_flow_lp_uplift_windows.csv`).
+
+Against the broad all-stale auction, the selective policy improves LP uplift
+in **19 windows**, is unchanged in **35**, and is lower in **0**; mean
+window trigger rate falls from 7.17% to 3.07%. Volatility is measurable
+in 38 of those windows (14/24/0 improved/unchanged/worsened); the other
+16 are excluded from regime claims (5/11/0). The separate October recut
+supplies 95 measured normal and 29 measured stress windows.
 
 Provenance note: the original May 2026 run fed external reference feeds in
 quote-asset-per-base-asset orientation while the pool series is
@@ -48,11 +56,14 @@ token0-per-token1, so the four pools whose base asset is token0 (LINK/WETH,
 UNI/WETH, WBTC/USDC, WBTC/WETH) saw reciprocal prices: the hook branch
 failed closed on every swap and the fixed-fee branch accrued phantom LVR.
 The study runner now inverts external reference series for those pools and
-the replay fails loudly on convention mismatches; headline rule-selectivity
-counts (28 improved / 26 unchanged / 0 worse) are unchanged by the fix.
+the replay fails loudly on convention mismatches. The later same-second
+ordering fix changes auction-reference ranking, so intermediate ablation
+counts are superseded by this frozen release.
 USD aggregation of the floor is still not offered because window families
-differ in span and oversample stress periods; the sign counts are the
+differ in span and sampling density; the sign counts are the
 claim. The replay holds flow captive (the same swaps run through both fee
 curves), so it bounds mechanism accounting, not market routing behavior.
+
+Canonical inputs and summaries: `study_artifacts/evidence_release_2026_08_03`.
 
 Reproduce with `python3 -m script.build_lp_apr_uplift`.

@@ -36,6 +36,8 @@ class DutchAuctionAblationStudyTest(unittest.TestCase):
             "windows": [
                 {
                     "window_id": "window_a",
+                    "measured_regime": "stress",
+                    "realized_vol_annualised_pct": 150.0,
                     "dutch_auction_lp_net_vs_hook_quote": -5.0,
                     "dutch_auction_trigger_rate": 0.50,
                     "dutch_auction_fill_rate": 1.0,
@@ -43,6 +45,8 @@ class DutchAuctionAblationStudyTest(unittest.TestCase):
                 },
                 {
                     "window_id": "window_b",
+                    "measured_regime": "normal",
+                    "realized_vol_annualised_pct": 50.0,
                     "dutch_auction_lp_net_vs_hook_quote": 1.0,
                     "dutch_auction_trigger_rate": 0.25,
                     "dutch_auction_fill_rate": 1.0,
@@ -54,6 +58,8 @@ class DutchAuctionAblationStudyTest(unittest.TestCase):
             "windows": [
                 {
                     "window_id": "window_a",
+                    "measured_regime": "stress",
+                    "realized_vol_annualised_pct": 150.0,
                     "dutch_auction_lp_net_vs_hook_quote": 3.0,
                     "dutch_auction_trigger_rate": 0.05,
                     "dutch_auction_fill_rate": 1.0,
@@ -61,6 +67,8 @@ class DutchAuctionAblationStudyTest(unittest.TestCase):
                 },
                 {
                     "window_id": "window_b",
+                    "measured_regime": "normal",
+                    "realized_vol_annualised_pct": 50.0,
                     "dutch_auction_lp_net_vs_hook_quote": 4.0,
                     "dutch_auction_trigger_rate": 0.02,
                     "dutch_auction_fill_rate": 1.0,
@@ -73,6 +81,10 @@ class DutchAuctionAblationStudyTest(unittest.TestCase):
         self.assertEqual(len(rows), 2)
         self.assertEqual(rows[0]["delta_lp_uplift_vs_hook_quote"], 8.0)
         self.assertEqual(rows[1]["delta_lp_uplift_vs_hook_quote"], 3.0)
+        self.assertEqual(rows[0]["regime"], "stress")
+        self.assertEqual(rows[0]["declared_regime"], "normal")
+        self.assertEqual(rows[1]["regime"], "normal")
+        self.assertEqual(rows[1]["declared_regime"], "stress")
 
         bootstrap_summary = build_bootstrap_summary(
             manifest_payload=manifest_payload,
@@ -99,6 +111,33 @@ class DutchAuctionAblationStudyTest(unittest.TestCase):
         interval = percentile_interval([1.0, 2.0, 3.0, 4.0, 5.0])
         self.assertEqual(interval["lower"], 1.0)
         self.assertEqual(interval["upper"], 4.0)
+
+    def test_build_ablation_rows_rejects_missing_required_metrics(self) -> None:
+        manifest_payload = {
+            "windows": [
+                {
+                    "window_id": "window_a",
+                    "pool": "0xpool_a",
+                    "regime": "normal",
+                }
+            ]
+        }
+        valid = {
+            "window_id": "window_a",
+            "measured_regime": "normal",
+            "realized_vol_annualised_pct": 50.0,
+            "dutch_auction_lp_net_vs_hook_quote": 1.0,
+            "dutch_auction_trigger_rate": 0.5,
+        }
+        missing_lp = dict(valid)
+        missing_lp.pop("dutch_auction_lp_net_vs_hook_quote")
+
+        with self.assertRaisesRegex(ValueError, "missing required metric"):
+            build_ablation_rows(
+                manifest_payload,
+                {"windows": [missing_lp]},
+                {"windows": [valid]},
+            )
 
     def test_selected_source_specs_optionally_include_replay_diagnostics(self) -> None:
         default_ids = [spec.source_id for spec in selected_source_specs(include_replay_diagnostics=False)]

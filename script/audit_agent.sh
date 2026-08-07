@@ -25,7 +25,7 @@ ZIP="$(mktemp -d)/uni-v4-hook.zip"
 
 # Contracts under review. Interfaces are included so the agent sees the full
 # surface; billable LOC is ~733, well under the 12k/scan cap.
-SCOPE='["src/OracleAnchoredLVRHook.sol","src/oracles/ChainlinkReferenceOracle.sol","src/interfaces/IReferenceOracle.sol","src/interfaces/IChainlinkAggregatorV3.sol","src/interfaces/IDutchAuctionModule.sol"]'
+SCOPE='["src/OracleAnchoredLVRHook.sol","src/oracles/ChainlinkReferenceOracle.sol","src/interfaces/IReferenceOracle.sol","src/interfaces/IChainlinkAggregatorV3.sol"]'
 
 # Design docs matter: they let the agent check intent against implementation
 # (fee law, auction schedule, fail-closed behavior, known limitations).

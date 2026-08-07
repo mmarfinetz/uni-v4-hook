@@ -10,6 +10,26 @@ on:
 permissions: {}
 
 jobs:
+  python-tests:
+    name: Python Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run research and operations tests
+        run: python -m unittest discover -s script -p 'test_*.py'
+
+      - name: Check frozen evidence and public claims
+        run: python reports/checks/check_evidence_release.py
+
   forge-tests:
     name: Forge Tests
     runs-on: ubuntu-latest
@@ -36,9 +56,11 @@ jobs:
           FOUNDRY_PROFILE: ci
         run: forge test -vvv --no-match-path test/OracleAnchoredLVRHookFork.t.sol
 
-  fork-tests:
-    name: Mainnet Fork Tests
-    if: ${{ secrets.MAINNET_RPC_URL != '' }}
+      - name: Enforce deployed bytecode size limits
+        run: forge build --sizes
+
+  static-analysis:
+    name: Static Analysis and Secret Scan
     runs-on: ubuntu-latest
 
     steps:
@@ -46,6 +68,10 @@ jobs:
         with:
           submodules: recursive
           persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -55,9 +81,42 @@ jobs:
       - name: Prepare local solc toolchain
         run: chmod +x toolchain/solc-0.8.26
 
+      - name: Install Slither
+        run: python -m pip install slither-analyzer==0.11.5
+
+      - name: Run security gates
+        run: ./script/security_checks.sh --slither
+
+  fork-tests:
+    name: Mainnet Fork Tests
+    runs-on: ubuntu-latest
+    env:
+      MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+      SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
+
+    steps:
+      - name: Fork RPC unavailable
+        if: env.MAINNET_RPC_URL == ''
+        run: echo "Skipping fork tests because MAINNET_RPC_URL is not configured."
+
+      - uses: actions/checkout@v5
+        if: env.MAINNET_RPC_URL != ''
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Install Foundry
+        if: env.MAINNET_RPC_URL != ''
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Prepare local solc toolchain
+        if: env.MAINNET_RPC_URL != ''
+        run: chmod +x toolchain/solc-0.8.26
+
       - name: Run pinned-block fork tests
+        if: env.MAINNET_RPC_URL != ''
         env:
           FOUNDRY_PROFILE: ci
-          MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
-          SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
         run: forge test -vvv --match-path test/OracleAnchoredLVRHookFork.t.sol

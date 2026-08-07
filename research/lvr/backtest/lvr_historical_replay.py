@@ -1992,7 +1992,7 @@ def write_series_csv(path_str: str, series: Iterable[Dict[str, Any]]) -> None:
 def write_rows_csv(path_str: str, fieldnames: list[str], rows: Iterable[Dict[str, Any]]) -> None:
     path = Path(path_str)
     with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
 

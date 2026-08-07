@@ -63,6 +63,8 @@ class GenerateAggregateReportTest(unittest.TestCase):
             "window_id": window_id,
             "pool": pool,
             "regime": regime,
+            "measured_regime": regime,
+            "realized_vol_annualised_pct": 50.0 if regime == "normal" else 150.0,
             "oracle_updates": 4,
             "swap_samples": 2,
             "confirmed_label_rate": 0.5,
@@ -88,7 +90,10 @@ class GenerateAggregateReportTest(unittest.TestCase):
 
     def load_real_window_summary(self, window_id: str) -> dict:
         path = self.real_batch_output_dir / window_id / "window_summary.json"
-        return json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload.setdefault("measured_regime", payload["regime"])
+        payload.setdefault("realized_vol_annualised_pct", 50.0)
+        return payload
 
     def test_generate_aggregate_report_marks_official_when_two_pools_are_stable(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -178,9 +183,13 @@ class GenerateAggregateReportTest(unittest.TestCase):
             stress_2h = dict(window_summaries[0])
             stress_2h["window_id"] = "weth_usdc_3000_stress_2025_10_10_2h"
             stress_2h["regime"] = "stress"
+            stress_2h["measured_regime"] = "stress"
+            stress_2h["realized_vol_annualised_pct"] = 150.0
             stress_6h = dict(window_summaries[0])
             stress_6h["window_id"] = "weth_usdc_3000_stress_2025_10_10_6h"
             stress_6h["regime"] = "stress"
+            stress_6h["measured_regime"] = "stress"
+            stress_6h["realized_vol_annualised_pct"] = 150.0
             window_summaries.extend([stress_2h, stress_6h])
             for summary in window_summaries:
                 self.write_window_summary(batch_output_dir, summary)
@@ -203,6 +212,59 @@ class GenerateAggregateReportTest(unittest.TestCase):
             self.assertTrue(
                 all(row["regime"] == "stress" for row in report["regime_breakdown"]["stress"]["sample_counts"])
             )
+
+    def test_declared_labels_cannot_change_measured_breakdown(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            batch_output_dir = tmp_path / "out"
+            windows = [
+                self.make_window_manifest(window_id="measured-normal", pool="0xaaa", regime="stress"),
+                self.make_window_manifest(window_id="unmeasurable", pool="0xbbb", regime="normal"),
+            ]
+            manifest_path = self.write_manifest(tmp_path, windows)
+            measured = self.make_window_summary(
+                window_id="measured-normal",
+                pool="0xaaa",
+                oracle_ranking=["chainlink", "deep_pool"],
+                regime="stress",
+            )
+            measured["measured_regime"] = "normal"
+            unmeasurable = self.make_window_summary(
+                window_id="unmeasurable",
+                pool="0xbbb",
+                oracle_ranking=["chainlink", "deep_pool"],
+                regime="normal",
+            )
+            unmeasurable["measured_regime"] = None
+            unmeasurable["realized_vol_annualised_pct"] = None
+            for summary in (measured, unmeasurable):
+                self.write_window_summary(batch_output_dir, summary)
+            (batch_output_dir / "aggregate_manifest_summary.json").write_text(
+                json.dumps({"windows": [measured, unmeasurable]}, indent=2, sort_keys=True),
+                encoding="utf-8",
+            )
+
+            report = generate_aggregate_report(
+                self.make_args(manifest_path, batch_output_dir, tmp_path / "report.json")
+            )
+
+            self.assertEqual(list(report["regime_breakdown"]), ["normal"])
+            self.assertEqual(report["regime_breakdown"]["normal"]["window_count"], 1)
+            self.assertEqual(len(report["sample_counts"]), 2)
+            sample_counts_by_window = {
+                row["window_id"]: row for row in report["sample_counts"]
+            }
+            self.assertEqual(sample_counts_by_window["measured-normal"]["regime"], "normal")
+            self.assertEqual(
+                sample_counts_by_window["measured-normal"]["declared_regime"],
+                "stress",
+            )
+            self.assertIsNone(sample_counts_by_window["unmeasurable"]["regime"])
+            self.assertEqual(
+                sample_counts_by_window["unmeasurable"]["declared_regime"],
+                "normal",
+            )
+            self.assertEqual(report["unmeasurable_regime_window_ids"], ["unmeasurable"])
 
     def test_generate_aggregate_report_includes_fee_identity_fields(self) -> None:
         if not self.real_manifest_path.exists() or not self.real_batch_output_dir.exists():

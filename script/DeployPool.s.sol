@@ -29,6 +29,8 @@ interface IERC20Decimals {
 /// The broadcast sender must be the hook owner, and TOKEN0 < TOKEN1 must already
 /// be sorted. BASE_FEED is token0's asset/USD feed and QUOTE_FEED is token1's
 /// asset/USD feed (leave QUOTE_FEED unset if the base feed alone quotes the pair).
+/// Set FINAL_HOOK_OWNER to a deployed Safe to nominate it after configuration;
+/// the Safe must separately call acceptOwnership().
 ///
 /// Usage (see docs/deployment.md):
 ///   HOOK=0x... TOKEN0=0x... TOKEN1=0x... BASE_FEED=0x... QUOTE_FEED=0x... \
@@ -92,6 +94,13 @@ contract DeployPool is Script {
         int24 tick = poolManager.initialize(key, sqrtPriceX96);
 
         hook.setConfig(key, cfg);
+        address finalHookOwner = vm.envOr("FINAL_HOOK_OWNER", address(0));
+        if (finalHookOwner != address(0)) {
+            require(
+                finalHookOwner.code.length != 0, "DeployPool: FINAL_HOOK_OWNER must be a contract"
+            );
+            hook.transferOwnership(finalHookOwner);
+        }
         vm.stopBroadcast();
 
         console2.log("ChainlinkReferenceOracle:", address(oracle));
@@ -99,6 +108,10 @@ contract DeployPool is Script {
         console2.log("  initialized at tick:    ", tick);
         console2.log("  pool id:");
         console2.logBytes32(PoolId.unwrap(key.toId()));
+        if (finalHookOwner != address(0)) {
+            console2.log("  pending final owner:     ", finalHookOwner);
+            console2.log("  action required: Safe must call acceptOwnership()");
+        }
     }
 
     /// @dev Defaults are the recommended Dutch-auction cell from reports/: 5 bps

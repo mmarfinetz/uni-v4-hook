@@ -20,8 +20,9 @@ as a high-volatility upper bound, not an expected yield.
 
 from decimal import Decimal
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 import csv
+import json
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 COMBINED_GRID_PATH = REPO_ROOT / "reports" / "sensitivity_grid_combined.csv"
@@ -34,6 +35,7 @@ USD_TABLE_PATH = (
     / "cross_pool_native_usd_table.csv"
 )
 OBSERVED_FLOW_PATH = REPO_ROOT / "reports" / "observed_flow_lp_uplift_windows.csv"
+EVIDENCE_RELEASE_PATH = REPO_ROOT / "reports" / "evidence_release.json"
 OUTPUT_CSV_PATH = REPO_ROOT / "reports" / "lp_apr_uplift.csv"
 OUTPUT_MD_PATH = REPO_ROOT / "reports" / "lp_apr_uplift.md"
 CHART_PATH = REPO_ROOT / "reports" / "charts" / "chart_lp_uplift_vs_static.png"
@@ -202,6 +204,13 @@ def observed_flow_counts() -> Dict[str, int]:
     return counts
 
 
+def evidence_release() -> Dict[str, Any]:
+    payload = json.loads(EVIDENCE_RELEASE_PATH.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("evidence release must contain a JSON object")
+    return payload
+
+
 def _fmt_usd(value: Decimal) -> str:
     if value >= Decimal(1_000_000):
         return "$%.2fM" % (value / Decimal(1_000_000))
@@ -213,6 +222,14 @@ def _fmt_usd(value: Decimal) -> str:
 def write_outputs(rows: List[Dict[str, Decimal]]) -> None:
     # Observed-flow sign counts are quoted in two places below, so resolve once.
     counts = observed_flow_counts()
+    release = evidence_release()
+    ablation = release["observed_flow_ablation"]
+    delta_counts = ablation["overall_delta_counts"]
+    measured_counts = ablation["measured_delta_counts"]
+    unmeasured_counts = ablation["unmeasurable_delta_counts"]
+    october = release["october_2025_regimes"]
+    if counts["windows"] != ablation["window_count"]:
+        raise ValueError("observed-flow CSV and evidence release window counts differ")
     fieldnames = [
         "pool",
         "tvl_usd",
@@ -286,13 +303,44 @@ def write_outputs(rows: List[Dict[str, Decimal]]) -> None:
         "",
         "The ceiling above uses a modeled repricer. The floor companion replays real",
         "historical swaps (54 windows across seven pools, observed-flow ablation",
-        "study re-run 2026-07-30 under the corrected amount1/amount0 convention) through the",
-        "hook+auction and static-fee policies on identical reconstructed pool state.",
+        "frozen %s after the amount1/amount0 and same-second ordering corrections)"
+        % release["release_id"],
+        "through the hook+auction and static-fee policies on identical reconstructed",
+        "pool state.",
         "Against the static-fee policy, LP net was higher in **%d of %d windows**,"
         % (counts["positive"], counts["windows"]),
         "unchanged in %d, and lower in **%d** (per-window values frozen in"
         % (counts["zero"], counts["negative"]),
         "`reports/observed_flow_lp_uplift_windows.csv`).",
+        "",
+        "Against the broad all-stale auction, the selective policy improves LP uplift",
+        "in **%d windows**, is unchanged in **%d**, and is lower in **%d**; mean"
+        % (
+            delta_counts["improved"],
+            delta_counts["unchanged"],
+            delta_counts["worsened"],
+        ),
+        "window trigger rate falls from %.2f%% to %.2f%%. Volatility is measurable"
+        % (
+            100 * ablation["mean_window_broad_trigger_rate"],
+            100 * ablation["mean_window_selective_trigger_rate"],
+        ),
+        "in %d of those windows (%d/%d/%d improved/unchanged/worsened); the other"
+        % (
+            ablation["measured_regime_window_count"],
+            measured_counts["improved"],
+            measured_counts["unchanged"],
+            measured_counts["worsened"],
+        ),
+        "%d are excluded from regime claims (%d/%d/%d). The separate October recut"
+        % (
+            ablation["unmeasurable_regime_window_count"],
+            unmeasured_counts["improved"],
+            unmeasured_counts["unchanged"],
+            unmeasured_counts["worsened"],
+        ),
+        "supplies %d measured normal and %d measured stress windows."
+        % (october["measured_counts"]["normal"], october["measured_counts"]["stress"]),
         "",
         "Provenance note: the original May 2026 run fed external reference feeds in",
         "quote-asset-per-base-asset orientation while the pool series is",
@@ -300,12 +348,16 @@ def write_outputs(rows: List[Dict[str, Decimal]]) -> None:
         "UNI/WETH, WBTC/USDC, WBTC/WETH) saw reciprocal prices: the hook branch",
         "failed closed on every swap and the fixed-fee branch accrued phantom LVR.",
         "The study runner now inverts external reference series for those pools and",
-        "the replay fails loudly on convention mismatches; headline rule-selectivity",
-        "counts (28 improved / 26 unchanged / 0 worse) are unchanged by the fix.",
+        "the replay fails loudly on convention mismatches. The later same-second",
+        "ordering fix changes auction-reference ranking, so intermediate ablation",
+        "counts are superseded by this frozen release.",
         "USD aggregation of the floor is still not offered because window families",
-        "differ in span and oversample stress periods; the sign counts are the",
+        "differ in span and sampling density; the sign counts are the",
         "claim. The replay holds flow captive (the same swaps run through both fee",
         "curves), so it bounds mechanism accounting, not market routing behavior.",
+        "",
+        "Canonical inputs and summaries: `study_artifacts/evidence_release_%s`."
+        % str(release["release_id"]).replace("-", "_"),
         "",
         "Reproduce with `python3 -m script.build_lp_apr_uplift`.",
     ]
@@ -368,11 +420,13 @@ def write_chart(rows: List[Dict[str, Decimal]]) -> bool:
     ax.tick_params(axis="y", length=0)
     ax.margins(x=0.06, y=0.22)
     ax.legend(frameon=False, loc="lower right", fontsize=9)
+    counts = observed_flow_counts()
     fig.text(
         0.012, 0.012,
         "Baseline = static-fee v3/v4 pool at the venue tier; recapture at the mechanism's"
         " modeled ceiling.\nObserved-flow floor: LP net never below the baseline in 54"
-        " replayed windows (higher in 49). Details: reports/lp_apr_uplift.md",
+        " replayed windows (higher in %d). Details: reports/lp_apr_uplift.md"
+        % counts["positive"],
         fontsize=7.2, color=INK_MUTED,
     )
     fig.tight_layout(rect=(0, 0.09, 1, 1))

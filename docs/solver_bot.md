@@ -5,7 +5,10 @@ backtests model, against a live chain: it watches a hooked pool's stale gap, ope
 the auction clock the moment a trigger-eligible gap appears (`pokeAuction`), and
 executes the repricing swap once the scheduled concession clears its threshold. The
 fill swaps through a `PoolSwapTest` router with the reference sqrt price as the
-price limit, so the pool lands exactly on the oracle price and the auction closes.
+price limit, so it cannot cross the oracle price. It lands exactly on the reference
+and closes the auction only when the configured directional input cap is large
+enough; a smaller cap performs a partial correction and the next loop re-evaluates
+the residual gap.
 
 Stdlib-only Python (3.9+); all chain access goes through the Foundry `cast` binary.
 Pure decision/math helpers are unit-tested in
@@ -92,8 +95,8 @@ Current demo deployment (Base Sepolia, 2026-07-10, on the hook in
 ## Running the loop
 
 Configuration comes from flags or the environment (`HOOK`, `TOKEN0`, `TOKEN1`,
-`SWAP_ROUTER`, `BASE_FEED`, `QUOTE_FEED`, `RPC_URL`/`BASE_SEPOLIA_RPC_URL`,
-`PRIVATE_KEY`/`DEPLOYER_KEY`); the repo-local `.env` carries the demo values.
+`SWAP_ROUTER`, `BASE_FEED`, `QUOTE_FEED`, `RPC_URL`/`BASE_SEPOLIA_RPC_URL`, and
+`KEYSTORE_ACCOUNT`). The repo-local `.env` carries demo values only.
 
 ### Signing
 
@@ -108,17 +111,23 @@ printf '<password>' > ~/.keeper.pass && chmod 600 ~/.keeper.pass
 export KEYSTORE_ACCOUNT=keeper ETH_PASSWORD=~/.keeper.pass
 ```
 
-`PRIVATE_KEY`/`DEPLOYER_KEY` still works and takes the argv path, but warns once
-per run. Keep it for throwaway testnet keys only; use the keystore for any key
-that controls real liquidity. (`cast --interactive` cannot be used
-programmatically — it prompts on `/dev/tty`, not stdin.)
+`PRIVATE_KEY`/`DEPLOYER_KEY` remains available for throwaway testnet commands, but
+`run` rejects it unless `--allow-unsafe-raw-key` is explicitly set. Use the
+keystore for any key that controls real inventory. (`cast --interactive` cannot
+be used programmatically—it prompts on `/dev/tty`, not stdin.)
 
 ```bash
 set -a; source .env; set +a
 python3 script/solver_bot.py status
 python3 script/solver_bot.py make-gap --bps 30      # move the reference 30 bps
-python3 script/solver_bot.py run --interval 15 --min-concession-wad 3e15 --keep-fresh
+python3 script/solver_bot.py \
+  --native-token-price-token1 1 \
+  run --interval 15 --min-concession-wad 3e15 --keep-fresh
 ```
+
+The rate of `1` in that command is a demo-only assumption for the manually
+priced token pair. A real solver must supply a conservative, refreshed number of
+whole token1 units per native gas token.
 
 `run` polls continuously, pokes when the current gap and stored auction clock are
 out of sync, and fills once the concession reaches `--min-concession-wad`. That
@@ -153,9 +162,44 @@ python3 script/solver_bot.py \
   status
 ```
 
-Replace `status` with `run --interval 15 --min-concession-wad 3e15` to operate
-the loop. `pokeAuction` is permissionless and cheap; fills require the keeper
-wallet to hold and approve the input token for the swap router.
+Replace `status` with, for example,
+`--native-token-price-token1 2500 run --interval 15 --min-concession-wad 3e15`
+to operate the loop, using the correct current native/token1 rate. `pokeAuction`
+is permissionless and cheap; fills require the keeper wallet to hold and approve
+the input token for the swap router.
+
+## Profitability and transaction safety
+
+Every candidate fill is simulated from the solver address using the exact router
+calldata. The bot values the returned `BalanceDelta` at the reference price,
+estimates gas, applies `--gas-limit-buffer-bps`, and requires the gross surplus to
+cover gas plus `--solver-edge-bps` and `--min-profit-token1`. It refuses fills
+above `--max-gas-price-gwei` or above the first-party
+`--max-concession-wad` reserve. `--dry-run` exercises that full preflight without
+broadcasting.
+
+Transactions use an explicit pending nonce and confirmation count. Unconfirmed
+transactions are replaced at the same nonce with bounded fee bumps; hashes and
+nonce are persisted before receipt polling. On restart, the bot refuses to issue
+a new transaction until the stored pending transaction is reconciled. Configure
+independent endpoints with repeated `--rpc-fallback-url` flags.
+
+Run state defaults to `.tmp/solver/state.json`, JSONL events to
+`.tmp/solver/metrics.jsonl`, a Prometheus text file to
+`.tmp/solver/metrics.prom`, and health state to `.tmp/solver/health.json`. Only
+one process may hold a state path. A supervisor can probe:
+
+```bash
+python3 script/solver_bot.py \
+  --state-path /var/lib/lvr-solver/state.json \
+  --metrics-path /var/lib/lvr-solver/metrics.jsonl \
+  --health-path /var/lib/lvr-solver/health.json \
+  health --max-age-seconds 120 --max-consecutive-errors 5
+```
+
+The loop backs off exponentially after errors and exits once its configured
+consecutive-error budget is exhausted, allowing a process supervisor to alert and
+restart only after operator review.
 
 ## What the live demo showed (Base Sepolia, 2026-07-10)
 
@@ -215,10 +259,10 @@ pools.
 Operational notes:
 
 - The public `sepolia.base.org` RPC is load-balanced with inconsistent mempool
-  views; back-to-back sends can transiently report `replacement transaction
-  underpriced` (sometimes for a transaction that was actually accepted). The bot
-  retries transient nonce errors; treat "failed" demo-feed moves as possibly
-  applied.
-- A production solver would replace the time-threshold fill policy with the
-  profitability gates from the backtest (`solverGasCostQuote`, `solverEdgeBps`,
-  reserve checks in `script/run_dutch_auction_backtest.py`).
+  views. The bot searches receipts across endpoints and performs bounded
+  same-nonce replacements, but an unresolved transaction remains a manual-review
+  condition rather than being silently discarded.
+- The implemented profitability gate depends on the configured native/token1
+  rate and simulation fidelity. It does not guarantee inclusion or protection
+  from competing MEV; operators should use conservative reserves and isolated,
+  bounded inventory.

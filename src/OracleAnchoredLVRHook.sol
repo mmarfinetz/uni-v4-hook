@@ -22,6 +22,7 @@ contract OracleAnchoredLVRHook is IHooks {
     using StateLibrary for IPoolManager;
 
     error NotOwner();
+    error NotPendingOwner();
     error NotPoolManager();
     error InvalidOwner();
     error InvalidConfig();
@@ -53,6 +54,7 @@ contract OracleAnchoredLVRHook is IHooks {
 
     IPoolManager public immutable poolManager;
     address public owner;
+    address public pendingOwner;
 
     struct Config {
         IReferenceOracle oracle;
@@ -94,6 +96,9 @@ contract OracleAnchoredLVRHook is IHooks {
     mapping(PoolId => uint64) public auctionStartTs;
 
     event OwnerInitialized(address indexed owner);
+    event OwnershipTransferStarted(address indexed previousOwner, address indexed pendingOwner);
+    event OwnershipTransferCancelled(address indexed owner, address indexed cancelledPendingOwner);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event ConfigSet(
         PoolId indexed poolId,
         address indexed oracle,
@@ -143,6 +148,31 @@ contract OracleAnchoredLVRHook is IHooks {
     modifier onlyPoolManager() {
         if (msg.sender != address(poolManager)) revert NotPoolManager();
         _;
+    }
+
+    /// @notice Nominate a new owner. Authority remains with the current owner
+    /// until the nominee explicitly accepts, preventing accidental lockout.
+    function transferOwnership(address newOwner) external onlyOwner {
+        if (newOwner == address(0) || newOwner == owner) revert InvalidOwner();
+        pendingOwner = newOwner;
+        emit OwnershipTransferStarted(owner, newOwner);
+    }
+
+    /// @notice Accept a pending ownership transfer from the nominated address.
+    function acceptOwnership() external {
+        address nextOwner = pendingOwner;
+        if (msg.sender != nextOwner) revert NotPendingOwner();
+        address previousOwner = owner;
+        owner = nextOwner;
+        pendingOwner = address(0);
+        emit OwnershipTransferred(previousOwner, nextOwner);
+    }
+
+    /// @notice Clear an unaccepted nomination without changing the owner.
+    function cancelOwnershipTransfer() external onlyOwner {
+        address cancelledPendingOwner = pendingOwner;
+        pendingOwner = address(0);
+        emit OwnershipTransferCancelled(owner, cancelledPendingOwner);
     }
 
     function getHookPermissions() external pure returns (Hooks.Permissions memory permissions) {
@@ -292,9 +322,7 @@ contract OracleAnchoredLVRHook is IHooks {
     function quotable(PoolKey calldata key) external view returns (bool) {
         Config memory cfg = config[key.toId()];
         if (address(cfg.oracle) == address(0)) return false;
-        try cfg.oracle.latestPriceWad() returns (
-            uint256 priceWad, uint256 updatedAt, uint256
-        ) {
+        try cfg.oracle.latestPriceWad() returns (uint256 priceWad, uint256 updatedAt, uint256) {
             if (priceWad == 0 || block.timestamp > updatedAt + cfg.maxOracleAge) return false;
             uint256 scaled = FullMath.mulDiv(FixedPointMathLib.sqrt(priceWad), Q96, SQRT_WAD);
             return scaled >= TickMath.MIN_SQRT_PRICE && scaled < TickMath.MAX_SQRT_PRICE;

@@ -4,9 +4,9 @@
 
 This note studies an oracle-anchored Uniswap v4 hook that opens Dutch-auction repricing from the current pool-oracle stale gap rather than an absolute price threshold or oracle-movement proxy. The auction trigger is `stale_gap_bps_before >= trigger_gap_bps` and is shared by all selection rules. The hook fee remains `baseFee + alpha * (sqrt(price gap) - 1)` for informed stale-price trades, capped by `maxFee`; the auction is the repricing path around that fee floor. Here, informed repricing is the AMM version of toxic flow: flow that trades against stale quotes and is negative for LPs before fees. The grid covers 324 parameter sets per pool across four October 2025 pools, producing 1,296 rows in `reports/sensitivity_grid_combined.csv`. The recommended parameter set uses a 10 bps trigger gap, 5 bps base fee, 10 bps starting concession, 0.5 bps/sec growth, and a 2500 bps max fee. The empirically informative outcomes are that this cell maintains a 1.0 clear rate on all four pools, beats the fixed-fee V3 baseline everywhere, and does so with a far more selective trigger than the broad all-stale rule. Its 99.9000% mean cross-pool recapture should be read as the mechanical ceiling implied by the mechanism assumptions rather than an independent finding: with a single rational solver, zero gas, and captive flow, a clearing auction returns everything except the concession by construction (the near-zero 0.000002 pp cross-pool standard deviation reflects exactly this). Critically, this is recapture of the *oracle-visible* stale-loss — LVR is measured against the same Chainlink series the hook uses as its oracle. Measured against a faster Binance reference (see [`reports/reference_lag_recapture.md`](../reports/reference_lag_recapture.md)), Chainlink lags the CEX by a median 21 bps and true recapture is ~78% on mainnet feeds (higher on Base's tighter feeds). All methodology corrections are catalogued in [`docs/methodology_limitations.md`](methodology_limitations.md).
 
-The observed-flow replay (re-run 2026-07-30 under the corrected amount1/amount0 price convention) adds a second check on the study machinery. It covers 54 windows across seven pools, reconstructs exact V3 state in every window, replays observed swaps through the fee curves, overlays the Dutch auction branch, and compares the broad all-stale auction rule against the hook-based auction rule. The hook-based rule improves LP net gain versus the broad all-stale rule in 14 windows, leaves 40 unchanged, and worsens none.
+The observed-flow replay (frozen 2026-08-03 after the price-convention and same-second ordering corrections) adds a second check on the study machinery. It covers 54 windows across seven pools, reconstructs exact V3 state in every window, replays observed swaps through the fee curves, overlays the Dutch auction branch, and compares the broad all-stale auction rule against the hook-based auction rule. The hook-based rule improves LP net gain versus the broad all-stale rule in 19 windows, leaves 35 unchanged, and worsens none.
 
-Price-convention corrections (two rounds). The May 2026 run fed external reference feeds in quote-asset-per-base-asset orientation, the reciprocal of the replay's pool convention on the pools whose base asset is token0; those windows were inert rather than genuinely unchanged, and a guard now raises when a window's smallest observed gap exceeds 20,000 bps. A second, deeper defect was found on 2026-07-29: `simulate_swap` requires amount1/amount0 but the pipeline fed it the reciprocal, swapping the virtual-reserve legs and overstating simulated price impact by 127x (WETH/USDC) to 4,608x (PAXG/USDC). With that fixed, simulated impact matches on-chain moves to 0.96-0.99x on every studied pool, and the cached-fixture path needed two follow-ups: `deep_pool` series (pool-derived, always token0-per-token1) now always invert while feed series invert only where the stablecoin sorts first, and `INVERTED_EXTERNAL_REFERENCE_FAMILIES` is the complement of its pre-fix contents. The corrected re-run gives a 14/40/0 selectivity split with all pools live; against the static-fee policy LP net is higher in all 54 windows and lower in none (`reports/observed_flow_lp_uplift_windows.csv`). See [`docs/methodology_limitations.md`](methodology_limitations.md).
+Price-convention and ordering corrections. The May 2026 run fed external reference feeds in quote-asset-per-base-asset orientation, the reciprocal of the replay's pool convention on the pools whose base asset is token0; those windows were inert rather than genuinely unchanged, and a guard now raises when a window's smallest observed gap exceeds 20,000 bps. A second, deeper defect was found on 2026-07-29: `simulate_swap` requires amount1/amount0 but the pipeline fed it the reciprocal, swapping the virtual-reserve legs and overstating simulated price impact by 127x (WETH/USDC) to 4,608x (PAXG/USDC). With that fixed, simulated impact matches on-chain moves to 0.96-0.99x on every studied pool. The interim 14/40/0 rerun still predated the 2026-07-31 same-second off-chain ordering fix. Because oracle ranking selects the auction reference, that fix changes policy results as well as classifier metrics; the final rerun is 19/35/0. Against the static-fee policy LP net is higher in all 54 windows and lower in none. See [`reports/evidence_release.md`](../reports/evidence_release.md) and [`docs/methodology_limitations.md`](methodology_limitations.md).
 
 ## Glossary
 
@@ -180,14 +180,15 @@ Chart reference: `reports/charts/chart_d_consistency.png`.
 
 ### Observed-Flow Replay Check
 
-Coverage from `.tmp/dutch_auction_ablation_study_20260504/study_summary.json`:
+Coverage from the frozen `study_artifacts/evidence_release_2026_08_03` bundle:
 
 | Metric | Value |
 | --- | ---: |
 | Replay windows | 54 |
 | Window groups | 12 |
 | Pools | 7 |
-| Routine / historical stress windows | 36 / 18 |
+| Declared routine / stress sampling tags (provenance only) | 36 / 18 |
+| Measured normal / stress / unmeasurable | 38 / 0 / 16 |
 | Observed prefix swap rows | 7,106 |
 | Exact replay reliable windows | 54 / 54 |
 | Fee formula checks passed | 54 / 54 |
@@ -196,13 +197,12 @@ Coverage from `.tmp/dutch_auction_ablation_study_20260504/study_summary.json`:
 
 Policy comparison from `policy_ablation.csv` and `bootstrap_lp_uplift_vs_hook.json`:
 
-| Regime | Windows | Positive delta | Old LP net | New LP net | Delta | 95% CI for delta |
+| Measured subset | Windows | Positive delta | Broad LP uplift | Selective LP uplift | Delta | 95% CI for delta |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Overall | 54 | 28 | -2.8646 | 2.7735 | 5.6381 | [1.7364, 9.5666] |
-| Normal | 36 | 18 | -2.2242 | 3.0039 | 5.2281 | [0.5103, 10.5484] |
-| Stress | 18 | 10 | -4.1454 | 2.3127 | 6.4581 | [0.0000, 11.0710] |
+| Overall | 54 | 19 | 0.3609 | 1.3501 | 0.9892 | [0.0065, 2.2198] |
+| Measured normal | 38 | 14 | 0.5115 | 1.7088 | 1.1973 | [0.0145, 2.8729] |
 
-The LP net columns are in each window's native quote units, so they are directional within-window evidence rather than a cross-pool total. The sign result is cleaner: 28 windows improve, 26 are unchanged, and zero worsen. The hook-based rule has a lower mean trigger rate than the broad all-stale rule, 0.9825% versus 5.8233%, and every triggered hook-based window has a 1.0 fill rate.
+The LP uplift columns are in each window's native quote units, so they are directional within-window evidence rather than a cross-pool total. The sign result is cleaner: 19 windows improve, 35 are unchanged, and zero worsen. Mean window trigger rate is 3.07% for the hook-based rule versus 7.17% for the broad all-stale rule. Event-weighted, the selective rule triggers 130 of 7,106 swaps and fills 119 (91.54%); 11 fall back when the oracle is stale at modeled fill time. The 16 unmeasurable windows remain in the overall policy result but are excluded from every regime claim. The observed-flow ablation therefore does not establish stress-regime generalisation; the separate October recut supplies 95 measured normal and 29 measured stress windows.
 
 ## Interpretation
 

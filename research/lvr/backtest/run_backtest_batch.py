@@ -21,6 +21,7 @@ if str(REPO_ROOT) not in sys.path:
 from research.lvr.export.build_actual_series_from_swaps import build_actual_series
 from research.lvr.export.export_historical_replay_data import RpcClient, export_historical_replay_data
 from research.lvr.core.flow_classification import DEFAULT_LABEL_CONFIG_PATH, load_label_config
+from research.lvr.core.regime import DEFAULT_STRESS_VOL_ANNUALISED_PCT, measure_regime
 from research.lvr.backtest.lvr_historical_replay import (
     ExactReplayBackend,
     ExactReplaySeriesRow,
@@ -72,9 +73,6 @@ MARKET_REFERENCE_FIELDNAMES = [
 
 _INVERTIBLE_PRICE_FIELDS = ("price", "reference_price")
 _INVERTIBLE_WAD_FIELDS = ("price_wad", "reference_price_wad")
-
-
-from research.lvr.core.regime import measure_regime
 
 def invert_reference_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     """Reorient reference rows from quote-asset-per-base-asset to the replay's
@@ -141,6 +139,7 @@ class AggregateManifestSummaryRow:
     regime: str
     realized_vol_annualised_pct: float | None
     measured_regime: str | None
+    regime_stress_threshold_pct: float
     oracle_updates: int
     swap_samples: int
     confirmed_label_rate: float | None
@@ -350,6 +349,12 @@ def parse_args() -> argparse.Namespace:
         "--label-config",
         default=str(DEFAULT_LABEL_CONFIG_PATH),
         help="Path to label_config.json.",
+    )
+    parser.add_argument(
+        "--regime-stress-threshold-pct",
+        type=float,
+        default=DEFAULT_STRESS_VOL_ANNUALISED_PCT,
+        help="Annualised realized-volatility threshold used to label stress windows.",
     )
     parser.add_argument("--rpc-timeout", type=int, default=45, help="RPC timeout in seconds.")
     parser.add_argument("--rpc-cache-dir", default=None, help="Optional directory for persistent RPC caching.")
@@ -651,8 +656,12 @@ def run_window(
 
     confirmed_label_rate = compute_confirmed_label_rate(oracle_gap_result["dataset"])
     label_horizons = [int(value) for value in load_label_config(args.label_config)["markout_horizons_seconds"]]
+    regime_stress_threshold_pct = float(
+        getattr(args, "regime_stress_threshold_pct", DEFAULT_STRESS_VOL_ANNUALISED_PCT)
+    )
     measured_vol_pct, measured_regime = measure_regime(
-        _reference_series_for_regime(resolved_oracle_sources[0].oracle_updates_path)
+        _reference_series_for_regime(resolved_oracle_sources[0].oracle_updates_path),
+        stress_threshold_pct=regime_stress_threshold_pct,
     )
     summary_row = AggregateManifestSummaryRow(
         window_id=window.window_id,
@@ -660,6 +669,7 @@ def run_window(
         regime=window.regime,
         realized_vol_annualised_pct=measured_vol_pct,
         measured_regime=measured_regime,
+        regime_stress_threshold_pct=regime_stress_threshold_pct,
         oracle_updates=int(export_summary["oracle_updates"]),
         swap_samples=int(export_summary["swap_samples"]),
         confirmed_label_rate=confirmed_label_rate,

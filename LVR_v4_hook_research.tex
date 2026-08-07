@@ -5,6 +5,7 @@
 \usepackage[hidelinks]{hyperref}
 \usepackage{amsmath}
 \usepackage{enumitem}
+\input{reports/evidence_release_macros.tex}
 
 \title{Oracle-Anchored LVR Recapture with Selective Dutch Auction Repricing}
 \author{
@@ -12,13 +13,13 @@ Mitchell Marfinetz\\
 University of Pennsylvania\\
 \texttt{mitchmar@sas.upenn.edu}
 }
-\date{May 2026}
+\date{August 2026}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-Liquidity providers in automated market makers lose value when a pool price is stale relative to a faster reference market. This adverse-selection cost is known as loss-versus-rebalancing (LVR). We study a Uniswap v4 hook that uses an external oracle to detect stale pool states, charges stale-price trades with a square-root fee rule derived from one-step LVR accounting, and optionally routes repricing through a Dutch auction. The main comparison is against other v4-hook designs on the same replay inputs: a base oracle-anchored hook without the auction path, a broad all-stale auction rule, and the proposed selective auction rule that opens only when the auction improves LP accounting relative to the base hook. On an observed-flow replay covering 54 multi-hour windows across seven Uniswap v3 pools (36 routine four-hour windows and 18 historical two-hour stress windows, roughly 180 hours of trading in total), the selective auction improves LP uplift versus the broad all-stale auction in 28 windows, leaves 26 unchanged, and worsens none. Its mean trigger rate is 0.9825\%, compared with 5.8233\% for the broad auction rule, while every triggered selective-auction window fills in the replay. A separate full-month October 2025 grid covering four pools, 89{,}220 swaps, and 8{,}784 oracle updates across 124 four-hour windows calibrates the auction layer and retains fixed-fee v3 only as a legacy leakage check. Because recapture is fundamentally bounded by oracle freshness, we also measure it against a faster CEX reference: the mainnet Chainlink feed lags Binance by a median of 21 bps, so the mechanism recaptures roughly three-quarters of true CEX-measured LVR rather than the near-complete recapture of the oracle-visible stale-loss, and the recoverable fraction rises with oracle freshness. We frame this oracle-freshness ceiling as a general property of oracle-anchored LVR recapture, not a limitation specific to this hook.\end{abstract}
+Liquidity providers in automated market makers lose value when a pool price is stale relative to a faster reference market. We study a Uniswap v4 hook that detects stale pool states with an external oracle, charges toxic repricing flow with a square-root fee rule derived from one-step loss-versus-rebalancing (LVR), and applies a permissionless Dutch-auction concession. On an observed-flow replay covering \EvidenceAblationWindows{} windows across seven Uniswap v3 pools, the selective policy improves LP uplift versus a broad all-stale auction in \EvidenceAblationImproved{} windows, leaves \EvidenceAblationUnchanged{} unchanged, and worsens \EvidenceAblationWorsened{}. Its mean window trigger rate is \EvidenceSelectiveTriggerPct\%, versus \EvidenceBroadTriggerPct\% for the broad policy. Volatility is measurable in \EvidenceMeasuredAblationWindows{} windows, all classified normal; \EvidenceUnmeasurableAblationWindows{} are excluded rather than assigned a default regime. A separate October 2025 corpus contains \EvidenceOctoberNormal{} measured normal and \EvidenceOctoberStress{} measured stress windows at a 100\% annualised-volatility threshold. Because recapture is bounded by oracle freshness, we also compare with a faster CEX reference: mainnet Chainlink lags Binance by a median 21 bps, limiting recapture of CEX-measured LVR even when oracle-visible stale loss is nearly recovered.\end{abstract}
 
 \section{Introduction}
 An automated market maker (AMM) quotes prices from its own on-chain state. If an external market moves first, the AMM can briefly quote a stale price. A fast arbitrageur can then trade against the stale pool, move the pool toward the external price, and capture value that would otherwise belong to liquidity providers (LPs). This paper studies that event at hook level: when a Uniswap v4 pool is stale, can a hook redirect stale-price value back to LPs without leaving the pool unrepriced?
@@ -209,10 +210,10 @@ The evidence has two layers.
 \subsection{Data and Replay Construction}
 The historical input is Ethereum mainnet swap and \texttt{Sync} event data from Uniswap v3 pools. The replay reconstructs v3 pool state block by block, classifies each swap as informed or uninformed under the stale-gap rule defined in Section~3, and then re-prices the same observed flow through (a) the unmodified v3 fee tier, (b) the base oracle-anchored hook, (c) the broad all-stale auction overlay, and (d) the selective auction overlay. Reference prices come from Chainlink USD and ETH feeds for the relevant tokens; Pyth, Binance, and deep-pool references are reserved for sensitivity checks and are not used in the headline numbers.
 
-The observed-flow replay covers 54 windows across seven Uniswap v3 pools, with 36 routine four-hour windows and 18 historical two-hour stress windows, totalling roughly 180 hours of trading. A \textbf{window} is a contiguous block range — four hours for routine windows and two hours for stress windows — over which informed/uninformed classification, fee accounting, and auction overlays are evaluated on the same swap stream. \textbf{Routine} windows are sampled from ordinary trading periods; \textbf{stress} windows are sampled from periods with larger oracle-pool dislocation, oracle disagreement, high activity, or known replay edge cases, and are flagged in the replay configuration rather than detected ex post. The October 2025 calibration grid is a separate full-month four-pool artifact covering WETH/USDC, WBTC/USDC, LINK/WETH, and UNI/WETH — 124 four-hour windows (31 per pool), 89{,}220 swap samples, and 8{,}784 oracle updates — and is used only to pick auction-layer parameters around the base hook fee law.
+The observed-flow replay covers \EvidenceAblationWindows{} windows across seven Uniswap v3 pools, totalling roughly 180 hours of trading. A \textbf{window} is a contiguous block range over which informed/uninformed classification, fee accounting, and auction overlays are evaluated on the same swap stream. The source manifests retain their original routine/stress sampling tags for provenance, but those tags are not observations. Regime is instead computed from annualised realized volatility of the primary reference series. Only \EvidenceMeasuredAblationWindows{} prefixes contain enough primary-feed observations; all are measured normal at the 100\% threshold, while \EvidenceUnmeasurableAblationWindows{} remain unclassified. The observed-flow ablation therefore does not establish stress-regime generalisation. The October 2025 calibration grid is the separate regime check: it covers WETH/USDC, WBTC/USDC, LINK/WETH, and UNI/WETH across \EvidenceOctoberWindows{} four-hour windows (31 per pool), 89{,}220 swap samples, and \EvidenceOctoberOracleUpdates{} oracle updates, split into \EvidenceOctoberNormal{} measured normal and \EvidenceOctoberStress{} measured stress windows.
 
 \subsection{Primary Benchmark: V4 Hook Ablation}
-The primary benchmark is the observed-flow replay. It reconstructs v3 pool state, classifies observed swaps as informed or uninformed under the replay labels, replays fixed, hook, linear, and log fee policies, and overlays two auction policies on the same windows. This replay covers 54 windows across seven pools: 36 routine four-hour windows and 18 historical two-hour stress windows, totalling roughly 180 hours of trading.
+The primary benchmark is the observed-flow replay. It reconstructs v3 pool state, classifies observed swaps as informed or uninformed under the replay labels, replays fixed, hook, linear, and log fee policies, and overlays two auction policies on the same \EvidenceAblationWindows{} windows. Declared sampling labels are retained but never substituted for missing measured volatility.
 
 The comparison is deliberately hook-native:
 \begin{center}
@@ -251,21 +252,23 @@ Fixed-fee v3 remains in the paper only as a legacy leakage check. It asks how mu
 
 \section{Results}
 \subsection{Hook-Level Benchmark Results}
-The main result is that the selective auction improves the broad auction rule while preserving the base hook as a reserve. Across the 54-window observed-flow replay, the selective rule improves LP uplift versus the broad all-stale auction in 28 windows, leaves 26 unchanged, and worsens none.
+The main result is that the selective auction improves the broad auction rule while preserving the base hook as a reserve. Across the \EvidenceAblationWindows{}-window observed-flow replay, the selective rule improves LP uplift versus the broad all-stale auction in \EvidenceAblationImproved{} windows, leaves \EvidenceAblationUnchanged{} unchanged, and worsens \EvidenceAblationWorsened{}.
 
 \begin{center}
-\begin{tabular}{lrrrrrr}
+\small
+\begin{tabular}{@{}lrrrrrr@{}}
 \toprule
-Regime & Windows & Positive delta & Broad uplift & Selective uplift & Delta & 95\% CI for delta \\
+Subset & $N$ & Improved & Broad & Selective & Delta & 95\% CI \\
 \midrule
-Overall & 54 & 28 & -2.8646 & 2.7735 & 5.6381 & [1.7364,\ 9.5666] \\
-Normal & 36 & 18 & -2.2242 & 3.0039 & 5.2281 & [0.5103,\ 10.5484] \\
-Stress & 18 & 10 & -4.1454 & 2.3127 & 6.4581 & [0.0000,\ 11.0710] \\
+Overall & \EvidenceAblationWindows & \EvidenceAblationImproved & \EvidenceBroadMeanUplift & \EvidenceSelectiveMeanUplift & \EvidenceMeanDelta & [\EvidenceDeltaCiLower,\ \EvidenceDeltaCiUpper] \\
+Measured normal & \EvidenceMeasuredAblationWindows & \EvidenceMeasuredNormalImproved & \EvidenceMeasuredNormalBroadMeanUplift & \EvidenceMeasuredNormalSelectiveMeanUplift & \EvidenceMeasuredNormalMeanDelta & [\EvidenceMeasuredNormalDeltaCiLower,\ \EvidenceMeasuredNormalDeltaCiUpper] \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-The selective rule is also materially less intrusive. The broad all-stale rule triggers on 5.8233\% of observed replay opportunities on average. The selective rule triggers on 0.9825\%. Every selective-auction window with at least one trigger has a 1.0 fill rate, and the run records no oracle fail-closed events under the selective rule.
+The unmeasurable subset has \EvidenceUnmeasurableAblationWindows{} windows: \EvidenceUnmeasurableImproved{} improve, \EvidenceUnmeasurableUnchanged{} are unchanged, and \EvidenceUnmeasurableWorsened{} worsen. These rows remain in the overall policy comparison but are excluded from every regime claim.
+
+The selective rule is also materially less intrusive. The broad all-stale rule triggers on \EvidenceBroadTriggerPct\% of observed replay opportunities on average by window. The selective rule triggers on \EvidenceSelectiveTriggerPct\%. Event-weighted across \EvidenceObservedSwaps{} swaps, the selective arm triggers \EvidenceSelectiveEventTriggered{} auctions and fills \EvidenceSelectiveEventFilled{}, a \EvidenceSelectiveEventFillPct\% fill rate; \EvidenceSelectiveEventFallback{} fall back when the oracle is stale at modeled fill time. The model therefore supports reduced intervention, not perfect live liveness.
 
 This is the core benchmark result. The proposed design does not merely add an auction to the hook. It adds a more selective auction gate that preserves the base hook counterfactual and avoids auctioning stale events where the deterministic hook fee already protects LPs.
 
@@ -376,7 +379,7 @@ The study is a replay, not a live-market experiment. It omits realistic gas cost
 The next empirical step is a multi-month replay using the same hook-level benchmark hierarchy: base hook, broad all-stale auction, selective auction, and legacy fixed-fee reference. The next market-design step is a two-pool competitive-routing simulation where traders choose between a base hook pool and a selective-auction hook pool. The auction model should also add gas costs, solver profit margins, multiple solvers, oracle disagreement, batching, and explicit fallback behavior when no solver clears.
 
 \section{Conclusion}
-The proposed design is best understood as a selective v4 hook improvement rather than as a comparison to fixed-fee v3. The base hook prices stale repricing flow with a square-root LVR fee. The Dutch auction adds an execution path only when that path improves LP accounting relative to the base hook. On the observed-flow replay, the selective rule improves LP uplift versus the broad all-stale auction in 28 of 54 windows, leaves the remaining 26 unchanged, and worsens none, while reducing the mean trigger rate from 5.8233\% to 0.9825\%. The fixed-fee v3 comparison remains useful as a leakage check, but the core result is the improvement over existing v4 hook variants.
+The proposed design is best understood as a selective v4 hook improvement rather than as a comparison to fixed-fee v3. The base hook prices stale repricing flow with a square-root LVR fee. The Dutch auction adds an execution path only when that path improves LP accounting relative to the base hook. On the observed-flow replay, the selective rule improves LP uplift versus the broad all-stale auction in \EvidenceAblationImproved{} of \EvidenceAblationWindows{} windows, leaves \EvidenceAblationUnchanged{} unchanged, and worsens \EvidenceAblationWorsened{}, while reducing the mean window trigger rate from \EvidenceBroadTriggerPct\% to \EvidenceSelectiveTriggerPct\%. The fixed-fee v3 comparison remains useful as a leakage check. Stress-regime evidence comes only from the separately measured October corpus; the observed-flow ablation does not contain a measurable stress window.
 
 \clearpage
 \section{Appendix: Cross-Pool Calibration Check}
@@ -388,7 +391,7 @@ The proposed design is best understood as a selective v4 hook improvement rather
 \end{figure}
 
 \section*{Code and Data Availability}
-The Solidity hook implementation, replay engine, October 2025 calibration grid, and the figure-generation scripts are released as the open-source repository \href{https://github.com/mmarfinetz/uni-v4-hook}{github.com/mmarfinetz/uni-v4-hook}. The empirical results in this paper correspond to the immutable git tag \href{https://github.com/mmarfinetz/uni-v4-hook/tree/paper-ssrn-v1}{\texttt{paper-ssrn-v1}}. The observed-flow replay artifacts and the calibration grid CSVs live under \path{study_artifacts/} and \path{reports/} at that tag; the figures in this paper are regenerated from those artifacts by the scripts under \path{script/}.
+The Solidity hook implementation, replay engine, October 2025 calibration grid, and the figure-generation scripts are released as the open-source repository \href{https://github.com/mmarfinetz/uni-v4-hook}{github.com/mmarfinetz/uni-v4-hook}. The empirical results in this paper correspond to evidence release \EvidenceReleaseId{}, frozen under \path{study_artifacts/evidence_release_2026_08_03}. Its manifest records the source revision and SHA-256 hashes for the replay code and inputs, while CI checks the paper macros and public claims against that release. Figures are regenerated from the frozen artifacts by the scripts under \path{script/}.
 
 \section*{Acknowledgments}
 The author thanks colleagues who reviewed earlier drafts for feedback on positioning and on the auction-design framing.

@@ -145,15 +145,12 @@ for the ~0.2% of swaps where the fee alone would leave LPs net-negative. That
 lowering the auction's share of LP economics. Recapture and clear-rate figures in
 the grid are computed on the broad rule and are unaffected.
 
-**Resolved 2026-07-30.** The 54-window observed-flow study was re-run under the
-corrected convention. The selective rate rose to `2.28%` (broad `3.33%`), and LP
-net improved in `14` windows, was unchanged in `40`, and **worsened in none**;
-against the static-fee baseline LP net was higher in all `54`. The pre-fix
-`0.98%`/`5.82%` pair overstated the selectivity gap. Re-running it required two
-further fixes: the cached fixtures store `deep_pool` (pool-derived, always
-token0-per-token1) and feed series in different orientations, so they need
-separate inversion rules, and `INVERTED_EXTERNAL_REFERENCE_FAMILIES` is now the
-complement of its pre-fix contents.
+**Interim rerun 2026-07-30.** The 54-window observed-flow study was re-run under
+the corrected convention. That pass produced `14` improved / `40` unchanged /
+`0` worsened at a `2.28%` selective mean window trigger rate (`3.33%` broad), and
+confirmed that LP net beat the static-fee baseline in all `54`. It fixed the
+price convention, but it predates the same-second ordering correction below and
+is no longer the public result.
 
 ## 2c. Trigger-quality metrics: two defects, and what they revealed **[fixed]**
 
@@ -204,6 +201,16 @@ prices the upgrade to a low-latency reference in concrete terms. Caveat: each
 oracle labels its own ground truth, so `toxic_confirmed` differs slightly across
 rows (1,014 for binance vs 1,022); treat the comparison as directional.
 
+**Policy consequence and final rerun (2026-08-03).** Oracle predictiveness also
+ranks the candidate references used by the auction replay. The same-second fix
+therefore changes policy selection, not just a descriptive classifier table. The
+fresh 54-window run improves in `19`, is unchanged in `35`, and worsens in `0`;
+mean window trigger rate is `3.07%` selective versus `7.17%` broad. Event-weighted,
+the selective arm triggers 130 of 7,106 swaps and fills 119 (`91.54%`), with 11
+stale-at-fill fallbacks. This supersedes the interim `14/40/0` result. Inputs,
+summaries, hashes, and bootstrap intervals are frozen in
+[`study_artifacts/evidence_release_2026_08_03`](../study_artifacts/evidence_release_2026_08_03).
+
 ## 3. Flow invariance / induced benign volume **[caveat]**
 
 The replay uses swaps that actually occurred on a 30-bps un-hooked pool. It
@@ -252,10 +259,15 @@ told about it; and the ordering across pools (WBTC calmest, LINK/UNI most
 volatile) matches their liquidity and market cap. The corpus now has **95
 calm-market windows** where it previously had zero.
 
-**Still open:** the regime split exists in the window summaries but the
-validation report and the published tables have not yet been re-cut along it, so
-"how the hook performs in calm markets specifically" is now answerable from the
-data but is not yet a published result.
+**Published recut.** The October breakdown and 80%/100%/120% threshold sensitivity
+are frozen in [`reports/evidence_release.md`](../reports/evidence_release.md). At
+the 100% threshold there are 95 normal and 29 stress windows. Neither group has a
+materially negative window versus the base hook or fixed-fee policy; the same is
+true at the 80% and 120% cuts. Native quote amounts are not averaged across pools;
+the public table reports sign counts plus comparable trigger/fill rates. The
+54-window observed-flow ablation is different: only 38 prefixes are measurable,
+all normal, and 16 are excluded. It therefore cannot support a stress-regime
+generalisation claim on its own.
 
 ## 4. Single-solver, continuous-clock idealization **[caveat]**
 

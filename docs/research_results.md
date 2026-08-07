@@ -4,7 +4,7 @@
 
 This note studies an oracle-anchored Uniswap v4 hook that opens Dutch-auction repricing from the current pool-oracle stale gap rather than an absolute price threshold or oracle-movement proxy. The auction trigger is `stale_gap_bps_before >= trigger_gap_bps` and is shared by all selection rules. The hook fee remains `baseFee + alpha * (sqrt(price gap) - 1)` for informed stale-price trades, capped by `maxFee`; the auction is the repricing path around that fee floor. Here, informed repricing is the AMM version of toxic flow: flow that trades against stale quotes and is negative for LPs before fees. The grid covers 324 parameter sets per pool across four October 2025 pools, producing 1,296 rows in `reports/sensitivity_grid_combined.csv`. The recommended parameter set uses a 10 bps trigger gap, 5 bps base fee, 10 bps starting concession, 0.5 bps/sec growth, and a 2500 bps max fee. It beats the fixed-fee V3 baseline on all four pools with 99.9000% mean cross-pool recapture and a 1.0 clear rate.
 
-The observed-flow replay in `.tmp/dutch_auction_ablation_study_20260504` adds a second check on the study machinery. It covers 54 windows across seven pools, reconstructs exact V3 state in every window, replays observed swaps through the fee curves, overlays the Dutch auction branch, and compares the broad all-stale auction rule against the hook-based auction rule. The hook-based rule improves LP net gain versus the broad all-stale rule in 28 windows, leaves 26 unchanged, and worsens none.
+The observed-flow replay is frozen in `study_artifacts/evidence_release_2026_08_03` after the price-convention and same-second ordering corrections. It covers 54 windows across seven pools, reconstructs exact V3 state in every window, replays observed swaps through the fee curves, overlays the Dutch auction branch, and compares the broad all-stale auction rule against the hook-based auction rule. The hook-based rule improves LP net gain versus the broad all-stale rule in 19 windows, leaves 35 unchanged, and worsens none. This file is retained as the original long-form note; [`research_results_v2.md`](research_results_v2.md) is the maintained summary.
 
 ## Glossary
 
@@ -178,14 +178,15 @@ Chart reference: `reports/charts/chart_d_consistency.png`.
 
 ### Observed-Flow Replay Check
 
-Coverage from `.tmp/dutch_auction_ablation_study_20260504/study_summary.json`:
+Coverage from the frozen `study_artifacts/evidence_release_2026_08_03` bundle:
 
 | Metric | Value |
 | --- | ---: |
 | Replay windows | 54 |
 | Window groups | 12 |
 | Pools | 7 |
-| Routine / historical stress windows | 36 / 18 |
+| Declared routine / stress sampling tags (provenance only) | 36 / 18 |
+| Measured normal / stress / unmeasurable | 38 / 0 / 16 |
 | Observed prefix swap rows | 7,106 |
 | Exact replay reliable windows | 54 / 54 |
 | Fee formula checks passed | 54 / 54 |
@@ -194,13 +195,12 @@ Coverage from `.tmp/dutch_auction_ablation_study_20260504/study_summary.json`:
 
 Policy comparison from `policy_ablation.csv` and `bootstrap_lp_uplift_vs_hook.json`:
 
-| Regime | Windows | Positive delta | Old LP net | New LP net | Delta | 95% CI for delta |
+| Measured subset | Windows | Positive delta | Broad LP uplift | Selective LP uplift | Delta | 95% CI for delta |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Overall | 54 | 28 | -2.8646 | 2.7735 | 5.6381 | [1.7364, 9.5666] |
-| Normal | 36 | 18 | -2.2242 | 3.0039 | 5.2281 | [0.5103, 10.5484] |
-| Stress | 18 | 10 | -4.1454 | 2.3127 | 6.4581 | [0.0000, 11.0710] |
+| Overall | 54 | 19 | 0.3609 | 1.3501 | 0.9892 | [0.0065, 2.2198] |
+| Measured normal | 38 | 14 | 0.5115 | 1.7088 | 1.1973 | [0.0145, 2.8729] |
 
-The LP net columns are in each window's native quote units, so they are directional within-window evidence rather than a cross-pool total. The sign result is cleaner: 28 windows improve, 26 are unchanged, and zero worsen. The hook-based rule has a lower mean trigger rate than the broad all-stale rule, 0.9825% versus 5.8233%, and every triggered hook-based window has a 1.0 fill rate.
+The LP uplift columns are in each window's native quote units, so they are directional within-window evidence rather than a cross-pool total. The sign result is cleaner: 19 windows improve, 35 are unchanged, and zero worsen. Mean window trigger rate is 3.07% for the hook-based rule versus 7.17% for the broad all-stale rule. Event-weighted, the selective rule triggers 130 of 7,106 swaps and fills 119 (91.54%); 11 fall back when the oracle is stale at modeled fill time. The 16 unmeasurable windows remain in the overall policy result but are excluded from every regime claim. The separate October recut supplies 95 measured normal and 29 measured stress windows.
 
 ## Interpretation
 

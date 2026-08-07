@@ -1,15 +1,25 @@
 import unittest
+from argparse import Namespace
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from script.solver_bot import (
-    HALF_BPS_WAD,
     WAD,
     Chain,
+    RuntimeStore,
+    _validate_runtime_config,
+    amount_for_direction,
     decode_balance_delta,
+    evaluate_fill_economics,
     feed_answer_for_gap,
+    gas_cost_in_token1_raw,
     gap_premium_wad,
     gap_trigger_bps,
     parse_cast_values,
+    parse_nonnegative_units,
     parse_raw_units,
+    parse_rate_wad,
     parse_units,
     position_value_token1,
     should_fill,
@@ -121,6 +131,111 @@ class AmountParsingTest(unittest.TestCase):
         self.assertEqual(parse_raw_units("100e18"), 100 * 10**18)
         self.assertEqual(parse_raw_units(None), None)
 
+    def test_nonnegative_units_allow_zero(self):
+        self.assertEqual(parse_nonnegative_units("0", 6), 0)
+        with self.assertRaises(ValueError):
+            parse_nonnegative_units("-0.1", 6)
+
+    def test_direction_uses_the_input_token_or_legacy_override(self):
+        values = {"amount0_in": 10, "amount1_in": 20, "legacy_amount_in_raw": None}
+        self.assertEqual(amount_for_direction(True, **values), 10)
+        self.assertEqual(amount_for_direction(False, **values), 20)
+        values["legacy_amount_in_raw"] = 99
+        self.assertEqual(amount_for_direction(False, **values), 99)
+
+
+class FillEconomicsTest(unittest.TestCase):
+    def test_profit_gate_includes_gas_edge_and_minimum_profit(self):
+        economics = evaluate_fill_economics(
+            gross_surplus_token1=130,
+            gas_cost_token1=20,
+            required_edge_token1=5,
+            minimum_profit_token1=105,
+        )
+        self.assertTrue(economics.profitable)
+        self.assertEqual(economics.net_profit_token1, 110)
+
+        below = evaluate_fill_economics(
+            gross_surplus_token1=129,
+            gas_cost_token1=20,
+            required_edge_token1=5,
+            minimum_profit_token1=105,
+        )
+        self.assertFalse(below.profitable)
+        self.assertEqual(below.reason, "below_profit_reserve")
+
+    def test_native_gas_cost_converts_to_token1_raw_units(self):
+        # 200k gas at 1 gwei = 0.0002 native token, at 1 token1/native.
+        self.assertEqual(
+            gas_cost_in_token1_raw(200_000, 10**9, WAD, 18),
+            2 * 10**14,
+        )
+        self.assertEqual(parse_rate_wad("2500.5"), 2_500_500_000_000_000_000_000)
+
+
+class RuntimeStoreTest(unittest.TestCase):
+    def test_state_metrics_and_health_survive_restart(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / "state.json"
+            metrics = root / "metrics.jsonl"
+            health = root / "health.json"
+            store = RuntimeStore(state, metrics, health)
+            store.record("tick_success", action="waited")
+
+            restored = RuntimeStore(state, metrics, health)
+            self.assertEqual(restored.state["counters"]["tick_success"], 1)
+            self.assertTrue(
+                restored.health(max_age_seconds=60, max_consecutive_errors=5)[
+                    "healthy"
+                ]
+            )
+            self.assertTrue(metrics.exists())
+            self.assertTrue(metrics.with_suffix(".prom").exists())
+            self.assertTrue(health.exists())
+
+    def test_confirmed_send_persists_then_clears_pending_transaction(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            store = RuntimeStore(
+                root / "state.json", root / "metrics.jsonl", root / "health.json"
+            )
+
+            class ConfirmingChain(Chain):
+                def sender_address(self):
+                    return "0x0000000000000000000000000000000000000001"
+
+                def _read_cast_int(self, _):
+                    return 7
+
+                def estimate_gas(self, *_):
+                    return 100_000
+
+                def gas_price(self):
+                    return 10**9
+
+                def _priority_fee(self):
+                    return 10**8
+
+                def _submit_async(self, *_, **__):
+                    return "0xabc"
+
+                def _wait_for_any_receipt(self, _):
+                    self.assert_pending()
+                    return "0xabc", 1
+
+                def assert_pending(self):
+                    if store.state["pending_transaction"]["hashes"] != ["0xabc"]:
+                        raise AssertionError("transaction was not persisted before polling")
+
+            chain = ConfirmingChain(
+                "http://rpc", None, "keeper", runtime_store=store
+            )
+            self.assertEqual(chain.send("0x2", "f()", action="fill"), "0xabc")
+            self.assertIsNone(store.state["pending_transaction"])
+            self.assertEqual(store.state["counters"]["tx_submitted"], 1)
+            self.assertEqual(store.state["counters"]["tx_confirmed"], 1)
+
 
 class SignerSecrecyTest(unittest.TestCase):
     """A signing key in argv is readable by any local user via `ps`."""
@@ -142,6 +257,65 @@ class SignerSecrecyTest(unittest.TestCase):
         self.assertFalse(Chain("http://rpc", None).can_send)
         self.assertTrue(Chain("http://rpc", None, "keeper").can_send)
         self.assertTrue(Chain("http://rpc", self.KEY).can_send)
+
+    @patch("script.solver_bot.subprocess.run")
+    def test_explicit_unsafe_raw_key_can_derive_sender(self, run):
+        run.return_value.returncode = 0
+        run.return_value.stdout = "0x0000000000000000000000000000000000000001\n"
+        run.return_value.stderr = ""
+        chain = Chain("http://rpc", self.KEY)
+
+        with patch("script.solver_bot.sys.stderr"):
+            self.assertEqual(
+                chain.sender_address(),
+                "0x0000000000000000000000000000000000000001",
+            )
+        self.assertIn(self.KEY, run.call_args.args[0])
+
+
+class RuntimeConfigTest(unittest.TestCase):
+    @staticmethod
+    def args(**overrides):
+        values = {
+            "token0_decimals": 18,
+            "token1_decimals": 6,
+            "solver_edge_bps": 5,
+            "gas_limit_buffer_bps": 2_000,
+            "max_concession_wad": str(WAD),
+            "max_gas_price_gwei": "5",
+            "confirmations": 1,
+            "transaction_timeout": 60,
+            "replacement_attempts": 2,
+            "replacement_bump_bps": 1_250,
+            "amount0_in": "1",
+            "amount1_in": "1",
+            "amount_in_raw": None,
+            "min_profit_token1": "0",
+            "native_token_price_token1": "2500",
+            "command": "run",
+            "min_concession_wad": "1e15",
+            "interval": 10.0,
+            "max_iterations": 0,
+            "max_consecutive_errors": 5,
+            "max_error_backoff": 120.0,
+        }
+        values.update(overrides)
+        return Namespace(**values)
+
+    def test_normalizes_valid_minimum_concession(self):
+        args = self.args()
+        _validate_runtime_config(args)
+        self.assertEqual(args.min_concession_wad, 10**15)
+
+    def test_rejects_unreachable_concession_and_invalid_loop_limits(self):
+        with self.assertRaisesRegex(ValueError, "cannot exceed"):
+            _validate_runtime_config(
+                self.args(min_concession_wad="2e15", max_concession_wad="1e15")
+            )
+        with self.assertRaisesRegex(ValueError, "interval"):
+            _validate_runtime_config(self.args(interval=0))
+        with self.assertRaisesRegex(ValueError, "token decimals"):
+            _validate_runtime_config(self.args(token1_decimals=37))
 
 
 if __name__ == "__main__":

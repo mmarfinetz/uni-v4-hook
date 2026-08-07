@@ -1,103 +1,112 @@
-# Dutch Auction Operational Spec
+# Dutch Auction Operational Specification
 
-This document makes the backtested Dutch-auction path operationally explicit for the current research hook. It describes a proposed production architecture; it is not an audited deployment plan.
+This document describes the auction that is implemented in
+`OracleAnchoredLVRHook.sol` and the reference keeper in `script/solver_bot.py`.
+It is an operating specification, not an audit report or a claim of production
+readiness.
 
-Observed ranges in the frozen `new_policy` batch at `.tmp/dutch_auction_ablation_artifact_build/new_policy/aggregate_manifest_summary.json`:
+## Settlement model
 
-- `fill_rate`: `1.00` to `1.00`
-- `fallback_rate`: `0.00` to `0.00`
-- `oracle_failclosed_rate`: `0.00` to `0.00`
+The auction is an on-chain, permissionless fee schedule. It does not escrow a
+user swap, collect sealed bids, depend on a relay, or expose a bespoke
+`fillAuction` function.
 
-## 1. Lifecycle of an Auction-Eligible Swap
+1. A fresh reference price and the current pool price determine the unsigned
+   stale-gap premium.
+2. At or above `triggerGapBps`, `pokeAuction(key)` or the next swap records
+   `auctionStartTs[poolId]` and emits `AuctionOpened`.
+3. The concession starts at `startConcessionWad` and grows linearly by
+   `concessionGrowthWadPerSec`, capped by `maxConcessionWad`.
+4. A toxic repricing swap pays
+   `baseFee + alpha * gapPremium * (1 - concession)`. Benign flow pays
+   `baseFee`.
+5. Any account can submit the ordinary v4 swap. The hook enforces the current
+   fee inside `beforeSwap`; solver identity is irrelevant.
+6. Once the observed gap falls below the trigger, a swap or permissionless poke
+   deletes the clock and emits `AuctionClosed`.
 
-The current deployed research hook is synchronous and hook-only: [`beforeSwap`](/Users/mitch/uni-v4-hook/uni-v4-hook/src/OracleAnchoredLVRHook.sol#L289) reads the oracle, calls `_quoteFee`, and returns a fee override to `PoolManager`.
+If the oracle is invalid or stale, the state reads and swap fail closed. If the
+computed fee exceeds `maxFee`, the toxic direction reverts until either the gap
+shrinks or the scheduled concession brings the fee under the cap.
 
-The proposed auction model is asynchronous across blocks, matching the backtest's `time_to_fill_seconds > 0` assumption in [`simulate_auction_swap`](/Users/mitch/uni-v4-hook/uni-v4-hook/script/run_dutch_auction_backtest.py).
+Auction transitions are lazy: the contract learns that a gap opened or closed
+only on a swap or `pokeAuction`. Operators should therefore run at least two
+independent pokers, and should alert when an eligible gap has no clock.
 
-Proposed lifecycle:
+## Configured policy surface
 
-1. `beforeSwap` observes a toxic swap and computes the hook counterfactual after `_quoteFee` but before the fee override would be returned to `PoolManager`.
-2. If the trigger condition is met, the hook or relay emits `AuctionOpened(poolId, swapHash, exactStaleLoss, startConcessionBps, deadline)`.
-3. The swap enters a pending auction path controlled by an off-chain relay or dedicated auction module.
-4. Solvers submit fills through `fillAuction(swapHash, paymentQuote)`.
-5. If a solver clears before deadline and the oracle remains fresh, the swap settles on the auction path.
-6. If no solver clears before deadline, execution falls back to the hook fee path.
-7. If the oracle becomes stale before settlement, the auction cancels and the swap is denied.
+All auction terms are part of the pool's owner-gated `Config`:
 
-The trigger decision should intercept exactly where [`beforeSwap`](/Users/mitch/uni-v4-hook/uni-v4-hook/src/OracleAnchoredLVRHook.sol#L289) currently converts `_quoteFee` output into `feeUnits | OVERRIDE_FEE_FLAG`.
+| Field | Unit | Operational effect |
+| --- | --- | --- |
+| `triggerGapBps` | price-gap bps | Zero disables the auction; otherwise opens at this gap. |
+| `startConcessionWad` | fraction of toxic surcharge | Discount available at clock open. |
+| `concessionGrowthWadPerSec` | fraction per second | Linear descent speed. |
+| `maxConcessionWad` | fraction of toxic surcharge | Hard discount ceiling; cannot exceed `1e18`. |
+| `baseFee` | ppm | Floor charged to every executable swap. |
+| `maxFee` | ppm | Fail-closed ceiling for a toxic fee. |
+| `alphaBps` | bps | Fraction of measured stale premium charged as surcharge. |
+| `maxOracleAge` | seconds | Maximum accepted age of the older reference leg. |
 
-## 2. Solver Interface
+The owner can also seed or repair `RiskState`; the auction itself does not need
+owner intervention. Production ownership must be a Safe reached through the
+two-step `transferOwnership` / `acceptOwnership` flow. Keeper keys must never be
+owners.
 
-Minimal interface:
+## Reference solver policy
 
-```solidity
-function fillAuction(bytes32 swapHash, uint256 paymentQuote) external;
-```
+Before broadcasting a fill, `solver_bot.py`:
 
-Solver-visible state should include:
+1. simulates the exact router calldata with `eth_call` from the solver address;
+2. decodes the returned `BalanceDelta` and values it at the current reference;
+3. estimates gas for the same calldata and applies a configurable gas buffer;
+4. converts gas into token1 units using the explicitly supplied native/token1
+   rate;
+5. requires simulated gross surplus to cover gas, `solver-edge-bps`, and
+   `min-profit-token1`;
+6. refuses gas above `max-gas-price-gwei` and concession above the first-party
+   `max-concession-wad` reserve; and
+7. persists nonce, transaction hashes, receipts, counters, and health state.
 
-- `exactStaleLossQuote`
-- `currentConcessionBps`
-- `hookFeeRevenueQuote`
-- `deadline`
-- `reserveMode`
+Run mode rejects raw private keys by default. It supports encrypted Foundry
+keystores, RPC failover, explicit nonces, same-nonce fee-bumped replacements,
+confirmation tracking, single-instance locking, bounded exponential backoff,
+JSONL event logs, a health snapshot, and Prometheus text metrics.
 
-Economic interpretation:
+The native/token1 conversion rate is an operator input, not an oracle read. It
+must be refreshed conservatively; a stale rate can make the bot overestimate
+profit. Independent solvers are still expected—the bundled bot is a reference
+implementation, not a protocol dependency.
 
-- Solver pays `paymentQuote`, which must cover `solverGasCostQuote + solverEdge`.
-- LP receives the stale-loss recovery above the hook counterfactual: `exactStaleLossQuote - paymentQuote`, subject to reserve and uplift checks.
-- Solver fill acceptance follows the backtest reserve gates in [`_time_to_fill`](/Users/mitch/uni-v4-hook/uni-v4-hook/script/run_dutch_auction_backtest.py).
+## Relationship to the research simulator
 
-## 3. Governance Parameters
+`research/lvr/backtest/run_dutch_auction_backtest.py` is a counterfactual study.
+Its `solverGasCostQuote`, `solverEdgeBps`, reserve modes, maximum duration, and
+fallback outcomes decide whether a historical opportunity would plausibly have
+cleared. Those fields are not additional on-chain state.
 
-All configurable fields come from [`DutchAuctionConfig`](/Users/mitch/uni-v4-hook/uni-v4-hook/script/run_dutch_auction_backtest.py#L31).
+The comparable production controls are the solver's preflight profitability
+gate, the hook's fee/concession schedule, and `maxFee` fail-closed behavior. A
+paper result about modeled fill rate must not be presented as an on-chain liveness
+guarantee.
 
-| Parameter | Type | Unit | Backtest default | Recommended updater | Recommended range / rationale |
-| --- | --- | --- | --- | --- | --- |
-| `startConcessionBps` | `float` | stale-loss bps | `25.0` | timelock / DAO | `5` to `100`; lower values reserve more recovery for LPs. |
-| `concessionGrowthBpsPerSecond` | `float` | bps/sec | `10.0` | timelock / DAO | `1` to `100`; controls how fast the solver payment rises. |
-| `maxConcessionBps` | `float` | stale-loss bps | `10000.0` | timelock / DAO | `500` to `10000`; hard ceiling on solver payment fraction. |
-| `maxAuctionDurationSeconds` | `int` | seconds | `600` | timelock / DAO | `30` to `600`; longer windows improve fill odds but raise stale risk. |
-| `solverGasCostQuote` | `float` | quote units | `0.25` | ops / timelock | update per chain and gas regime. |
-| `solverEdgeBps` | `float` | toxic-notional bps | `0.0` | timelock / DAO | `0` to low tens of bps; captures solver margin. |
-| `minAuctionStaleLossQuote` | `float` | quote units | `1.0` in batch CLI | timelock / DAO | use to skip dust auctions. |
-| `triggerMode` | `string` | enum | `auction_beats_hook` | timelock / DAO | keep `auction_beats_hook` as default because it preserves the hook counterfactual. |
-| `reserveMode` | `string` | enum | `hook_counterfactual` | timelock / DAO | `hook_counterfactual` is the recommended production reserve. |
-| `reserveHookMarginBps` | `float` | stale-loss bps | `0.0` | timelock / DAO | positive values require extra LP improvement over hook. |
-| `minLpUpliftQuote` | `float` | quote units | `0.0` | timelock / DAO | guards against operationally trivial fills. |
-| `minLpUpliftStaleLossBps` | `float` | stale-loss bps | `100.0` in the study runner | timelock / DAO | adds a scaled LP-uplift threshold. |
-| `solverPaymentHookCapMultiple` | `float` | multiple | `1.0` in the study runner, `999.0` CLI backward compat | timelock / DAO | near `1.0` keeps solver payment bounded by the hook counterfactual. |
+## Required alerts
 
-Recommended governance model:
+- oracle invalid, stale, or sequencer check failing;
+- `quotable(key) == false`;
+- eligible gap without an open clock;
+- open clock above the expected maximum age;
+- concession or gas price above the operator reserve;
+- preflight reverts or persistent unprofitable fills;
+- unresolved pending transaction or exhausted replacement budget;
+- consecutive tick errors, stale health heartbeat, or no successful tick;
+- `OwnerInitialized`, `OwnershipTransferStarted`, `OwnershipTransferCancelled`,
+  `OwnershipTransferred`, `ConfigSet`, or `RiskStateSet` outside an approved
+  governance change.
 
-- Phase 1: owner-controlled `setConfig()` is acceptable because no auction module is live.
-- Phase 2+: move auction parameters behind a `48h` timelock before external solver participation.
+## Production boundary
 
-## 4. Fail-Closed Semantics
-
-Backtest code paths:
-
-- Oracle goes stale before fill: [`simulate_auction_swap`](/Users/mitch/uni-v4-hook/uni-v4-hook/script/run_dutch_auction_backtest.py) returns `oracle_stale_at_fill=True`, `fallback_triggered=True`, and zero LP fee revenue. Production interpretation: cancel the auction and deny settlement on stale data.
-- No solver fill before deadline: `_time_to_fill(...)` returns `None`, and the path falls through to [`_no_auction_result_using_hook`](/Users/mitch/uni-v4-hook/uni-v4-hook/script/run_dutch_auction_backtest.py), meaning the swap executes at the hook counterfactual.
-- Solver payment exceeds the configured hook-cap multiple: `_time_to_fill(...)` rejects the fill candidate.
-- Hook fee above `maxFee`: `_hook_fallback_outcome(...)` uses the same fail-closed semantics as the Solidity hook, so the counterfactual fee path is denied rather than clipped.
-
-## 5. Deployment Phases
-
-### Phase 1: Hook Only
-
-- Current implementation in [`src/OracleAnchoredLVRHook.sol`](/Users/mitch/uni-v4-hook/uni-v4-hook/src/OracleAnchoredLVRHook.sol)
-- No auction path
-- Governance: owner-managed `setConfig()` and `setRiskState()`
-
-### Phase 2: Hook + Off-Chain Auction Relay
-
-- Off-chain relay opens auctions, gathers solver bids, and submits the winning fill
-- Best match for the current backtest because the model is asynchronous across blocks
-- Governance: recommended `48h` timelock over all auction parameters plus emergency pause authority
-
-### Phase 3: Hook + On-Chain Auction Module
-
-- Dedicated auction contract or internal accounting module handles fills on-chain
-- Only justified if gas economics and observed solver participation support it
-- Governance: DAO / timelock ownership with explicit parameter update delays and audit requirements
+No real-capital launch is approved by this document. The release gates in
+`docs/security_readiness.md`—especially independent audit, verified source,
+Safe ownership, fork rehearsal, monitoring, and incident-response sign-off—must
+all be closed first.

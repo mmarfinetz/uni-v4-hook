@@ -17,6 +17,10 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from research.lvr.core.flow_classification import load_label_config
+from research.lvr.core.regime import (
+    DEFAULT_STRESS_VOL_ANNUALISED_PCT,
+    measured_regime_from_summary,
+)
 from research.lvr.backtest.lvr_historical_replay import write_rows_csv
 from research.lvr.backtest.run_backtest_batch import (
     load_backtest_manifest,
@@ -204,6 +208,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-retries", type=int, default=5)
     parser.add_argument("--retry-backoff-seconds", type=float, default=1.0)
     parser.add_argument("--allow-toxic-overshoot", action="store_true")
+    parser.add_argument(
+        "--regime-stress-threshold-pct",
+        type=float,
+        default=DEFAULT_STRESS_VOL_ANNUALISED_PCT,
+    )
     return parser.parse_args()
 
 
@@ -393,6 +402,13 @@ def phase_2_execute_batch(
             rpc_cache_dir=args.rpc_cache_dir,
             max_retries=args.max_retries,
             retry_backoff_seconds=args.retry_backoff_seconds,
+            regime_stress_threshold_pct=float(
+                getattr(
+                    args,
+                    "regime_stress_threshold_pct",
+                    DEFAULT_STRESS_VOL_ANNUALISED_PCT,
+                )
+            ),
         )
         run_backtest_batch(batch_args, client=_build_rpc_client(batch_args))
 
@@ -430,8 +446,14 @@ def phase_3_finalize_oracle_comparison(
     regime_rows: dict[str, list[OracleComparisonRow]] = {}
     window_rankings: dict[str, list[str]] = {}
     best_oracle_by_window: dict[str, str] = {}
+    unmeasurable_window_ids: list[str] = []
 
     for window in manifest.windows:
+        window_summary_path = batch_output_dir / window.window_id / "window_summary.json"
+        window_summary = _load_json_file(window_summary_path)
+        regime = measured_regime_from_summary(window_summary)
+        if regime is None:
+            unmeasurable_window_ids.append(window.window_id)
         csv_path = batch_output_dir / window.window_id / "oracle_gap_analysis" / "oracle_predictiveness_summary.csv"
         raw_rows = _load_csv_rows(csv_path)
         ranking = rank_oracles(raw_rows, label_horizons)
@@ -453,7 +475,7 @@ def phase_3_finalize_oracle_comparison(
                 flags.append("ANTI_PREDICTIVE")
             row = OracleComparisonRow(
                 window_id=window.window_id,
-                regime=window.regime,
+                regime=regime or "",
                 oracle_name=oracle_name,
                 stale_rate=stale_rate,
                 usable_signal_count=usable_signal_count,
@@ -480,7 +502,8 @@ def phase_3_finalize_oracle_comparison(
                 flags="|".join(flags),
             )
             rows.append(row)
-            regime_rows.setdefault(window.regime, []).append(row)
+            if regime is not None:
+                regime_rows.setdefault(regime, []).append(row)
 
     csv_path = output_root / "oracle_comparison_final.csv"
     write_rows_csv(
@@ -492,6 +515,7 @@ def phase_3_finalize_oracle_comparison(
     summary_payload: dict[str, Any] = {
         "best_oracle_by_window": best_oracle_by_window,
         "window_oracle_ranking": window_rankings,
+        "unmeasurable_regime_window_ids": sorted(unmeasurable_window_ids),
     }
     for regime, grouped_rows in sorted(regime_rows.items()):
         aggregated = _aggregate_oracle_rows_for_regime(grouped_rows, label_horizons)
@@ -524,9 +548,11 @@ def phase_4_finalize_fee_policy_comparison(
         window_dir = batch_output_dir / window.window_id
         window_summary_path = window_dir / "window_summary.json"
         window_summary = _load_json_file(window_summary_path)
+        regime = measured_regime_from_summary(window_summary)
         fee_ranking = tuple(_require_list(window_summary, "fee_policy_ranking", window_summary_path))
-        regime_rankings.setdefault(window.regime, []).append(fee_ranking)
-        window_count_by_regime[window.regime] = window_count_by_regime.get(window.regime, 0) + 1
+        if regime is not None:
+            regime_rankings.setdefault(regime, []).append(fee_ranking)
+            window_count_by_regime[regime] = window_count_by_regime.get(regime, 0) + 1
 
         oracle_source = _required_mapping_str(best_oracle_by_window, window.window_id, "best_oracle_by_window")
         replay_summary_path = _replay_summary_path(window_dir, window_summary, oracle_source)
@@ -550,8 +576,8 @@ def phase_4_finalize_fee_policy_comparison(
 
         hook_lp_net = _required_decimal(metrics_by_strategy["hook_fee"], "lp_net_all_flow_quote", replay_summary_path)
         fixed_lp_net = _required_decimal(metrics_by_strategy["fixed_fee"], "lp_net_all_flow_quote", replay_summary_path)
-        if hook_lp_net > fixed_lp_net:
-            hook_beats_fixed_count[window.regime] = hook_beats_fixed_count.get(window.regime, 0) + 1
+        if regime is not None and hook_lp_net > fixed_lp_net:
+            hook_beats_fixed_count[regime] = hook_beats_fixed_count.get(regime, 0) + 1
 
         for strategy_name in EXPECTED_STRATEGIES:
             payload = metrics_by_strategy[strategy_name]
@@ -565,7 +591,7 @@ def phase_4_finalize_fee_policy_comparison(
                 )
             row = FeePolicyComparisonRow(
                 window_id=window.window_id,
-                regime=window.regime,
+                regime=regime or "",
                 oracle_source=oracle_source,
                 strategy=strategy_name,
                 rank_within_window=rank_map[strategy_name],
@@ -589,7 +615,9 @@ def phase_4_finalize_fee_policy_comparison(
                 volume_loss_rate=_required_decimal(diagnostics, "volume_loss_rate", replay_summary_path),
             )
             rows.append(row)
-            totals = regime_strategy_totals.setdefault(window.regime, {}).setdefault(
+            if regime is None:
+                continue
+            totals = regime_strategy_totals.setdefault(regime, {}).setdefault(
                 strategy_name,
                 {
                     "lp_net_all_flow_quote": DECIMAL_ZERO,
@@ -650,6 +678,7 @@ def phase_5_quantify_dutch_auction_execution(
         window_dir = batch_output_dir / window.window_id
         window_summary_path = window_dir / "window_summary.json"
         window_summary = _load_json_file(window_summary_path)
+        regime = measured_regime_from_summary(window_summary)
         oracle_source = _required_mapping_str(best_oracle_by_window, window.window_id, "best_oracle_by_window")
 
         dutch_summary_path = _dutch_auction_summary_path(window_dir, window_summary, oracle_source)
@@ -669,7 +698,7 @@ def phase_5_quantify_dutch_auction_execution(
             detail_rows.append(
                 {
                     "window_id": window.window_id,
-                    "regime": window.regime,
+                    "regime": regime or "",
                     "oracle_source": oracle_source,
                     **swap_row,
                 }
@@ -677,7 +706,7 @@ def phase_5_quantify_dutch_auction_execution(
 
         execution_row = _build_execution_row(
             window_id=window.window_id,
-            regime=window.regime,
+            regime=regime or "",
             oracle_source=oracle_source,
             dutch_summary=dutch_summary,
             swap_rows=swap_rows,
@@ -686,7 +715,8 @@ def phase_5_quantify_dutch_auction_execution(
         )
         criteria = evaluate_go_no_go(execution_row)
         window_go = all(criteria.values())
-        regime_buckets.setdefault(window.regime, []).append(window_go)
+        if regime is not None:
+            regime_buckets.setdefault(regime, []).append(window_go)
         go_no_go_by_window[window.window_id] = {
             "oracle_source": oracle_source,
             "go": window_go,
@@ -939,8 +969,12 @@ def _worst_case_execution_metrics(execution_summary: dict[str, Any]) -> dict[str
 
 def print_validation_summary(report: dict[str, Any], output_root: Path) -> None:
     windows = report["windows"]
-    normal_windows = [window for window in windows if window["regime"] == "normal"]
-    stress_windows = [window for window in windows if window["regime"] == "stress"]
+    normal_windows = [
+        window for window in windows if measured_regime_from_summary(window) == "normal"
+    ]
+    stress_windows = [
+        window for window in windows if measured_regime_from_summary(window) == "stress"
+    ]
     reliable_count = sum(1 for window in windows if window.get("exact_replay_reliable") is True)
     if reliable_count == len(windows):
         reliable_label = "ALL"

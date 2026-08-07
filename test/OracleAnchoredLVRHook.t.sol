@@ -252,6 +252,60 @@ contract OracleAnchoredLVRHookTest is Test, Deployers {
         new OracleAnchoredLVRHook(IPoolManager(manager), address(0));
     }
 
+    function test_ownershipTransferRequiresNomineeAcceptance() public {
+        address nextOwner = makeAddr("nextOwner");
+
+        hook.transferOwnership(nextOwner);
+
+        assertEq(hook.owner(), address(this));
+        assertEq(hook.pendingOwner(), nextOwner);
+
+        vm.prank(nextOwner);
+        hook.acceptOwnership();
+
+        assertEq(hook.owner(), nextOwner);
+        assertEq(hook.pendingOwner(), address(0));
+
+        vm.expectRevert(OracleAnchoredLVRHook.NotOwner.selector);
+        hook.setRiskState(key, 1, 1, 1);
+
+        vm.prank(nextOwner);
+        hook.setRiskState(key, 1, 1, 1);
+    }
+
+    function test_ownershipTransferRejectsInvalidOrUnauthorizedActions() public {
+        address stranger = makeAddr("stranger");
+        address nextOwner = makeAddr("nextOwner");
+
+        vm.prank(stranger);
+        vm.expectRevert(OracleAnchoredLVRHook.NotOwner.selector);
+        hook.transferOwnership(nextOwner);
+
+        vm.expectRevert(OracleAnchoredLVRHook.InvalidOwner.selector);
+        hook.transferOwnership(address(0));
+
+        vm.expectRevert(OracleAnchoredLVRHook.InvalidOwner.selector);
+        hook.transferOwnership(address(this));
+
+        hook.transferOwnership(nextOwner);
+        vm.prank(stranger);
+        vm.expectRevert(OracleAnchoredLVRHook.NotPendingOwner.selector);
+        hook.acceptOwnership();
+    }
+
+    function test_ownerCanCancelPendingOwnershipTransfer() public {
+        address nextOwner = makeAddr("nextOwner");
+        hook.transferOwnership(nextOwner);
+
+        hook.cancelOwnershipTransfer();
+
+        assertEq(hook.owner(), address(this));
+        assertEq(hook.pendingOwner(), address(0));
+        vm.prank(nextOwner);
+        vm.expectRevert(OracleAnchoredLVRHook.NotPendingOwner.selector);
+        hook.acceptOwnership();
+    }
+
     function test_beforeSwap_revertsOnZeroOraclePrice() public {
         _setOraclePrice(0, block.timestamp);
 

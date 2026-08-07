@@ -6,6 +6,7 @@ from research.lvr.core.regime import (
     SECONDS_PER_YEAR,
     classify_regime,
     measure_regime,
+    measured_regime_from_summary,
     realized_vol_annualised_pct,
 )
 
@@ -63,6 +64,26 @@ class ClassifyRegimeTest(unittest.TestCase):
         # silently pad either side of the regime breakdown.
         self.assertIsNone(classify_regime(None))
         self.assertEqual(measure_regime([(0, 100.0)]), (None, None))
+
+    def test_summary_regime_never_falls_back_to_declared_label(self):
+        self.assertEqual(
+            measured_regime_from_summary(
+                {"regime": "stress", "measured_regime": "normal"}
+            ),
+            "normal",
+        )
+        self.assertIsNone(measured_regime_from_summary({"regime": "stress"}))
+        self.assertIsNone(
+            measured_regime_from_summary({"regime": "stress", "measured_regime": None})
+        )
+
+    def test_rejects_invalid_measurements_and_thresholds(self):
+        with self.assertRaises(ValueError):
+            classify_regime(50.0, stress_threshold_pct=0.0)
+        with self.assertRaises(ValueError):
+            classify_regime(float("nan"))
+        with self.assertRaises(ValueError):
+            measured_regime_from_summary({"measured_regime": "volatile"})
 
     def test_calm_and_stressed_paths_land_on_opposite_sides(self):
         calm_vol, calm_regime = measure_regime(_series_with_constant_return(0.0002, 200))

@@ -17,6 +17,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from research.lvr.backtest.run_backtest_batch import load_backtest_manifest, ranking_stability_rows
+from research.lvr.core.regime import measured_regime_from_summary
 
 
 getcontext().prec = 80
@@ -26,7 +27,9 @@ getcontext().prec = 80
 class SampleCountRow:
     window_id: str
     pool: str
-    regime: str
+    regime: str | None
+    declared_regime: str
+    realized_vol_annualised_pct: float | None
     oracle_updates: int
     swap_samples: int
 
@@ -35,7 +38,8 @@ class SampleCountRow:
 class ConfirmedLabelShareRow:
     window_id: str
     pool: str
-    regime: str
+    regime: str | None
+    declared_regime: str
     confirmed_label_rate: float | None
 
 
@@ -43,7 +47,8 @@ class ConfirmedLabelShareRow:
 class ReplayErrorStatsRow:
     window_id: str
     pool: str
-    regime: str
+    regime: str | None
+    declared_regime: str
     replay_error_p50: float | None
     replay_error_p99: float | None
     replay_error_tolerance: float | None
@@ -55,7 +60,8 @@ class ReplayErrorStatsRow:
 class FeeIdentityStatsRow:
     window_id: str
     pool: str
-    regime: str
+    regime: str | None
+    declared_regime: str
     fee_identity_holds: bool | None
     fee_identity_max_error_exact: float | None
 
@@ -120,6 +126,14 @@ def generate_aggregate_report(args: argparse.Namespace) -> dict[str, Any]:
 
     cross_pool_flags = build_cross_pool_flags(window_summaries)
     unique_pools = sorted({str(summary["pool"]) for summary in window_summaries})
+    measurable_window_summaries = [
+        summary for summary in window_summaries if measured_regime_from_summary(summary) is not None
+    ]
+    unmeasurable_window_ids = sorted(
+        str(summary["window_id"])
+        for summary in window_summaries
+        if measured_regime_from_summary(summary) is None
+    )
     all_exact_replay = all(
         summary.get("analysis_basis") == "exact_replay" and summary.get("exact_replay_reliable") is True
         for summary in window_summaries
@@ -141,6 +155,10 @@ def generate_aggregate_report(args: argparse.Namespace) -> dict[str, Any]:
         "manifest_sha256": manifest_sha256,
         "pool_count": len(unique_pools),
         "pools": unique_pools,
+        "window_count": len(window_summaries),
+        "measured_regime_window_count": len(measurable_window_summaries),
+        "unmeasurable_regime_window_count": len(unmeasurable_window_ids),
+        "unmeasurable_regime_window_ids": unmeasurable_window_ids,
         "sample_counts": sample_counts,
         "confirmed_label_share": confirmed_label_share,
         "replay_error_stats": replay_error_stats,
@@ -172,7 +190,11 @@ def build_sample_count_rows(window_summaries: list[dict[str, Any]]) -> list[dict
             SampleCountRow(
                 window_id=str(row["window_id"]),
                 pool=str(row["pool"]),
-                regime=str(row["regime"]),
+                regime=measured_regime_from_summary(row),
+                declared_regime=str(row["regime"]),
+                realized_vol_annualised_pct=_optional_float(
+                    row.get("realized_vol_annualised_pct")
+                ),
                 oracle_updates=int(row["oracle_updates"]),
                 swap_samples=int(row["swap_samples"]),
             )
@@ -187,7 +209,8 @@ def build_confirmed_label_share_rows(window_summaries: list[dict[str, Any]]) -> 
             ConfirmedLabelShareRow(
                 window_id=str(row["window_id"]),
                 pool=str(row["pool"]),
-                regime=str(row["regime"]),
+                regime=measured_regime_from_summary(row),
+                declared_regime=str(row["regime"]),
                 confirmed_label_rate=_optional_float(row.get("confirmed_label_rate")),
             )
         )
@@ -201,7 +224,8 @@ def build_replay_error_stat_rows(window_summaries: list[dict[str, Any]]) -> list
             ReplayErrorStatsRow(
                 window_id=str(row["window_id"]),
                 pool=str(row["pool"]),
-                regime=str(row["regime"]),
+                regime=measured_regime_from_summary(row),
+                declared_regime=str(row["regime"]),
                 replay_error_p50=_optional_float(row.get("replay_error_p50")),
                 replay_error_p99=_optional_float(row.get("replay_error_p99")),
                 replay_error_tolerance=_optional_float(row.get("replay_error_tolerance")),
@@ -219,7 +243,8 @@ def build_fee_identity_stat_rows(window_summaries: list[dict[str, Any]]) -> list
             FeeIdentityStatsRow(
                 window_id=str(row["window_id"]),
                 pool=str(row["pool"]),
-                regime=str(row["regime"]),
+                regime=measured_regime_from_summary(row),
+                declared_regime=str(row["regime"]),
                 fee_identity_holds=_optional_bool(row.get("fee_identity_holds")),
                 fee_identity_max_error_exact=_optional_float(row.get("fee_identity_max_error_exact")),
             )
@@ -272,8 +297,8 @@ def build_collateral_damage_summary(window_summaries: list[dict[str, Any]]) -> d
 
 def build_regime_breakdown(window_summaries: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     grouped: dict[str, list[dict[str, Any]]] = {}
-    for summary in window_summaries:
-        grouped.setdefault(str(summary["regime"]), []).append(summary)
+    for summary in _measurable_rows(window_summaries):
+        grouped.setdefault(_required_measured_regime(summary), []).append(summary)
 
     breakdown: dict[str, dict[str, Any]] = {}
     for regime, rows in sorted(grouped.items()):
@@ -305,8 +330,8 @@ def build_cross_pool_flags(window_summaries: list[dict[str, Any]]) -> list[Cross
     flags: list[CrossPoolRankingFlag] = []
     for ranking_type in ("oracle_ranking", "fee_policy_ranking"):
         grouped: dict[str, list[dict[str, Any]]] = {}
-        for summary in window_summaries:
-            grouped.setdefault(str(summary["regime"]), []).append(summary)
+        for summary in _measurable_rows(window_summaries):
+            grouped.setdefault(_required_measured_regime(summary), []).append(summary)
         for regime, rows in grouped.items():
             pool_rankings: dict[str, set[tuple[str, ...]]] = {}
             for row in rows:
@@ -351,6 +376,17 @@ def _optional_float(value: Any) -> float | None:
     if value in (None, ""):
         return None
     return float(value)
+
+
+def _measurable_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [row for row in rows if measured_regime_from_summary(row) is not None]
+
+
+def _required_measured_regime(row: dict[str, Any]) -> str:
+    regime = measured_regime_from_summary(row)
+    if regime is None:
+        raise ValueError(f"window_id={row.get('window_id')}: measured regime is unavailable")
+    return regime
 
 
 def _optional_int(value: Any) -> int | None:

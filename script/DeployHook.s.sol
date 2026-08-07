@@ -19,9 +19,10 @@ import { HookMiner } from "./utils/HookMiner.sol";
 ///
 /// Environment:
 ///   POOL_MANAGER  optional override; defaults per chain id below.
-///   HOOK_OWNER    optional; defaults to the broadcast sender. The hook has no
-///                 ownership transfer, so this address permanently controls
-///                 setConfig / setRiskState.
+///   HOOK_OWNER    optional; defaults to the broadcast sender. A production
+///                 deployment normally uses the temporary deployer here, then
+///                 DeployPool nominates FINAL_HOOK_OWNER after configuration.
+///                 A Safe may be used directly only if it executes configuration.
 contract DeployHook is Script {
     /// @dev Forge routes salted `new` in broadcast mode through this proxy on all
     /// target chains, so the mined address must be computed against it.
@@ -38,7 +39,7 @@ contract DeployHook is Script {
         require(
             hookOwner != DEFAULT_SENDER,
             "DeployHook: set HOOK_OWNER or pass --private-key/--sender; the forge default "
-            "sender would own the hook forever"
+            "sender would initially own the hook"
         );
 
         uint160 flags = uint160(Hooks.BEFORE_ADD_LIQUIDITY_FLAG | Hooks.BEFORE_SWAP_FLAG);

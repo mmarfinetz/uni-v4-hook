@@ -12,7 +12,7 @@ EVM bus inspector logging every call, return, revert, and event the page touches
 
 The current shareable draft is:
 
-- [lvr_v4_hook_paper_dutch_auction_v2.pdf](lvr_v4_hook_paper_dutch_auction_v2.pdf)
+- [LVR_v4_hook_research.pdf](LVR_v4_hook_research.pdf)
 
 The reproducible research bundle for that draft lives in [reports/](reports/). The most useful entry points are:
 
@@ -20,6 +20,7 @@ The reproducible research bundle for that draft lives in [reports/](reports/). T
 - [reports/sensitivity_impact_table.md](reports/sensitivity_impact_table.md): one-step parameter sensitivity.
 - [reports/solver_economics_table.md](reports/solver_economics_table.md): solver payout scale in USD terms.
 - [docs/research_results_v2.md](docs/research_results_v2.md): concise methodology and results summary.
+- [reports/evidence_release.md](reports/evidence_release.md): frozen 2026-08-03 public-claim source, including measured-regime exclusions and threshold sensitivity.
 - [docs/system_backtest_flow.md](docs/system_backtest_flow.md): system and backtest flow.
 
 ## Fee-Law Validation
@@ -30,7 +31,7 @@ Across `44` replay-clean frozen windows (`7,019` swaps), every exact-replay fee-
 
 ![Fee identity vs oracle gap](study_artifacts/one_page_proof_2026_03_31/fee_identity_vs_oracle_gap.svg)
 
-The fee-identity chart proves the fee-accounting claim. The LP-facing summary of the October 2025 grid is the uplift over a static-fee v3/v4 pool, in bps of each pool's TVL, with the Oct 10-11 dislocation split out; solid dots are the crash-robust figures and the connector length is the dislocation's contribution. [reports/lp_apr_uplift.md](reports/lp_apr_uplift.md) carries the full table, the ceiling assumptions, and the observed-flow floor (LP net never below the static-fee baseline in 54 replayed real-swap windows, higher in all 54 after the 2026-07-30 convention re-run).
+The fee-identity chart proves the fee-accounting claim. The LP-facing summary of the October 2025 grid is the uplift over a static-fee v3/v4 pool, in bps of each pool's TVL, with the Oct 10-11 dislocation split out; solid dots are the crash-robust figures and the connector length is the dislocation's contribution. [reports/lp_apr_uplift.md](reports/lp_apr_uplift.md) carries the full table, the ceiling assumptions, and the observed-flow floor (LP net never below the static-fee baseline in 54 replayed real-swap windows, higher in all 54 in the frozen 2026-08-03 release).
 
 ![LP uplift vs static fees](reports/charts/chart_lp_uplift_vs_static.png)
 
@@ -42,8 +43,8 @@ The claims are ordered from strongest to most assumption-dependent:
 
 - Exact toxic-flow surcharge law: `f*(z) = e^{|z|/2} - 1`, with `z = log(P_ref / P_pool)`, validated by exact replay (`44` frozen windows, `7,019` swaps, max residual `1.0e-64`).
 - Informed stale-price repricing is treated as toxic flow because it trades against stale quotes and creates LP loss before fees.
-- Selectivity (observed-flow replay, re-run 2026-07-30 under the corrected amount1/amount0 convention): across `54` windows the hook-based auction rule improves LP net in `14`, leaves `40` unchanged, and **worsens none**. Its trigger rate is `2.28%` versus `3.33%` for the broad all-stale rule. The pre-correction figures (`28`/`26`/`0` at `0.98%` vs `5.82%`) overstated both the selectivity gap and the improvement count because the simulated pool diverged; the load-bearing claim — zero windows worsened — is unchanged. See [docs/methodology_limitations.md](docs/methodology_limitations.md).
-- Clearing (October 2025 grid, `124 / 124` pool-windows across WETH/USDC, WBTC/USDC, LINK/WETH, and UNI/WETH): the recommended cell — `trigger_gap_bps=10`, `base_fee_bps=5`, `start_concession_bps=10`, `concession_growth_bps_per_sec=0.5`, `max_fee_bps=2500` — maintains a `1.0` clear rate on all four pools. Auction eligibility is the current pool-oracle stale gap in bps: `stale_gap_bps_before >= trigger_gap_bps`.
+- Selectivity (frozen observed-flow replay, 2026-08-03): across `54` windows the hook-based auction rule improves LP net versus the broad all-stale rule in `19`, leaves `35` unchanged, and **worsens none**. Mean window trigger rate is `3.07%` versus `7.17%`; event-weighted rates are `1.83%` versus `4.19%`. Volatility is measurable for `38` prefixes, all normal at the 100% threshold (`14` improved / `24` unchanged / `0` worse); `16` prefixes have too few primary-feed observations and are excluded from regime claims. The earlier `14`/`40` rerun predated the same-second off-chain ordering fix that changes oracle ranking and therefore the auction reference. See [reports/evidence_release.md](reports/evidence_release.md) and [docs/methodology_limitations.md](docs/methodology_limitations.md).
+- Clearing and regimes (October 2025 grid, `124 / 124` measurable pool-windows across WETH/USDC, WBTC/USDC, LINK/WETH, and UNI/WETH): the measured split is **95 normal / 29 stress** at 100% annualised volatility, replacing the manifest's hardcoded stress default. At 80%, 100%, and 120% thresholds, neither measured group has a materially negative window versus the base hook or fixed-fee control. The recommended cell — `trigger_gap_bps=10`, `base_fee_bps=5`, `start_concession_bps=10`, `concession_growth_bps_per_sec=0.5`, `max_fee_bps=2500` — maintains near-complete modeled clearing. Auction eligibility is the current pool-oracle stale gap in bps: `stale_gap_bps_before >= trigger_gap_bps`.
 - The frequently quoted `99.9%` mean recapture is recapture of the *oracle-visible* stale-loss, not of true LVR, and is a mechanical ceiling: with a single rational solver, zero gas, and captive flow, a clearing auction returns everything except the roughly `10 bps` concession by construction. Measured against a faster **Binance 1m** truth while the hook keeps Chainlink as its oracle ([reports/reference_lag_recapture.md](reports/reference_lag_recapture.md)), Chainlink lags the CEX by a median `21 bps`, so only `~78%` of true CEX-measured LVR is oracle-visible and **true recapture is about `78%` on mainnet-granularity feeds** — higher on Base's `0.15%` feed, with a faster oracle as the path to more. The informative outputs are the clear rate, the trigger selectivity, and the solver payout scale.
 - Solver payout is fat-tailed and volatility-dependent. October 2025 (a dislocation month) gave `$2.77`/fill on WETH/USDC; a six-month 2026 re-run ([reports/reference_lag_recapture.md](reports/reference_lag_recapture.md) companion) shows a median of `~$0.003`/fill with a mean near `$0.05`, because the concession is `~0.1%` of each fill's stale-loss and that scales with volatility. Report it as a distribution, never a single mean. All methodology corrections are catalogued in [docs/methodology_limitations.md](docs/methodology_limitations.md).
 - Solver economics are the main protocol-design caveat: the modeled total solver payout is about `$13.2k` across `7,414` filled auctions, or `$1.77` per filled auction before gas and overhead. With measured fill gas (`231k` through the router including the hook's oracle path), break-even gas prices are `1.9-2.9` gwei for the WETH/USDC and LINK/WETH payout scale and under `0.3` gwei for the smaller pools ([reports/solver_economics_gas_aware.md](reports/solver_economics_gas_aware.md)): every pool clears with margin at Base-typical gas, mainnet only supports the two larger pools in quiet regimes, so low-cost L2 deployment or batched correction is needed for the mechanism to attract solvers.
@@ -118,6 +119,7 @@ forge build
 forge test
 python3 -m unittest discover -s script -p 'test_*.py'
 python3 -m pytest reports/checks script/test_run_agent_simulation.py
+python3 reports/checks/check_evidence_release.py
 ```
 
 Regenerate the committed paper charts from the checked-in CSV artifacts:
@@ -137,7 +139,9 @@ permission-encoded hook address with [script/DeployHook.s.sol](script/DeployHook
 then deploying a Chainlink reference oracle, initializing a dynamic-fee pool at the
 oracle price, and writing the recommended auction config with
 [script/DeployPool.s.sol](script/DeployPool.s.sol). Base Sepolia is the primary
-target; the whole path can be rehearsed for free against an Anvil fork.
+target; the whole path can be rehearsed for free against an Anvil fork. New
+deployments use two-step ownership and nominate a Safe after configuration;
+[docs/security_readiness.md](docs/security_readiness.md) is the real-capital gate.
 
 [docs/solver_bot.md](docs/solver_bot.md) documents the solver/keeper bot
 ([script/solver_bot.py](script/solver_bot.py)) that runs the Dutch-auction loop
@@ -151,7 +155,7 @@ on the real Base Sepolia PoolManager.
 - `test/`: Foundry unit, fuzz, invariant, property, and fork tests
 - `research/lvr/`: Python export, replay, backtest, reporting, study, and config implementations
 - `script/`: compatibility wrappers for documented `python3 -m script.*` commands and legacy config paths
-- `reports/`: May 2026 paper result tables, charts, and deterministic checks
+- `reports/`: paper result tables, charts, the August 2026 evidence release, and deterministic checks
 - `study_artifacts/`: frozen proof artifacts and replay-clean diagnostic inputs
 - `docs/`: methodology notes and system/backtest flow documentation
 
@@ -164,7 +168,7 @@ See [docs/python_tooling_map.md](docs/python_tooling_map.md) before moving Pytho
 
 ## Further Reading
 
-- [lvr_v4_hook_paper_dutch_auction_v2.pdf](lvr_v4_hook_paper_dutch_auction_v2.pdf)
+- [LVR_v4_hook_research.pdf](LVR_v4_hook_research.pdf)
 - [docs/research_results_v2.md](docs/research_results_v2.md)
 - [docs/system_backtest_flow.md](docs/system_backtest_flow.md)
 - [docs/concession_tuning_lvf.md](docs/concession_tuning_lvf.md)

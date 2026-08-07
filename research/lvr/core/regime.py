@@ -15,7 +15,7 @@ same quantity the mechanism itself reacts to (`sigma^2` per second).
 from __future__ import annotations
 
 import math
-from typing import Iterable, Optional, Sequence, Tuple
+from typing import Any, Iterable, Mapping, Optional, Sequence, Tuple
 
 SECONDS_PER_YEAR = 31_557_600  # 365.25d, matching the study's annualisation
 
@@ -24,6 +24,7 @@ SECONDS_PER_YEAR = 31_557_600  # 365.25d, matching the study's annualisation
 # already a stressed assumption, so 100% marks the point where a window is
 # unambiguously not a calm market rather than splitting the typical range.
 DEFAULT_STRESS_VOL_ANNUALISED_PCT = 100.0
+VALID_REGIMES = frozenset({"normal", "stress"})
 
 
 def realized_vol_annualised_pct(
@@ -70,8 +71,12 @@ def classify_regime(
     Returning None rather than defaulting keeps unmeasurable windows out of the
     regime breakdown instead of silently padding one side of it.
     """
+    if not math.isfinite(stress_threshold_pct) or stress_threshold_pct <= 0:
+        raise ValueError("stress_threshold_pct must be finite and positive")
     if vol_annualised_pct is None:
         return None
+    if not math.isfinite(vol_annualised_pct) or vol_annualised_pct < 0:
+        raise ValueError("vol_annualised_pct must be finite and non-negative")
     return "stress" if vol_annualised_pct >= stress_threshold_pct else "normal"
 
 
@@ -83,3 +88,21 @@ def measure_regime(
     """Convenience wrapper returning (annualised vol pct, regime label)."""
     vol = realized_vol_annualised_pct(list(series))
     return vol, classify_regime(vol, stress_threshold_pct=stress_threshold_pct)
+
+
+def measured_regime_from_summary(summary: Mapping[str, Any]) -> Optional[str]:
+    """Return the canonical measured regime from a window-summary payload.
+
+    Manifest ``regime`` remains a declared provenance label. Reporting code must
+    call this helper instead of falling back to that declaration; a missing or
+    null measurement deliberately keeps the window out of regime breakdowns.
+    """
+    value = summary.get("measured_regime")
+    if value in (None, ""):
+        return None
+    regime = str(value)
+    if regime not in VALID_REGIMES:
+        raise ValueError(
+            f"Unsupported measured_regime {regime!r}; expected one of {sorted(VALID_REGIMES)}"
+        )
+    return regime

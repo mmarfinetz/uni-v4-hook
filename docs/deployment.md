@@ -34,15 +34,19 @@ USDC/WETH pool (tick spacing 60, dynamic fee):
 initialized at tick 201414 from the live oracle price. Verified post-deploy: the
 on-chain config carries the recommended auction cell including the new
 `maxConcessionWad` ceiling, and both swap directions preview the 5 bps base fee
-at zero gap. An earlier instance without `maxConcessionWad`
+at zero gap. This address predates the two-step ownership implementation in the
+current source; deployed bytecode is immutable, so it remains a legacy EOA-owned
+testnet instance and must not be described as the current production candidate.
+An earlier instance without `maxConcessionWad`
 (`0x6Ac5834889Ee82A7f127271E52c41d84345f4880`) is deprecated. The deployer key
-lives in the local gitignored `.env`; the hook has no ownership transfer, so
-redeploy rather than reuse if that key is lost.
+lives in the local gitignored `.env`; redeploy rather than reuse either legacy
+instance for a security-reviewed release.
 
 ## Verified addresses
 
-All addresses below were verified on-chain (bytecode / `description()` /
-`decimals()` / `symbol()`) on 2026-07-10.
+All addresses below had identity and configuration checks run on-chain (bytecode /
+`description()` / `decimals()` / `symbol()`) on 2026-07-10. That is not explorer
+source-code verification; the latter is a separate production gate.
 
 ### Base Sepolia (chain id 84532)
 
@@ -80,7 +84,7 @@ USDC/WETH pool levels.
 
 ## Deploying
 
-Prerequisites: a funded deployer key on the target chain
+Prerequisites: a funded, temporary deployer key and a deployed Safe on the target chain
 ([Base Sepolia faucet](https://faucets.chain.link/base-sepolia)) and the RPC env vars
 referenced by [`foundry.toml`](../foundry.toml):
 
@@ -101,7 +105,7 @@ Environment (all optional):
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `POOL_MANAGER` | per-chain default above | v4 PoolManager address |
-| `HOOK_OWNER` | broadcast sender | Owner of `setConfig`/`setRiskState`. **The hook has no ownership transfer**, so this address is permanent. |
+| `HOOK_OWNER` | broadcast sender | Initial owner of `setConfig`/`setRiskState`; production deployment uses the temporary deployer until configuration is complete. |
 
 The script logs the mined hook address; export it for step 2.
 
@@ -111,6 +115,7 @@ The broadcast sender must be the hook owner. `TOKEN0 < TOKEN1` must already be s
 
 ```bash
 HOOK=0x... \
+FINAL_HOOK_OWNER=0x... \
 TOKEN0=0x036CbD53842c5426634e7929541eC2318f3dCF7e \
 TOKEN1=0x4200000000000000000000000000000000000006 \
 BASE_FEED=0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165 \
@@ -118,6 +123,10 @@ QUOTE_FEED=0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1 \
 forge script script/DeployPool.s.sol:DeployPool \
   --rpc-url base_sepolia --private-key "$DEPLOYER_KEY" --broadcast
 ```
+
+`FINAL_HOOK_OWNER` is optional for local/testnet work. When set, it must contain
+deployed contract code; the script nominates it after the oracle, pool, and config
+are created. Production deployment must set it to the reviewed Safe address.
 
 Environment overrides (defaults in parentheses): `SEQUENCER_UPTIME_FEED` (unset =
 disabled; on L2s set it to the chain's [Chainlink sequencer uptime feed](https://docs.chain.link/data-feeds/l2-sequencer-feeds)
@@ -136,7 +145,29 @@ The 24-hour `MAX_ORACLE_AGE` default accommodates slow testnet feed heartbeats
 (the Base Sepolia USDC/USD feed can go hours between updates). Tighten it for any
 production-like configuration, and see the L2 note below.
 
-### 3. Verify
+### 3. Accept production ownership
+
+Review `pendingOwner()` and have the nominated Safe execute `acceptOwnership()`.
+The temporary deployer remains owner until this second transaction succeeds. Do
+not fund the pool with real capital during that interval.
+
+### 4. Verify state and source
+
+For deployments built from the current source, run the deterministic state checks
+against two independent RPCs:
+
+```bash
+RPC_URL=... HOOK=... POOL_MANAGER=... HOOK_OWNER="$FINAL_HOOK_OWNER" \
+ORACLE=... BASE_FEED=... QUOTE_FEED=... \
+./script/check_deployment.sh
+```
+
+Then run `script/verify_deployment.sh` with the exact constructor arguments as
+documented in [`security_readiness.md`](security_readiness.md). Explorer source
+verification uses the temporary deployer as `INITIAL_HOOK_OWNER`, even after the
+Safe handoff; it is a release gate, not an optional documentation step.
+
+Finally exercise the pool-facing views:
 
 ```bash
 KEY="($TOKEN0,$TOKEN1,8388608,60,$HOOK)"   # fee 8388608 = DYNAMIC_FEE_FLAG
@@ -167,8 +198,10 @@ answers at the forked block.
 
 ## Known deployment caveats
 
-- **Owner permanence**: `OracleAnchoredLVRHook` has no ownership transfer. Choose
-  `HOOK_OWNER` deliberately; a lost owner key permanently freezes config updates.
+- **Two-step owner handoff**: nomination does not grant authority. The current
+  owner remains active until the exact `pendingOwner` calls `acceptOwnership`.
+  Production ownership must end at the reviewed Safe with no pending owner. There
+  is no renounce or owner-recovery backdoor.
 - **CREATE2 determinism**: the mined salt depends on the constructor args (pool
   manager, owner) and the compiled bytecode. Re-running with identical args after a
   successful deployment finds the code at the mined address and moves to the next
