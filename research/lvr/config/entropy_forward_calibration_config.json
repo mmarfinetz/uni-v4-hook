@@ -1,0 +1,26 @@
+{
+  "study_config_version": 1,
+  "base_classifier_config": "research/lvr/config/entropy_classifier_config.json",
+  "calibration_methods": [
+    "identity",
+    "global_offset",
+    "sign_offset",
+    "global_platt",
+    "sign_platt"
+  ],
+  "first_calibration_month": "2026-01",
+  "label_horizon_purge_seconds": 3600,
+  "ridge_strength": 0.01,
+  "minimum_calibration_support": 100,
+  "minimum_calibration_groups": 3,
+  "ece_bins": 10,
+  "minimum_slice_support": 200,
+  "acceptance": {
+    "maximum_aggregate_ece": 0.05,
+    "maximum_slice_ece": 0.10,
+    "minimum_improved_fold_fraction": 0.80,
+    "minimum_toxic_precision_lower_bound": 0.95,
+    "minimum_taxed_dollar_resolution_rate": 0.80,
+    "maximum_benign_surcharge_usd_per_fold": 0.0
+  }
+}

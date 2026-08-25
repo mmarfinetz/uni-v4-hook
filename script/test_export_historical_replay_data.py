@@ -33,6 +33,7 @@ from script.export_historical_replay_data import (
     _mapping_storage_slot,
     _retryable_rpc_error,
     export_historical_replay_data,
+    resolve_block_at_or_after_timestamp,
 )
 
 
@@ -76,6 +77,8 @@ class FakeRpcClient:
         self.logs = logs
 
     def call(self, method: str, params: list):
+        if method == "eth_blockNumber":
+            return hex(max(self.block_timestamps))
         if method == "eth_call":
             call = params[0]
             key = (call["to"].lower(), call["data"], params[1])
@@ -176,6 +179,7 @@ class ExportHistoricalReplayDataTest(unittest.TestCase):
         market_base_feed: str | None = None,
         market_quote_feed: str | None = None,
         market_to_block: int | None = None,
+        market_extension_seconds: int | None = None,
     ) -> argparse.Namespace:
         return argparse.Namespace(
             rpc_url="http://example.invalid",
@@ -193,6 +197,7 @@ class ExportHistoricalReplayDataTest(unittest.TestCase):
             market_base_label="market_base_feed",
             market_quote_label="market_quote_feed",
             market_to_block=market_to_block,
+            market_extension_seconds=market_extension_seconds,
             oracle_lookback_blocks=oracle_lookback_blocks,
             max_oracle_age_seconds=max_oracle_age_seconds,
             rpc_timeout=45,
@@ -599,6 +604,30 @@ class ExportHistoricalReplayDataTest(unittest.TestCase):
         self.assertGreater(len(rows), 3)
         self.assertEqual(summary["market_reference_to_block"], 105)
         self.assertEqual(rows[-1]["block_number"], "105")
+
+    def test_time_authoritative_market_tail_resolves_block_and_reports_coverage(self) -> None:
+        client = self.make_client(include_market_extension=True)
+        resolved = resolve_block_at_or_after_timestamp(
+            client,
+            55,
+            lower_block=100,
+            initial_upper_block=102,
+        )
+        self.assertEqual(resolved, 105)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            summary = export_historical_replay_data(
+                self.make_args(
+                    tmp_dir,
+                    market_base_feed=self.base_feed,
+                    market_quote_feed=self.quote_feed,
+                    market_extension_seconds=10,
+                ),
+                client=client,
+            )
+        self.assertEqual(summary["market_reference_required_through_timestamp"], 30)
+        self.assertGreaterEqual(summary["market_reference_observed_through_timestamp"], 30)
+        self.assertTrue(summary["market_reference_tail_complete"])
 
     def test_oracle_lookback_blocks_carries_single_pre_window_seed_row(self) -> None:
         client = FakeRpcClient(

@@ -1,4 +1,4 @@
-// LVR Hook Live Instrument — reads the deployed OracleAnchoredLVRHook USDC/WETH
+// FairFlow Live Instrument — reads the deployed OracleAnchoredLVRHook USDC/WETH
 // pool on Base Sepolia and logs every EVM interaction (raw calldata/returndata/
 // topics) to the bus inspector, so the mechanism can be verified from primary data.
 

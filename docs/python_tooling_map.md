@@ -50,3 +50,9 @@ those paths explicitly.
 | `script.collect_checkpointed_window_summaries` | `research.lvr.studies.collect_checkpointed_window_summaries` | `python3 -m script.collect_checkpointed_window_summaries` | checkpoint summary tables | No |
 | `script.run_agent_study_summary` | `research.lvr.studies.run_agent_study_summary` | `python3 -m script.run_agent_study_summary` | `study_summary.json` | No |
 | `script.run_dutch_auction_ablation_study` | `research.lvr.studies.run_dutch_auction_ablation_study` | `python3 -m script.run_dutch_auction_ablation_study` | Dutch-auction ablation study directories | No by default |
+| `script.run_temperature_out_of_sample_sweep` | `research.lvr.studies.run_temperature_out_of_sample_sweep` | `python3 -m script.run_temperature_out_of_sample_sweep` | `reports/temperature_out_of_sample_2026/*` | No |
+| `script.run_adaptive_economic_threshold_sweep` | `research.lvr.studies.run_adaptive_economic_threshold_sweep` | `python3 -m script.run_adaptive_economic_threshold_sweep` | `reports/adaptive_economic_threshold_2026/*` | No |
+| `script.run_entropy_flow_classifier` | `research.lvr.studies.run_entropy_flow_classifier` | `python3 -m script.run_entropy_flow_classifier` | `reports/entropy_flow_classifier_2026/*` | No |
+| `script.run_entropy_forward_calibration` | `research.lvr.studies.run_entropy_forward_calibration` | `python3 -m script.run_entropy_forward_calibration` | `reports/entropy_forward_calibration_2026/*` | No |
+| `script.run_entropy_two_stage` | `research.lvr.studies.run_entropy_two_stage` | `python3 -m script.run_entropy_two_stage` | `reports/entropy_two_stage_2026/*` | No |
+| `script.run_economic_label_release` | `research.lvr.studies.run_economic_label_release` | `python3 -m script.run_economic_label_release` | per-window `oracle_gap_analysis_v3/*` and `reports/economic_label_release_2026/*` | No |

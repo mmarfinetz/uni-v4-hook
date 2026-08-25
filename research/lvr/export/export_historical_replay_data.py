@@ -464,6 +464,15 @@ def parse_args() -> argparse.Namespace:
         help="Optional inclusive end block for market_reference_updates.csv. Defaults to --to-block.",
     )
     parser.add_argument(
+        "--market-extension-seconds",
+        type=int,
+        default=None,
+        help=(
+            "Optional time-authoritative reference tail after the last swap. "
+            "The exporter resolves enough blocks to cover this many seconds."
+        ),
+    )
+    parser.add_argument(
         "--oracle-lookback-blocks",
         type=int,
         default=0,
@@ -688,6 +697,47 @@ def _get_block_timestamp(client: RpcClient, cache: dict[int, int], block_number:
     timestamp = _hex_to_uint(result["timestamp"])
     cache[block_number] = timestamp
     return timestamp
+
+
+def resolve_block_at_or_after_timestamp(
+    client: RpcClient,
+    target_timestamp: int,
+    *,
+    lower_block: int,
+    initial_upper_block: int,
+    cache: dict[int, int] | None = None,
+) -> int:
+    """Resolve the earliest chain block whose timestamp covers ``target_timestamp``."""
+    if target_timestamp < 0 or lower_block < 0:
+        raise ValueError("Timestamp and block bounds must be non-negative.")
+    timestamps = cache if cache is not None else {}
+    latest_block = _hex_to_uint(client.call("eth_blockNumber", []))
+    latest_timestamp = _get_block_timestamp(client, timestamps, latest_block)
+    if latest_timestamp < target_timestamp:
+        raise ValueError(
+            f"Target timestamp {target_timestamp} is newer than latest block {latest_block} "
+            f"at {latest_timestamp}."
+        )
+
+    lower = min(lower_block, latest_block)
+    if _get_block_timestamp(client, timestamps, lower) >= target_timestamp:
+        return lower
+    upper = min(max(initial_upper_block, lower + 1), latest_block)
+    span = max(upper - lower, 1)
+    while _get_block_timestamp(client, timestamps, upper) < target_timestamp:
+        lower = upper
+        span *= 2
+        upper = min(upper + span, latest_block)
+        if upper == lower:
+            return upper
+
+    while lower + 1 < upper:
+        midpoint = (lower + upper) // 2
+        if _get_block_timestamp(client, timestamps, midpoint) >= target_timestamp:
+            upper = midpoint
+        else:
+            lower = midpoint
+    return upper
 
 
 def _resolve_aggregator_address(client: RpcClient, feed: str) -> str | None:
@@ -1244,6 +1294,9 @@ def export_historical_replay_data(
         market_to_block = args.to_block
     if market_to_block < args.to_block:
         raise ValueError("--market-to-block must be >= --to-block")
+    market_extension_seconds = getattr(args, "market_extension_seconds", None)
+    if market_extension_seconds is not None and int(market_extension_seconds) < 0:
+        raise ValueError("--market-extension-seconds must be >= 0")
     feed_from_block = max(args.from_block - oracle_lookback_blocks, 0)
 
     rpc_client = client or RpcClient(
@@ -1321,6 +1374,30 @@ def export_historical_replay_data(
         args.blocks_per_request,
         block_timestamps,
     )
+
+    market_reference_required_through_timestamp: int | None = None
+    if market_extension_seconds is not None and int(market_extension_seconds) > 0:
+        window_end_timestamp = (
+            max(row.timestamp for row in swap_rows)
+            if swap_rows
+            else _get_block_timestamp(rpc_client, block_timestamps, args.to_block)
+        )
+        market_reference_required_through_timestamp = (
+            window_end_timestamp + int(market_extension_seconds)
+        )
+        # Query one freshness interval beyond the required target so a sparse
+        # event feed can supply its first update at/after the last markout.
+        query_through_timestamp = (
+            market_reference_required_through_timestamp + int(args.max_oracle_age_seconds)
+        )
+        time_resolved_to_block = resolve_block_at_or_after_timestamp(
+            rpc_client,
+            query_through_timestamp,
+            lower_block=args.to_block,
+            initial_upper_block=market_to_block,
+            cache=block_timestamps,
+        )
+        market_to_block = max(market_to_block, time_resolved_to_block)
 
     stale_rows = _build_oracle_stale_windows(
         rpc_client,
@@ -1410,6 +1487,17 @@ def export_historical_replay_data(
     liquidity_event_dicts = [asdict(item) for item in liquidity_events]
     initialized_tick_dicts = [asdict(item) for item in initialized_ticks]
     market_reference_dicts = [asdict(item) for item in market_reference_rows]
+    market_reference_observed_through_timestamp = (
+        max(row.timestamp for row in market_reference_rows) if market_reference_rows else None
+    )
+    market_reference_tail_complete = (
+        market_reference_required_through_timestamp is None
+        or (
+            market_reference_observed_through_timestamp is not None
+            and market_reference_observed_through_timestamp
+            >= market_reference_required_through_timestamp
+        )
+    )
 
     _write_csv(
         output_dir / "oracle_updates.csv",
@@ -1466,6 +1554,9 @@ def export_historical_replay_data(
         "initialized_ticks": len(initialized_ticks),
         "market_reference_updates": len(market_reference_rows),
         "market_reference_to_block": market_to_block if market_reference_rows else None,
+        "market_reference_required_through_timestamp": market_reference_required_through_timestamp,
+        "market_reference_observed_through_timestamp": market_reference_observed_through_timestamp,
+        "market_reference_tail_complete": market_reference_tail_complete,
         "output_dir": str(output_dir),
     }
 

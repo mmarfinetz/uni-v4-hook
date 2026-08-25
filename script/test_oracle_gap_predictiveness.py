@@ -1,4 +1,3 @@
-import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -127,6 +126,13 @@ class OracleGapPredictivenessTest(unittest.TestCase):
             self.assertEqual(rows_by_oracle["chainlink"]["outcome_label"], "toxic_confirmed")
             self.assertFalse(rows_by_oracle["chainlink"]["oracle_stale"])
             self.assertGreater(rows_by_oracle["chainlink"]["markout_12s"], 0.0)
+            self.assertTrue(rows_by_oracle["chainlink"]["observed_3600s"])
+            self.assertEqual(rows_by_oracle["chainlink"]["outcome_observability"], "observed")
+            self.assertEqual(rows_by_oracle["chainlink"]["economic_outcome_label"], "abstain")
+            self.assertEqual(
+                rows_by_oracle["chainlink"]["economic_outcome_reason"],
+                "missing_economic_accounting",
+            )
 
             self.assertEqual(rows_by_oracle["pyth"]["decision_label"], "uncertain")
             self.assertTrue(rows_by_oracle["pyth"]["oracle_stale"])

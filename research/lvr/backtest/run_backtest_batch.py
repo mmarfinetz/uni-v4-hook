@@ -120,6 +120,9 @@ class BacktestWindow:
     input_dir: str | None
     oracle_sources: tuple[OracleSourceConfig, ...]
     invert_external_reference: bool = False
+    # Time is authoritative for outcome observability; blocks remain as a
+    # provider query-size hint and for old manifests.
+    markout_extension_seconds: int = 3600
 
 
 @dataclass(frozen=True)
@@ -408,6 +411,11 @@ def load_backtest_manifest(path_str: str) -> BacktestManifest:
             input_dir=_optional_str(item, "input_dir"),
             oracle_sources=_parse_oracle_sources(item),
             invert_external_reference=bool(item.get("invert_external_reference", False)),
+            markout_extension_seconds=(
+                _required_nonnegative_int(item, "markout_extension_seconds")
+                if "markout_extension_seconds" in item
+                else 3600
+            ),
         )
         if window.window_id in seen_window_ids:
             raise ValueError(f"{path} contains duplicate window_id '{window.window_id}'.")
@@ -572,20 +580,8 @@ def run_window(
                         encoding="utf-8",
                     )
 
-    oracle_gap_result = run_oracle_gap_predictiveness(
-        series_path=str(analysis_series_path),
-        oracle_specs_input=[
-            f"{source.name}={source.oracle_updates_path}"
-            for source in resolved_oracle_sources
-        ],
-        markout_reference_path=str(market_reference_path),
-        output_dir=str(oracle_gap_dir),
-        series_strategy=analysis_series_strategy,
-        label_config_path=args.label_config,
-        include_unexecuted=False,
-    )
-
     source_reports: dict[str, dict[str, Any]] = {}
+    auction_reports: dict[str, dict[str, Any]] = {}
     source_rows: list[OracleSourceReplayRow] = []
     auction_rows: list[OracleSourceAuctionRow] = []
     primary_oracle_source = resolved_oracle_sources[0].name
@@ -607,21 +603,49 @@ def run_window(
                 replay_report=replay_report,
             )
         )
+        auction_report = run_auction_for_source(
+            window_id=window.window_id,
+            oracle_source=source,
+            output_dir=source_output_dir,
+            series_path=Path(analysis_series_path),
+            market_reference_path=market_reference_path,
+            swap_samples_path=export_dir / "swap_samples.csv",
+            args=args,
+        )
+        auction_reports[source.name] = auction_report
         auction_rows.append(
             summarize_oracle_source_auction(
                 window_id=window.window_id,
                 oracle_source=source.name,
-                auction_report=run_auction_for_source(
-                    window_id=window.window_id,
-                    oracle_source=source,
-                    output_dir=source_output_dir,
-                    series_path=Path(analysis_series_path),
-                    market_reference_path=market_reference_path,
-                    swap_samples_path=export_dir / "swap_samples.csv",
-                    args=args,
-                ),
+                auction_report=auction_report,
             )
         )
+
+    # Select the economic label horizon only from the primary auction's
+    # pre-outcome fill mechanics.  No future markout or toxicity label is read
+    # until after this latency sample has been frozen.
+    primary_auction_results = auction_reports[primary_oracle_source]["results"]
+    primary_clearing_times = [
+        row.get("time_to_fill_seconds")
+        for row in primary_auction_results
+        if bool(row.get("filled"))
+    ]
+    oracle_gap_result = run_oracle_gap_predictiveness(
+        series_path=str(analysis_series_path),
+        oracle_specs_input=[
+            f"{source.name}={source.oracle_updates_path}"
+            for source in resolved_oracle_sources
+        ],
+        markout_reference_path=str(market_reference_path),
+        output_dir=str(oracle_gap_dir),
+        series_strategy=analysis_series_strategy,
+        label_config_path=args.label_config,
+        include_unexecuted=False,
+        swap_samples_path=str(export_dir / "swap_samples.csv"),
+        pool_snapshot_path=str(export_dir / "pool_snapshot.json"),
+        base_fee_bps=float(args.base_fee_bps),
+        auction_clearing_times_seconds=primary_clearing_times,
+    )
 
     oracle_source_summary_path = window_dir / "oracle_source_replay_summary.csv"
     write_rows_csv(
@@ -768,6 +792,7 @@ def prepare_window_inputs(
             market_quote_label=args.market_quote_label,
             oracle_lookback_blocks=window.oracle_lookback_blocks,
             market_to_block=window.to_block + window.markout_extension_blocks,
+            market_extension_seconds=window.markout_extension_seconds,
             max_oracle_age_seconds=args.max_oracle_age_seconds,
             rpc_timeout=args.rpc_timeout,
             rpc_cache_dir=args.rpc_cache_dir,
@@ -828,6 +853,10 @@ def materialize_cached_window_inputs(
             f"window_id={window.window_id}: cached input_dir produced zero swap_samples rows."
         )
     write_rows_csv(str(export_dir / "swap_samples.csv"), swap_fieldnames, filtered_swap_rows)
+    required_reference_tail_timestamp = (
+        max(int(row["timestamp"]) for row in filtered_swap_rows)
+        + window.markout_extension_seconds
+    )
     _copy_optional_filtered_json_array(
         source_path=swap_samples_source.with_suffix(".json"),
         output_path=export_dir / "swap_samples.json",
@@ -920,6 +949,11 @@ def materialize_cached_window_inputs(
             for row in market_rows
             if _row_block_at_most(row, "block_number", markout_to_block)
         ]
+        filtered_market_rows = _extend_cached_rows_through_timestamp(
+            selected_rows=filtered_market_rows,
+            source_rows=market_rows,
+            required_timestamp=required_reference_tail_timestamp,
+        )
         if window.invert_external_reference:
             filtered_market_rows = invert_reference_rows(filtered_market_rows)
         write_rows_csv(
@@ -969,10 +1003,21 @@ def materialize_cached_window_inputs(
             filtered_source_rows = invert_reference_rows(filtered_source_rows)
         write_rows_csv(str(materialized_source_path), source_fieldnames, filtered_source_rows)
 
+    _, materialized_market_rows = _read_csv_rows(export_dir / "market_reference_updates.csv")
+    observed_reference_tail_timestamp = max(
+        (int(row["timestamp"]) for row in materialized_market_rows if row.get("timestamp")),
+        default=None,
+    )
     return {
         "oracle_updates": len(filtered_oracle_rows),
         "swap_samples": len(filtered_swap_rows),
         "source_fixture_dir": str(source_dir),
+        "market_reference_required_through_timestamp": required_reference_tail_timestamp,
+        "market_reference_observed_through_timestamp": observed_reference_tail_timestamp,
+        "market_reference_tail_complete": (
+            observed_reference_tail_timestamp is not None
+            and observed_reference_tail_timestamp >= required_reference_tail_timestamp
+        ),
     }
 
 
@@ -1145,6 +1190,54 @@ def _filter_optional_block_rows(
     if any(row.get(block_key) not in (None, "") for row in rows):
         return [row for row in rows if _row_block_at_most(row, block_key, max_block)]
     return rows
+
+
+def _extend_cached_rows_through_timestamp(
+    *,
+    selected_rows: list[dict[str, str]],
+    source_rows: list[dict[str, str]],
+    required_timestamp: int,
+) -> list[dict[str, str]]:
+    """Retain cached reference rows through the first observation after the deadline."""
+    ordered = sorted(
+        source_rows,
+        key=lambda row: (
+            int(row.get("timestamp") or 0),
+            int(row.get("block_number") or 0),
+            int(row.get("log_index") or 0),
+        ),
+    )
+    cutoff_timestamp = next(
+        (
+            int(row["timestamp"])
+            for row in ordered
+            if row.get("timestamp") not in (None, "")
+            and int(row["timestamp"]) >= required_timestamp
+        ),
+        None,
+    )
+    if cutoff_timestamp is None:
+        return selected_rows
+    selected_keys = {
+        (row.get("timestamp"), row.get("block_number"), row.get("tx_hash"), row.get("log_index"))
+        for row in selected_rows
+    }
+    extended = list(selected_rows)
+    for row in ordered:
+        if int(row.get("timestamp") or 0) > cutoff_timestamp:
+            break
+        key = (row.get("timestamp"), row.get("block_number"), row.get("tx_hash"), row.get("log_index"))
+        if key not in selected_keys:
+            extended.append(row)
+            selected_keys.add(key)
+    return sorted(
+        extended,
+        key=lambda row: (
+            int(row.get("timestamp") or 0),
+            int(row.get("block_number") or 0),
+            int(row.get("log_index") or 0),
+        ),
+    )
 
 
 def emit_exact_replay_artifacts(

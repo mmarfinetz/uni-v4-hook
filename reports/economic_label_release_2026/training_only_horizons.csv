@@ -1,0 +1,7 @@
+horizon_seconds,latency_quantile,latency_quantile_seconds,observed_fill_count,pool_family,source,training_month,training_window_count,training_window_end,training_window_start
+10,0.9,10.0,22,eurc_usdc_500,auction_fill_latency_nearest_rank_ceil_seconds,2026-01,4,1769903771,1767225743
+530,0.9,530.0,52,link_weth_3000,auction_fill_latency_nearest_rank_ceil_seconds,2025-10,31,1761954539,1759276883
+338,0.9,338.0,0,paxg_usdc_500,global_earliest_month_fallback_no_pool_fills,2026-01,4,1769903891,1767225695
+556,0.9,556.0,15,uni_weth_3000,auction_fill_latency_nearest_rank_ceil_seconds,2025-10,31,1761952943,1759279031
+333,0.9,333.0,6388,wbtc_usdc_500,auction_fill_latency_nearest_rank_ceil_seconds,2025-10,31,1761955187,1759276811
+546,0.9,546.0,46,weth_usdc_3000,auction_fill_latency_nearest_rank_ceil_seconds,2025-10,31,1761954311,1759276811

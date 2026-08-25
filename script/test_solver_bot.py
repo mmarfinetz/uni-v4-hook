@@ -1,5 +1,6 @@
 import unittest
 from argparse import Namespace
+from dataclasses import asdict
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -11,11 +12,15 @@ from script.solver_bot import (
     _validate_runtime_config,
     amount_for_direction,
     decode_balance_delta,
+    estimated_input_fee_token1,
     evaluate_fill_economics,
     feed_answer_for_gap,
+    free_energy_gap_potential_wad,
     gas_cost_in_token1_raw,
     gap_premium_wad,
     gap_trigger_bps,
+    input_notional_token1_from_delta,
+    minimum_compensation_fraction_wad,
     parse_cast_values,
     parse_nonnegative_units,
     parse_raw_units,
@@ -154,6 +159,10 @@ class FillEconomicsTest(unittest.TestCase):
         )
         self.assertTrue(economics.profitable)
         self.assertEqual(economics.net_profit_token1, 110)
+        self.assertEqual(economics.required_compensation_token1, 130)
+        self.assertEqual(economics.available_gap_value_token1, 130)
+        self.assertEqual(economics.minimum_compensation_wad, WAD)
+        self.assertEqual(economics.current_solver_share_wad, WAD)
 
         below = evaluate_fill_economics(
             gross_surplus_token1=129,
@@ -163,6 +172,60 @@ class FillEconomicsTest(unittest.TestCase):
         )
         self.assertFalse(below.profitable)
         self.assertEqual(below.reason, "below_profit_reserve")
+
+    def test_minimum_compensation_uses_total_gap_value_and_rounds_up(self):
+        economics = evaluate_fill_economics(
+            gross_surplus_token1=700,
+            gas_cost_token1=100,
+            required_edge_token1=25,
+            minimum_profit_token1=25,
+            estimated_lp_fee_token1=300,
+            free_energy_gap_potential_wad=4 * 10**12,
+        )
+        self.assertTrue(economics.profitable)
+        self.assertEqual(economics.available_gap_value_token1, 1_000)
+        self.assertEqual(economics.required_compensation_token1, 150)
+        self.assertEqual(economics.minimum_compensation_wad, 15 * 10**16)
+        self.assertEqual(economics.current_solver_share_wad, 7 * 10**17)
+        self.assertEqual(economics.free_energy_gap_potential_wad, 4 * 10**12)
+
+        self.assertEqual(
+            minimum_compensation_fraction_wad(
+                required_compensation_token1=1,
+                available_gap_value_token1=3,
+            ),
+            (WAD + 2) // 3,
+        )
+        self.assertIsNone(
+            minimum_compensation_fraction_wad(
+                required_compensation_token1=1,
+                available_gap_value_token1=0,
+            )
+        )
+
+    def test_free_energy_and_actual_input_fee_accounting(self):
+        self.assertEqual(free_energy_gap_potential_wad(2 * 10**15), 4 * 10**12)
+        self.assertEqual(estimated_input_fee_token1(1_000_000, 3_000), 3_000)
+        self.assertEqual(estimated_input_fee_token1(1, 1), 1)
+
+        self.assertEqual(
+            input_notional_token1_from_delta(
+                amount0=-10,
+                amount1=39,
+                zero_for_one=True,
+                reference_sqrt_price_x96=2 * Q96,
+            ),
+            40,
+        )
+        self.assertEqual(
+            input_notional_token1_from_delta(
+                amount0=9,
+                amount1=-7,
+                zero_for_one=False,
+                reference_sqrt_price_x96=Q96,
+            ),
+            7,
+        )
 
     def test_native_gas_cost_converts_to_token1_raw_units(self):
         # 200k gas at 1 gwei = 0.0002 native token, at 1 token1/native.
@@ -193,6 +256,34 @@ class RuntimeStoreTest(unittest.TestCase):
             self.assertTrue(metrics.exists())
             self.assertTrue(metrics.with_suffix(".prom").exists())
             self.assertTrue(health.exists())
+
+    def test_last_fill_accounting_is_persisted_and_exported_as_gauges(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / "state.json"
+            metrics = root / "metrics.jsonl"
+            store = RuntimeStore(state, metrics, root / "health.json")
+
+            economics = evaluate_fill_economics(
+                gross_surplus_token1=85,
+                gas_cost_token1=10,
+                required_edge_token1=5,
+                minimum_profit_token1=0,
+                estimated_lp_fee_token1=15,
+                free_energy_gap_potential_wad=25,
+            )
+            store.record("fill_evaluated", **asdict(economics))
+
+            restored = RuntimeStore(state, metrics, root / "health.json")
+            self.assertEqual(
+                restored.state["last_fill_economics"]["minimum_compensation_wad"],
+                15 * 10**16,
+            )
+            prometheus = metrics.with_suffix(".prom").read_text(encoding="utf-8")
+            self.assertIn("lvr_solver_last_fill_available_gap_value_token1 100", prometheus)
+            self.assertIn("lvr_solver_last_fill_required_compensation_token1 15", prometheus)
+            self.assertIn("lvr_solver_last_fill_minimum_compensation_wad 150000000000000000", prometheus)
+            self.assertIn("lvr_solver_last_fill_profitable 1", prometheus)
 
     def test_confirmed_send_persists_then_clears_pending_transaction(self):
         with TemporaryDirectory() as directory:

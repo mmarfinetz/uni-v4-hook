@@ -1,0 +1,27 @@
+{
+  "study_config_version": 1,
+  "base_classifier_config": "research/lvr/config/entropy_classifier_config.json",
+  "first_calibration_month": "2026-01",
+  "resolution_calibrator": "sign_platt",
+  "conditional_toxicity_calibrator": "sign_platt",
+  "label_horizon_purge_seconds": 3600,
+  "ridge_strength": 0.01,
+  "minimum_calibration_support": 100,
+  "minimum_calibration_groups": 3,
+  "ece_bins": 10,
+  "minimum_slice_support": 200,
+  "acceptance": {
+    "maximum_resolution_ece": 0.05,
+    "maximum_conditional_toxicity_ece": 0.05,
+    "maximum_slice_ece": 0.10,
+    "maximum_dollar_weighted_partial_interval_width": 0.20,
+    "minimum_toxic_precision_lower_bound": 0.95,
+    "minimum_taxed_dollar_resolution_rate": 0.80,
+    "minimum_toxic_surcharge_capture_rate": 0.05
+  },
+  "frozen_future_confirmation": {
+    "required": true,
+    "status": "awaiting_first_canonical_month_after_2026-06",
+    "note": "The local canonical corpus ends in June 2026. This configuration must remain unchanged before scoring the next newly collected complete month."
+  }
+}

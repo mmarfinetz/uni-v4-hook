@@ -1,0 +1,1679 @@
+{
+  "manifest": {
+    "gas_conversion": "Every normalized reference is replay-quote-asset per USDC; gas_cost_usd is multiplied by the first causally available reference in each window",
+    "gas_cost_usd": 0.015,
+    "isolated_policy_constants": {
+      "absolute_trigger_gap_bps": 10.0,
+      "bootstrap_sigma2_per_second": 3e-08,
+      "concession_schedule": "linear",
+      "free_energy_solver_gate": false,
+      "hysteresis": "not implemented and not evaluated",
+      "linear_growth_bps_per_second": 0.5,
+      "start_concession_bps": 10.0,
+      "temperature_latency_seconds": 60.0,
+      "volatility_lookback_seconds": 86400
+    },
+    "panel_months": [
+      "2026_01",
+      "2026_02",
+      "2026_03",
+      "2026_04",
+      "2026_05",
+      "2026_06"
+    ],
+    "pool_window_counts": {
+      "eurc_usdc_500": 24,
+      "paxg_usdc_500": 24,
+      "weth_usdc_3000": 24
+    },
+    "purpose": "paired sensitivity sweep; not hyperparameter selection",
+    "run_count": 360,
+    "solver_edge_bps": 1.0,
+    "study": "effective_temperature_out_of_sample_2026",
+    "temperature_multipliers": [
+      0.0,
+      0.25,
+      0.5,
+      1.0,
+      2.0
+    ],
+    "window_count": 72,
+    "windows": [
+      {
+        "input_dir": "exports/study_recent/fixed/2026_01_weth_usdc/weth_usdc_3000_month_24136052_24143251_w01/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "51eaf7cfa01ecb9bc38f1ffe9b655ef94b42903a69ff9ff824f433ad882f1c6d",
+          "oracle_updates.csv": "a608b11ea4d6e0072236f32fea87c307c0f1083658c93a323efd363dfeb3e434",
+          "pool_snapshot.json": "d76f855719b1188533ffbedc26047824c48938ab291055fbd3fa030bc8ef061c",
+          "swap_samples.csv": "1ea2c97e4b71803a5c6350f488c0412f8785ba6ea4dd7779e624509f93935db3"
+        },
+        "measured_regime": "normal",
+        "month": "2026_01",
+        "pool_family": "weth_usdc_3000",
+        "quote_unit": "WETH",
+        "realized_vol_annualised_pct": 18.60330536644617,
+        "solver_gas_cost_quote": 5.047782716855625e-06,
+        "window_id": "weth_usdc_3000_month_24136052_24143251_w01"
+      },
+      {
+        "input_dir": "exports/study_recent/fixed/2026_01_weth_usdc/weth_usdc_3000_month_24208052_24215251_w11/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "4e3638d1d04f9b724a857cd6f22143013db9eba8c111560b82e746d6f0f58f53",
+          "oracle_updates.csv": "35b43647e51db112a67486e56e89bec8894e256eb2f436f41743832ac125c413",
+          "pool_snapshot.json": "2ac304a35105f5e26acbf959e4faff2b5d39539ed8421ce07ab7a5df5b3ee484",
+          "swap_samples.csv": "2280d6d04f43a26222d353ac462d9b4a13a755715a6022019b962234cc0fe0f4"
+        },
+        "measured_regime": "normal",
+        "month": "2026_01",
+        "pool_family": "weth_usdc_3000",
+        "quote_unit": "WETH",
+        "realized_vol_annualised_pct": 41.62573543989503,
+        "solver_gas_cost_quote": 4.843187474753745e-06,
+        "window_id": "weth_usdc_3000_month_24208052_24215251_w11"
+      },
+      {
+        "input_dir": "exports/study_recent/fixed/2026_01_weth_usdc/weth_usdc_3000_month_24280052_24287251_w21/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "ae97931c7d3896d210d21e68a29b8d9355a571dd6a6b9ae917cc5f7775a8147f",
+          "oracle_updates.csv": "d9a28d7e2c6f0c3c3c4a7b4b09dd7f69a1ebbd39746cbfbf031a55f07910b4d3",
+          "pool_snapshot.json": "4087804b1ef58bf4da07244400f95571997e2fb32028324f73feefb7a6073d7e",
+          "swap_samples.csv": "f3b30082b752106959668842b28563b7ff2ac209bbcdef8d6da4391e80b5c121"
+        },
+        "measured_regime": "normal",
+        "month": "2026_01",
+        "pool_family": "weth_usdc_3000",
+        "quote_unit": "WETH",
+        "realized_vol_annualised_pct": 87.00301739835774,
+        "solver_gas_cost_quote": 5.033015319116504e-06,
+        "window_id": "weth_usdc_3000_month_24280052_24287251_w21"
+      },
+      {
+        "input_dir": "exports/study_recent/fixed/2026_01_weth_usdc/weth_usdc_3000_month_24352052_24358292_w31/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "c0ae0e45f534cc50ac3bd19d9ba63eb4f8e1e0c38dc39524625216459c9a07b6",
+          "oracle_updates.csv": "8c9b40a2feb5f8f91847d5a52b3da6c2a8b871691781c9e6f0fad19ad44827e7",
+          "pool_snapshot.json": "d3d218efccfd1edf775bd4647ba1fe6ea5a3ddbc39d6041758b4af13b6b67f91",
+          "swap_samples.csv": "70389609701fd690dd9ab356cf30bac89adf9612e4a148dc5fc57b3d211cfcf8"
+        },
+        "measured_regime": "stress",
+        "month": "2026_01",
+        "pool_family": "weth_usdc_3000",
+        "quote_unit": "WETH",
+        "realized_vol_annualised_pct": 161.45959979642197,
+        "solver_gas_cost_quote": 5.59200619839333e-06,
+        "window_id": "weth_usdc_3000_month_24352052_24358292_w31"
+      },
+      {
+        "input_dir": "exports/study_recent/fixed/2026_02_weth_usdc/weth_usdc_3000_month_24358292_24365491_w01/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "3183436922a4504303626900a9261a8b00deab83adfd247043d99a55afff8e0c",
+          "oracle_updates.csv": "dbd831fe59b3e4873afd65d24170772eb10c2035f0dd3ea03c29bedcc5826e3d",
+          "pool_snapshot.json": "8d24ed720adb6afec4c46d38f6056a328e5f9fa1628f44cc8ec2aaed5d85443f",
+          "swap_samples.csv": "f6c82c2cc0f54e7354a2e917f99832af03bd75bf3827f7a45fc45111817e9716"
+        },
+        "measured_regime": "stress",
+        "month": "2026_02",
+        "pool_family": "weth_usdc_3000",
+        "quote_unit": "WETH",
+        "realized_vol_annualised_pct": 130.18547930936845,
+        "solver_gas_cost_quote": 6.14072879918676e-06,
+        "window_id": "weth_usdc_3000_month_24358292_24365491_w01"
+      },
+      {
+        "input_dir": "exports/study_recent/fixed/2026_02_weth_usdc/weth_usdc_3000_month_24423092_24430291_w10/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "fb5e2ab8863bd796b6efb761bc3fca81c25f9e32b8c6b78605a82923e397a327",
+          "oracle_updates.csv": "19bde4b7efbca1067457fc269447a54723a5741f00c55c4b028fc8043d2830dd",
+          "pool_snapshot.json": "ca4b8c3219537e0c68db4b057a79052548a2ed23d6acb548800848720c290317",
+          "swap_samples.csv": "c3736a287fc5929e7983468e4defdd53a9b321bd19c2fbd05ea5563d22b2c26d"
+        },
+        "measured_regime": "normal",
+        "month": "2026_02",
+        "pool_family": "weth_usdc_3000",
+        "quote_unit": "WETH",
+        "realized_vol_annualised_pct": 78.11849342554767,
+        "solver_gas_cost_quote": 7.484093308082999e-06,
+        "window_id": "weth_usdc_3000_month_24423092_24430291_w10"
+      },
+      {
+        "input_dir": "exports/study_recent/fixed/2026_02_weth_usdc/weth_usdc_3000_month_24487892_24495091_w19/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "9f2f3aa6e8b20b6b8ab435e75158e8f2d8e33345464183f50db93a6198396982",
+          "oracle_updates.csv": "efe7b0b7a9b80137af2f371a3334f257fc9dcaf2d054995f48641fa854a159d0",
+          "pool_snapshot.json": "72798dbacf376afebe604b8eac479dff042f1a91a379274680f66a2d278a96dd",
+          "swap_samples.csv": "b3dda4d7885eca0f5deb4fe70358cec968d5c028601afe6c5ff00ac31f16f749"
+        },
+        "measured_regime": "normal",
+        "month": "2026_02",
+        "pool_family": "weth_usdc_3000",
+        "quote_unit": "WETH",
+        "realized_vol_annualised_pct": 65.98024051063557,
+        "solver_gas_cost_quote": 7.565042249883854e-06,
+        "window_id": "weth_usdc_3000_month_24487892_24495091_w19"
+      },
+      {
+        "input_dir": "exports/study_recent/fixed/2026_02_weth_usdc/weth_usdc_3000_month_24552692_24558867_w28/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "3b72fb118168de84f444d6b1f1e2a9309f142ed7b5fade669d6426f3c398b02e",
+          "oracle_updates.csv": "74c4820dfe831f201ad93caacb8749e595b5cbe6420e31d55ad9203648e4b091",
+          "pool_snapshot.json": "bb9c7a2b377409f80458ac94f8506fc0a410c87bbb4760801ed8c0131fbfcd78",
+          "swap_samples.csv": "0de0389ddd9b6b9181ec367236b178141eab2d55d137743c25d2e3d57acca6e0"
+        },
+        "measured_regime": "normal",
+        "month": "2026_02",
+        "pool_family": "weth_usdc_3000",
+        "quote_unit": "WETH",
+        "realized_vol_annualised_pct": 93.16460137003169,
+        "solver_gas_cost_quote": 8.153603439135134e-06,
+        "window_id": "weth_usdc_3000_month_24552692_24558867_w28"
+      },
+      {
+        "input_dir": "exports/study_recent/fixed/2026_03_weth_usdc/weth_usdc_3000_month_24558867_24566066_w01/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "ca2716b052bdc9055bf4deb36ba8a5caabefe47862a9bd0a917ec811488f4f3b",
+          "oracle_updates.csv": "c14f998202dcbc2fb893858c81597b3a3adb5149f1829f39bea63ff158f32b73",
+          "pool_snapshot.json": "39d3c14b00086abe5d84c496f337e93048cbb36b7c498669b3746e6ea4566d4d",
+          "swap_samples.csv": "b12e69e4eaec6b23b2ea58722c19b3f8b048165cc45832316f62d30b019daad1"
+        },
+        "measured_regime": "normal",
+        "month": "2026_03",
+        "pool_family": "weth_usdc_3000",
+        "quote_unit": "WETH",
+        "realized_vol_annualised_pct": 98.65974543944763,
+        "solver_gas_cost_quote": 7.645810547811465e-06,
+        "window_id": "weth_usdc_3000_month_24558867_24566066_w01"
+      },
+      {
+        "input_dir": "exports/study_recent/fixed/2026_03_weth_usdc/weth_usdc_3000_month_24630867_24638066_w11/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "97cd26d17a0d73e4c600a44f41acdf273eaa0f900e592051c4d64a6faaa37aa0",
+          "oracle_updates.csv": "8a8891360d02e61a9013372ed8ee7f414e7c4f33e309e0d0a0bcaab10b647907",
+          "pool_snapshot.json": "3008c6e99ce35ee5fecfd55353347f82e538d379bb6386c6a3902eb5b09cf8eb",
+          "swap_samples.csv": "4b566935a0356dd0e8ba3b6d37ceec0a9521d3da49624652d1ee3ad21354ef55"
+        },
+        "measured_regime": "normal",
+        "month": "2026_03",
+        "pool_family": "weth_usdc_3000",
+        "quote_unit": "WETH",
+        "realized_vol_annualised_pct": 73.8775276702439,
+        "solver_gas_cost_quote": 7.417657446654105e-06,
+        "window_id": "weth_usdc_3000_month_24630867_24638066_w11"
+      },
+      {
+        "input_dir": "exports/study_recent/fixed/2026_03_weth_usdc/weth_usdc_3000_month_24702867_24710066_w21/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "a7bc87b9efcf6f29451fb316beb105988f1af54c2cfc97ec1150d821a7e04fe1",
+          "oracle_updates.csv": "9ec68c84e142c2d0f83f91eb5683d341d15e0a67ce76834716029e4c72359049",
+          "pool_snapshot.json": "d7ff7786990ff4664ebeda127e7650c997d3e136de0db85897af30bacb607489",
+          "swap_samples.csv": "934c0319c3f9c8fc504a0decac3447e12299a895940111b9158fbbd7b0c7fd0d"
+        },
+        "measured_regime": "normal",
+        "month": "2026_03",
+        "pool_family": "weth_usdc_3000",
+        "quote_unit": "WETH",
+        "realized_vol_annualised_pct": 58.22496001370979,
+        "solver_gas_cost_quote": 6.96571279722288e-06,
+        "window_id": "weth_usdc_3000_month_24702867_24710066_w21"
+      },
+      {
+        "input_dir": "exports/study_recent/fixed/2026_03_weth_usdc/weth_usdc_3000_month_24774867_24781026_w31/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "cc3345ab64213bc20b3225b84a404474a93b3c0e4c5fa1ab544a3ff7de741b6c",
+          "oracle_updates.csv": "1a52c6dce5427ee427f107ff02ac34c030c46a32a4d2e8edc447a7cdcbbaf3b2",
+          "pool_snapshot.json": "13b35e320e0abeb4c2437498dcfd45bd9adc32f554043340a364b840079a6fcc",
+          "swap_samples.csv": "cfc52f37791357509173d0aade98244de7fb475c61314d3ebe88f058e65b78a8"
+        },
+        "measured_regime": "normal",
+        "month": "2026_03",
+        "pool_family": "weth_usdc_3000",
+        "quote_unit": "WETH",
+        "realized_vol_annualised_pct": 73.24097528132452,
+        "solver_gas_cost_quote": 7.291763443738485e-06,
+        "window_id": "weth_usdc_3000_month_24774867_24781026_w31"
+      },
+      {
+        "input_dir": "exports/study_recent/fixed/2026_04_weth_usdc/weth_usdc_3000_month_24781026_24788225_w01/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "cf1ba63401a3fe81e7668fecb11218fcedc8b9304f51a92dfa97191a3ebd9524",
+          "oracle_updates.csv": "83fa8e3025884fb7655c04438e036a81161b1952cfe133db13a39e0406587dd9",
+          "pool_snapshot.json": "6d1c5cc484e9f48d0bd631d11ce7d737c042b8ae826ff58cb40b4f8aa622af9a",
+          "swap_samples.csv": "eb148ce7433e5fd1c4ec141a6b3a2ef53147eafa04943611092141df493ccb61"
+        },
+        "measured_regime": "normal",
+        "month": "2026_04",
+        "pool_family": "weth_usdc_3000",
+        "quote_unit": "WETH",
+        "realized_vol_annualised_pct": 50.35357383741764,
+        "solver_gas_cost_quote": 7.121169533866305e-06,
+        "window_id": "weth_usdc_3000_month_24781026_24788225_w01"
+      },
+      {
+        "input_dir": "exports/study_recent/fixed/2026_04_weth_usdc/weth_usdc_3000_month_24853026_24860225_w11/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "b64dab297c8a597267115c9d1de62d4a078813d276c7e1ff542454c3a5cff88d",
+          "oracle_updates.csv": "849a85853045a869fe65a71fae82838d2f481333028c9f2e3c38cc0edb3bc30c",
+          "pool_snapshot.json": "6b345f8e81e8120d377d458263e4c2dc6e979204efd78bee88de1502583443bc",
+          "swap_samples.csv": "bf63121b2b0e501851e88e7d0d6d84ee6aeeabeb80673c00e476829b2bbf0b3e"
+        },
+        "measured_regime": "normal",
+        "month": "2026_04",
+        "pool_family": "weth_usdc_3000",
+        "quote_unit": "WETH",
+        "realized_vol_annualised_pct": 48.45291006552886,
+        "solver_gas_cost_quote": 6.71652219082632e-06,
+        "window_id": "weth_usdc_3000_month_24853026_24860225_w11"
+      },
+      {
+        "input_dir": "exports/study_recent/fixed/2026_04_weth_usdc/weth_usdc_3000_month_24917826_24925025_w20/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "b3070cc7e96b8a479508ec02935ee2e0ba7825facf9ce05dd214d7c6983ec851",
+          "oracle_updates.csv": "089b53cc14f3066835c3531dec494290cc9c2af19d11491ca5d36d8bb8ba7d82",
+          "pool_snapshot.json": "54fc5cb92857c17159040aaf25aabaa79f02ed8e2f3abce03d092cd9bb465c05",
+          "swap_samples.csv": "2809bba84f8c2fc35b27b5563b47ea0cd0790e3f20121e4142c9f598baf23332"
+        },
+        "measured_regime": "normal",
+        "month": "2026_04",
+        "pool_family": "weth_usdc_3000",
+        "quote_unit": "WETH",
+        "realized_vol_annualised_pct": 57.34814940043928,
+        "solver_gas_cost_quote": 6.56446988193384e-06,
+        "window_id": "weth_usdc_3000_month_24917826_24925025_w20"
+      },
+      {
+        "input_dir": "exports/study_recent/fixed/2026_04_weth_usdc/weth_usdc_3000_month_24989826_24996367_w30/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "97fd9fa678a2df9c6589f0e1d17bd18c2eee2fc0a0c5f7e64bf53c3784165176",
+          "oracle_updates.csv": "791cf18211762740e513934d0ff0e0a86e5796b5ef8283855115fe421d21037a",
+          "pool_snapshot.json": "40dded966238818bb6c30b92711735930843675a9e39a3f0d8432d043866c92d",
+          "swap_samples.csv": "e0f6fdacffc5dd2a144a255d1245a0fd4f2665850e754c622ab1ad91c0cf3c92"
+        },
+        "measured_regime": "normal",
+        "month": "2026_04",
+        "pool_family": "weth_usdc_3000",
+        "quote_unit": "WETH",
+        "realized_vol_annualised_pct": 47.54698246742872,
+        "solver_gas_cost_quote": 6.671784738158145e-06,
+        "window_id": "weth_usdc_3000_month_24989826_24996367_w30"
+      },
+      {
+        "input_dir": "exports/study_recent/fixed/2026_05_weth_usdc/weth_usdc_3000_month_24996367_25003566_w01/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "79dad42eecafdbbc17bd30493700416e1a4a96f95b0f9e249c468a40d79282a9",
+          "oracle_updates.csv": "56ba4ef8ff8cc9d6fdbc5389a9e8647d0d0ee72aacb9120c87c1ae7a7db00305",
+          "pool_snapshot.json": "4eafb752a5cc8e61e550c36fa9f28ab24d52cf64a28b990efedaa5dba83b4573",
+          "swap_samples.csv": "19130171015606ae89602223a537c28a237988c716ae835d43baea7dad6b781f"
+        },
+        "measured_regime": "normal",
+        "month": "2026_05",
+        "pool_family": "weth_usdc_3000",
+        "quote_unit": "WETH",
+        "realized_vol_annualised_pct": 38.99889769671367,
+        "solver_gas_cost_quote": 6.64500430579635e-06,
+        "window_id": "weth_usdc_3000_month_24996367_25003566_w01"
+      },
+      {
+        "input_dir": "exports/study_recent/fixed/2026_05_weth_usdc/weth_usdc_3000_month_25068367_25075566_w11/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "e3b07dec249c10b39632dbac2d6f954d2e054afe3a2fdcd2be087d5ce66da8b3",
+          "oracle_updates.csv": "038641599397b344caf3a57bb33ae3a359a8f41cb16c1571b7876c299a5dd453",
+          "pool_snapshot.json": "cb44ceee9883d06a89a11fffd4000044eaf00fbac461d7dfa9ecf1c8e91bcf06",
+          "swap_samples.csv": "61899732f47e0b7d87b3440f163cd65c357b4331d97f6c2827211bc144652a08"
+        },
+        "measured_regime": "normal",
+        "month": "2026_05",
+        "pool_family": "weth_usdc_3000",
+        "quote_unit": "WETH",
+        "realized_vol_annualised_pct": 33.987324036859775,
+        "solver_gas_cost_quote": 6.416926960763325e-06,
+        "window_id": "weth_usdc_3000_month_25068367_25075566_w11"
+      },
+      {
+        "input_dir": "exports/study_recent/fixed/2026_05_weth_usdc/weth_usdc_3000_month_25140367_25147566_w21/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "7d5ed781bc7111f522211c3577262e865bff6502f7c8a324f165fee34d606446",
+          "oracle_updates.csv": "dbe4149636acdc7a1a0021fc5f211e162f29830d7e4594f85463ff9e135e8878",
+          "pool_snapshot.json": "e30659ad152a8f935d074bf52bf85762eb16f2bcfca4b577e195f336a0dcfb2a",
+          "swap_samples.csv": "b495eb1dcb1d1b3accf702558de1491c3410ba1695ff867ebb412c016ddbc228"
+        },
+        "measured_regime": "normal",
+        "month": "2026_05",
+        "pool_family": "weth_usdc_3000",
+        "quote_unit": "WETH",
+        "realized_vol_annualised_pct": 40.48958640985946,
+        "solver_gas_cost_quote": 7.029816967111275e-06,
+        "window_id": "weth_usdc_3000_month_25140367_25147566_w21"
+      },
+      {
+        "input_dir": "exports/study_recent/fixed/2026_05_weth_usdc/weth_usdc_3000_month_25212367_25218797_w31/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "7a306d67e2b6d56a094612bca68dbe2d88cb52318db6ff32ed68a1de363cfd88",
+          "oracle_updates.csv": "1fa246a210249dac2ad64c0d6004f47a4e290954d247ed47aebbc00f6b8f74af",
+          "pool_snapshot.json": "26c607fa8eef879bfec9fd9eafa2bbd5a49d2cfbc7694cd04fd42bc6f6c7e139",
+          "swap_samples.csv": "01f5efd355743fa770b2c06f39d14a123b4fe49c4edd5e13623ec9dc2b0a3f89"
+        },
+        "measured_regime": "normal",
+        "month": "2026_05",
+        "pool_family": "weth_usdc_3000",
+        "quote_unit": "WETH",
+        "realized_vol_annualised_pct": 33.01359622329684,
+        "solver_gas_cost_quote": 7.400418332407875e-06,
+        "window_id": "weth_usdc_3000_month_25212367_25218797_w31"
+      },
+      {
+        "input_dir": "exports/study_recent/fixed/2026_06_weth_usdc/weth_usdc_3000_month_25218797_25225996_w01/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "a3515c0aab1fa67a737745b839f3716e9b5b884a2fbf354197a5b6407faf5763",
+          "oracle_updates.csv": "820d14347e695abc1c906986732742b947dae9eda6e56496c328b808b9d304a4",
+          "pool_snapshot.json": "bd6d94db4534e599925752cf93ca623470e342aec39f1c6612a3039bd20274bc",
+          "swap_samples.csv": "f34c41be8cb83fdf45ad8493273bb31dee71a1b1adaf5ee50d573552102fce6d"
+        },
+        "measured_regime": "normal",
+        "month": "2026_06",
+        "pool_family": "weth_usdc_3000",
+        "quote_unit": "WETH",
+        "realized_vol_annualised_pct": 47.18979660450306,
+        "solver_gas_cost_quote": 7.5034117011214645e-06,
+        "window_id": "weth_usdc_3000_month_25218797_25225996_w01"
+      },
+      {
+        "input_dir": "exports/study_recent/fixed/2026_06_weth_usdc/weth_usdc_3000_month_25290797_25297996_w11/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "7a8bcb94169ed90b72730cb1ce1160a6b641d3dc1d7a759cabbd7aabc0ffff1c",
+          "oracle_updates.csv": "34cd9d9596da57c45cde79199f1a0d76e94159d923fbc240c94f97c7dbe99793",
+          "pool_snapshot.json": "75e4cd02728311e19db36205979eb85b1ee4b4c4c8005ee3309c268954cc8dfa",
+          "swap_samples.csv": "5a72f8535476e0ef0491a81d36545c13e0bb726852b974ad12f7b9bfed296b8b"
+        },
+        "measured_regime": "normal",
+        "month": "2026_06",
+        "pool_family": "weth_usdc_3000",
+        "quote_unit": "WETH",
+        "realized_vol_annualised_pct": 63.6462160360447,
+        "solver_gas_cost_quote": 9.040156768006965e-06,
+        "window_id": "weth_usdc_3000_month_25290797_25297996_w11"
+      },
+      {
+        "input_dir": "exports/study_recent/fixed/2026_06_weth_usdc/weth_usdc_3000_month_25355597_25362796_w20/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "65306c9a7d5f09ae22904f9da70dd151af862f2a089f627ec9e129ce3faa55a7",
+          "oracle_updates.csv": "62bb6981a928f9a9bcbdc8b564aa68a09468741a272710e5aa59d6d21b4467f7",
+          "pool_snapshot.json": "969e9770fb024991e63c6ab33ceb56d334e67dbe587f139117e15c7ae3599b7a",
+          "swap_samples.csv": "e19cf291b159526be971905af377ac934bbfdde8396e46c53f94deaab26ff782"
+        },
+        "measured_regime": "normal",
+        "month": "2026_06",
+        "pool_family": "weth_usdc_3000",
+        "quote_unit": "WETH",
+        "realized_vol_annualised_pct": 45.52098517606261,
+        "solver_gas_cost_quote": 8.703762161300054e-06,
+        "window_id": "weth_usdc_3000_month_25355597_25362796_w20"
+      },
+      {
+        "input_dir": "exports/study_recent/fixed/2026_06_weth_usdc/weth_usdc_3000_month_25427597_25433938_w30/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "889656fed2d3c871dd98385e162903fa56b7c6369b5fbce244cc79d6737efea9",
+          "oracle_updates.csv": "f6d6295270eda28237a7517fe13adc9365a2b3324f0a64aeb8292f92ebbdbbe9",
+          "pool_snapshot.json": "1dfde3ac79d060d1c0a3acd2d8dd5a7e5dc198c02c9dd9ceeacd207850c79576",
+          "swap_samples.csv": "70ec944150f1163b9079b5016b3fd4d5c4367c0e494de28d16ec97eff419cc54"
+        },
+        "measured_regime": "normal",
+        "month": "2026_06",
+        "pool_family": "weth_usdc_3000",
+        "quote_unit": "WETH",
+        "realized_vol_annualised_pct": 52.877566232797236,
+        "solver_gas_cost_quote": 9.420392930453609e-06,
+        "window_id": "weth_usdc_3000_month_25427597_25433938_w30"
+      },
+      {
+        "input_dir": "exports/study_rwa/2026_01_paxg_usdc/paxg_usdc_500_month_24136052_24143251_w01/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "56820439fe6769fc65774c0847871f14160e8ece1060f64b728b0e0727a12377",
+          "oracle_updates.csv": "24d40edb82bfd8f64c91bfc80a7949bd6ac59c8e70e57dee339246e107d4108d",
+          "pool_snapshot.json": "ccfaf38ac739eda1a6063a35a754514de07ae976962e83ac4c80fce0032d8800",
+          "swap_samples.csv": "1c69daf067d1488dc059bc7273ea51e2c8258c26f1cc61450ab3f9e077c49823"
+        },
+        "measured_regime": "normal",
+        "month": "2026_01",
+        "pool_family": "paxg_usdc_500",
+        "quote_unit": "PAXG",
+        "realized_vol_annualised_pct": 7.257115626862245,
+        "solver_gas_cost_quote": 3.47634111397164e-06,
+        "window_id": "paxg_usdc_500_month_24136052_24143251_w01"
+      },
+      {
+        "input_dir": "exports/study_rwa/2026_01_paxg_usdc/paxg_usdc_500_month_24150452_24157651_w03/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "db449932cfa5e2e7435bee2972a9e98b0767cd1be942e0f0fda09df3d53e81c9",
+          "oracle_updates.csv": "c1accedc1fd2f38856939c8a521f921b11ca3e6c469d8be39a4e0d10cc07ae71",
+          "pool_snapshot.json": "c0d4c003fc9a5d9e3e574d748179488c439aaacef00f57dc7309c6ee99923d97",
+          "swap_samples.csv": "3b8a99e8596efa0fd1dc982951ef33c6525e483ea290926d152a8d99140bbac1"
+        },
+        "measured_regime": "normal",
+        "month": "2026_01",
+        "pool_family": "paxg_usdc_500",
+        "quote_unit": "PAXG",
+        "realized_vol_annualised_pct": 2.9939256736609803,
+        "solver_gas_cost_quote": 3.465794218967115e-06,
+        "window_id": "paxg_usdc_500_month_24150452_24157651_w03"
+      },
+      {
+        "input_dir": "exports/study_rwa/2026_01_paxg_usdc/paxg_usdc_500_month_24344852_24352051_w30/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "456e131d6908d98f78f526599eb91a9bb16ee9de2258bd6ead0093abb160aada",
+          "oracle_updates.csv": "bd5e8d06a6ae1d4fed5e95fc0b718df9b5e7e0ea0486c6ee9be9ae2169c64af2",
+          "pool_snapshot.json": "b8313fd9bdbf9ea36c0275fff5e66550bc86e9b9f323f17e4be0da145195a879",
+          "swap_samples.csv": "1c624f602e3bafe7dc36334b638e21ecfb79bf1ee4254f06cc2b22ae7d7c15df"
+        },
+        "measured_regime": "stress",
+        "month": "2026_01",
+        "pool_family": "paxg_usdc_500",
+        "quote_unit": "PAXG",
+        "realized_vol_annualised_pct": 123.09568592303408,
+        "solver_gas_cost_quote": 2.90785794688278e-06,
+        "window_id": "paxg_usdc_500_month_24344852_24352051_w30"
+      },
+      {
+        "input_dir": "exports/study_rwa/2026_01_paxg_usdc/paxg_usdc_500_month_24352052_24358292_w31/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "1d51c1a41fcc21785a3a75054f7f8eb95c56c04816ad6bec17b9f885f54d386c",
+          "oracle_updates.csv": "ffceb7a210ccfb8f69a3301036435375dfd209998f590d7b734f4d38cb733393",
+          "pool_snapshot.json": "b5972a50d47a7fcc9220113aa8e8f26ce649df216fa4b4c36b1e6695f8ddb71d",
+          "swap_samples.csv": "5c7af580399cbbfcbca68af77304881c857f91d76a06c0571195f0a4d98613b5"
+        },
+        "measured_regime": "normal",
+        "month": "2026_01",
+        "pool_family": "paxg_usdc_500",
+        "quote_unit": "PAXG",
+        "realized_vol_annualised_pct": 0.08536022342794537,
+        "solver_gas_cost_quote": 3.06044778522987e-06,
+        "window_id": "paxg_usdc_500_month_24352052_24358292_w31"
+      },
+      {
+        "input_dir": "exports/study_rwa/2026_02_paxg_usdc/paxg_usdc_500_month_24358292_24365491_w01/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "314a7929160fe4076e0f9f6b0fb6f3b70edbe2ed2efdd08181ebc302ffa2fc96",
+          "oracle_updates.csv": "8cfc3af1288d904823c68ae3a967f5623e7700806dc1eb96ddbad9615d066845",
+          "pool_snapshot.json": "d6d289a735c9054017b438ba6ed4f22d5961be20534cfdbee0ebc7994a94f762",
+          "swap_samples.csv": "6aba3bec0cefdc10f362cefbb208136743f0d6cf0cd969809880b4dd6c2ee44f"
+        },
+        "measured_regime": "normal",
+        "month": "2026_02",
+        "pool_family": "paxg_usdc_500",
+        "quote_unit": "PAXG",
+        "realized_vol_annualised_pct": 49.06088475154629,
+        "solver_gas_cost_quote": 3.060555984229995e-06,
+        "window_id": "paxg_usdc_500_month_24358292_24365491_w01"
+      },
+      {
+        "input_dir": "exports/study_rwa/2026_02_paxg_usdc/paxg_usdc_500_month_24365492_24372691_w02/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "3afb086c10c2b7595d36f454331e8f986f534010df478fcec6482aea5eb76759",
+          "oracle_updates.csv": "d55cb79096ce8e8fca8a561c0ec3aac8e0119d860a8349f41aea001f7a30db7b",
+          "pool_snapshot.json": "29fbf1590f5faf407d35d1c92dadc3207e44fd4227b0540e4910812b0d52cc45",
+          "swap_samples.csv": "27e2db4868416b211271f8febe33ec9e594261a2ff48582a6abee30826632796"
+        },
+        "measured_regime": "stress",
+        "month": "2026_02",
+        "pool_family": "paxg_usdc_500",
+        "quote_unit": "PAXG",
+        "realized_vol_annualised_pct": 110.37685540300456,
+        "solver_gas_cost_quote": 3.3332444201414997e-06,
+        "window_id": "paxg_usdc_500_month_24365492_24372691_w02"
+      },
+      {
+        "input_dir": "exports/study_rwa/2026_02_paxg_usdc/paxg_usdc_500_month_24545492_24552691_w27/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "ce91830be44186f9c8e50dc93d77ecddce288cb91d7022bde1866ace15f171fe",
+          "oracle_updates.csv": "2ea3775fc1f51ecd679d4f5c1372369e2e337b9368330835994e3ca233dab177",
+          "pool_snapshot.json": "237aaccc4bafa0112d34c324611a162401d5e22bc433e94066039892dfd53d47",
+          "swap_samples.csv": "2854ba1f0b9fb21f28ed98a0ea54648e868dc286cc5e3c15b156233c46308bc0"
+        },
+        "measured_regime": "normal",
+        "month": "2026_02",
+        "pool_family": "paxg_usdc_500",
+        "quote_unit": "PAXG",
+        "realized_vol_annualised_pct": 26.626813751882427,
+        "solver_gas_cost_quote": 2.8900509034298997e-06,
+        "window_id": "paxg_usdc_500_month_24545492_24552691_w27"
+      },
+      {
+        "input_dir": "exports/study_rwa/2026_02_paxg_usdc/paxg_usdc_500_month_24552692_24558867_w28/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "3ca5cc18c1ffa2ea50692979bf044381edbabbd8bec4963e687f897683e1ec72",
+          "oracle_updates.csv": "01783e1b8241e2cc762900c369430e65335cd34d702602c0337066da915d6bb8",
+          "pool_snapshot.json": "94237f83fcd629248f1fca344e9a5c5cd5441c74acc3a426f523c4bbec964532",
+          "swap_samples.csv": "c603084643321ff79bbfa23703770a3f0b8b01e3d9381a9449a6a95c4a7ebd38"
+        },
+        "measured_regime": "normal",
+        "month": "2026_02",
+        "pool_family": "paxg_usdc_500",
+        "quote_unit": "PAXG",
+        "realized_vol_annualised_pct": 0.32509625072461984,
+        "solver_gas_cost_quote": 2.842141762241565e-06,
+        "window_id": "paxg_usdc_500_month_24552692_24558867_w28"
+      },
+      {
+        "input_dir": "exports/study_rwa/2026_03_paxg_usdc/paxg_usdc_500_month_24558867_24566066_w01/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "db59b57d1ae3449d25c27be93d53874d278be1d2bea35a2cc04ea2fb5b32cecc",
+          "oracle_updates.csv": "720f73b68627a0dc555340d4f83916254df28da63b69bd867ba182b6d1b322dc",
+          "pool_snapshot.json": "6ada1a556c15a0f8580a1f82801c8f7f6c00c58fb123e1dbef669cc3ec8b4959",
+          "swap_samples.csv": "2409a7127034547cf016fbbcb4872f6ce0ef013e764d8a7f7df8e578aad52c1a"
+        },
+        "measured_regime": "normal",
+        "month": "2026_03",
+        "pool_family": "paxg_usdc_500",
+        "quote_unit": "PAXG",
+        "realized_vol_annualised_pct": 32.252094623827816,
+        "solver_gas_cost_quote": 2.8417958329857297e-06,
+        "window_id": "paxg_usdc_500_month_24558867_24566066_w01"
+      },
+      {
+        "input_dir": "exports/study_rwa/2026_03_paxg_usdc/paxg_usdc_500_month_24566067_24573266_w02/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "a1f7e0409bdc5b3e1175bea6ced9ae3a7303c31cbcc68b759a097fb627180332",
+          "oracle_updates.csv": "d3917f4ba3fb33d3ebc01c345eb970c045db52b97e6b8ca93d0dc53ee3887bfd",
+          "pool_snapshot.json": "483c257155bb9fadda72b39b5b56957e3971840278bbc4c8c76b64f2acedd3d8",
+          "swap_samples.csv": "8400867e69c2312bf6f24c3d1f87191e5bc970d37df57a1d6f79e8af7e9a2e79"
+        },
+        "measured_regime": "normal",
+        "month": "2026_03",
+        "pool_family": "paxg_usdc_500",
+        "quote_unit": "PAXG",
+        "realized_vol_annualised_pct": 49.090061611502875,
+        "solver_gas_cost_quote": 2.78852910666681e-06,
+        "window_id": "paxg_usdc_500_month_24566067_24573266_w02"
+      },
+      {
+        "input_dir": "exports/study_rwa/2026_03_paxg_usdc/paxg_usdc_500_month_24760467_24767666_w29/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "7536d80686f58e325deb96e01dcd9f53d1974b041bf8c0c9bfb594cbb4a3d223",
+          "oracle_updates.csv": "0f7127144beeee9f284bdd9abd4c6e79f53e500a47ff9d15fdd48f9dd10596c2",
+          "pool_snapshot.json": "d9eed1d06648b7ea8b1514a0e08469c52420c9c97b6c37fdf8d2145fef374d28",
+          "swap_samples.csv": "e43e489b65949d12664bc3c17fb6bab1274bb647769ce6fe2cd6b7393e4a1775"
+        },
+        "measured_regime": "normal",
+        "month": "2026_03",
+        "pool_family": "paxg_usdc_500",
+        "quote_unit": "PAXG",
+        "realized_vol_annualised_pct": 34.74745879422978,
+        "solver_gas_cost_quote": 3.337038700354755e-06,
+        "window_id": "paxg_usdc_500_month_24760467_24767666_w29"
+      },
+      {
+        "input_dir": "exports/study_rwa/2026_03_paxg_usdc/paxg_usdc_500_month_24774867_24781026_w31/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "40e4b4bb92728d9ae16c0da2012bb8384da8dd1c036448786f624d9ffae5264c",
+          "oracle_updates.csv": "d3ef2746865fda03b4cf6953e7786c13288b2e4dbf918e229d3e76d6324cc618",
+          "pool_snapshot.json": "cbb665cf657263ecbc4e72cc7ee113661b0320a8ce64a6973e585f9894328dee",
+          "swap_samples.csv": "c22749504d0cd872821d4f19c3dcc95d19392a8ddbe827cef7883f2f36f020aa"
+        },
+        "measured_regime": "normal",
+        "month": "2026_03",
+        "pool_family": "paxg_usdc_500",
+        "quote_unit": "PAXG",
+        "realized_vol_annualised_pct": 42.689496889713595,
+        "solver_gas_cost_quote": 3.2858868133912645e-06,
+        "window_id": "paxg_usdc_500_month_24774867_24781026_w31"
+      },
+      {
+        "input_dir": "exports/study_rwa/2026_04_paxg_usdc/paxg_usdc_500_month_24781026_24788225_w01/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "98ada0d1580e14bbaf22ce734970585df717c2287dd6e678bb8db629bb571953",
+          "oracle_updates.csv": "a55bf01f4194b1108ce7b2620b7fd0482204372deae74e5868443bc993dccad1",
+          "pool_snapshot.json": "55519b85af1e9f6f8f0930064da3f8924bcdfeb7c75d82504b6c17269195d726",
+          "swap_samples.csv": "d875ba599a54dc5df349e9eb1fe43ed07abddb94310d880fd423fb0dc259956a"
+        },
+        "measured_regime": "normal",
+        "month": "2026_04",
+        "pool_family": "paxg_usdc_500",
+        "quote_unit": "PAXG",
+        "realized_vol_annualised_pct": 37.27335417718172,
+        "solver_gas_cost_quote": 3.19064626711635e-06,
+        "window_id": "paxg_usdc_500_month_24781026_24788225_w01"
+      },
+      {
+        "input_dir": "exports/study_rwa/2026_04_paxg_usdc/paxg_usdc_500_month_24802626_24809825_w04/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "0f497de65c16a433faa119b820d1a8dfe03b2238938589b557f56674a484009d",
+          "oracle_updates.csv": "4b53949de88e842b06fe465596e2595f75ef507a90d10e7b6b46dd32f314c66b",
+          "pool_snapshot.json": "807c549660cb94b937b28acc4e019b1817b6f00baa922a6e8f4e1765174d44e9",
+          "swap_samples.csv": "f6fd03ca941446c818360274239d7a38339f8c43943e9adbb916fa92d800c356"
+        },
+        "measured_regime": "normal",
+        "month": "2026_04",
+        "pool_family": "paxg_usdc_500",
+        "quote_unit": "PAXG",
+        "realized_vol_annualised_pct": 0.14894151480418175,
+        "solver_gas_cost_quote": 3.2071207217840546e-06,
+        "window_id": "paxg_usdc_500_month_24802626_24809825_w04"
+      },
+      {
+        "input_dir": "exports/study_rwa/2026_04_paxg_usdc/paxg_usdc_500_month_24961026_24968225_w26/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "edbc375b0587822588f91bc4c73b5b8fafac3507a7a64cd8706c7393c93a1b88",
+          "oracle_updates.csv": "32cade54bc0da78192adb482a31e40cf6078a7e4b9e0560479f5bc154465ef40",
+          "pool_snapshot.json": "421d7df61199f11f936bce72496a43e7b1f69f069e0e0e523eba8847d5cee0e1",
+          "swap_samples.csv": "d42be04d2102eb5eeeb21140ad47b4ce6d98957f7937cf347bc9e0f9d1411953"
+        },
+        "measured_regime": "normal",
+        "month": "2026_04",
+        "pool_family": "paxg_usdc_500",
+        "quote_unit": "PAXG",
+        "realized_vol_annualised_pct": 16.063219292366764,
+        "solver_gas_cost_quote": 3.18583136695236e-06,
+        "window_id": "paxg_usdc_500_month_24961026_24968225_w26"
+      },
+      {
+        "input_dir": "exports/study_rwa/2026_04_paxg_usdc/paxg_usdc_500_month_24989826_24996367_w30/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "7df219b3d0dedb85070d6af9f0b1cecd48fa77e21238de2dab38d2625d1a5029",
+          "oracle_updates.csv": "06126b93921eced7902598af8cee38c0c20f810e614e06cffa58b8bdde927052",
+          "pool_snapshot.json": "2bc9e9c00c1d7549e3a1ae99efaceab1c4c83ca76273edeae1d8573a37a0410b",
+          "swap_samples.csv": "a8393feaf4a6ea1e11d3e4c3274b38c5d18a7431df902ab4cab965de0e218fdf"
+        },
+        "measured_regime": "normal",
+        "month": "2026_04",
+        "pool_family": "paxg_usdc_500",
+        "quote_unit": "PAXG",
+        "realized_vol_annualised_pct": 24.780215705831083,
+        "solver_gas_cost_quote": 3.2764167691672346e-06,
+        "window_id": "paxg_usdc_500_month_24989826_24996367_w30"
+      },
+      {
+        "input_dir": "exports/study_rwa/2026_05_paxg_usdc/paxg_usdc_500_month_24996367_25003566_w01/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "d875ff77dd4e25a253727370752ed7e8d1caf88bb19876c30727766a328a845b",
+          "oracle_updates.csv": "5fc027ab34d5df8be8c02141acc2f3aade6d39ed2d9e8dc71720c8e9cc6ef18f",
+          "pool_snapshot.json": "0aee962c25c801a6b1cd054515a20119145bef70dd0c230138dbf0b08ae4b1ae",
+          "swap_samples.csv": "4348b78c4bb915cb485414987d93579a1bf7e5613390170873fc4d488597a1ff"
+        },
+        "measured_regime": "normal",
+        "month": "2026_05",
+        "pool_family": "paxg_usdc_500",
+        "quote_unit": "PAXG",
+        "realized_vol_annualised_pct": 30.52425407785013,
+        "solver_gas_cost_quote": 3.23805482859585e-06,
+        "window_id": "paxg_usdc_500_month_24996367_25003566_w01"
+      },
+      {
+        "input_dir": "exports/study_rwa/2026_05_paxg_usdc/paxg_usdc_500_month_25003567_25010766_w02/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "c906d4283fd6e854288530c354e4d717597b89e7003b90d913918e00cd26535a",
+          "oracle_updates.csv": "44adf64103e8395e4f395a0180355aa3bf338b46d8fc51f55d0d0e26b7ab67c0",
+          "pool_snapshot.json": "b7cf8c572d03b66c10c9a5033f8472c9fd780e9fbd9e67296511c0f4a03cf534",
+          "swap_samples.csv": "6006655aa7e8990b4a00ccf5df040635693186af0b93cb21efd887e3eaf024c1"
+        },
+        "measured_regime": "normal",
+        "month": "2026_05",
+        "pool_family": "paxg_usdc_500",
+        "quote_unit": "PAXG",
+        "realized_vol_annualised_pct": 4.108453423529993,
+        "solver_gas_cost_quote": 3.2454260892710996e-06,
+        "window_id": "paxg_usdc_500_month_25003567_25010766_w02"
+      },
+      {
+        "input_dir": "exports/study_rwa/2026_05_paxg_usdc/paxg_usdc_500_month_25197967_25205166_w29/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "3a79b2fa18a6a96359fbe1351be0055ec4cb070751604716ca795e4226ebc70e",
+          "oracle_updates.csv": "7b25e9f1c44fe0e0cefdabfff5cac4346395838034a41e74b7cca8730cccbad2",
+          "pool_snapshot.json": "42691d7b8cfe133b2972ab80baf77526aa6443a7786197fa89941f78e1be51bc",
+          "swap_samples.csv": "03570eed9f61558640de0fb5efbff00fe941ef47bbd2db28e9f65d64b3da260a"
+        },
+        "measured_regime": "normal",
+        "month": "2026_05",
+        "pool_family": "paxg_usdc_500",
+        "quote_unit": "PAXG",
+        "realized_vol_annualised_pct": 27.76714248266868,
+        "solver_gas_cost_quote": 3.317095271493105e-06,
+        "window_id": "paxg_usdc_500_month_25197967_25205166_w29"
+      },
+      {
+        "input_dir": "exports/study_rwa/2026_05_paxg_usdc/paxg_usdc_500_month_25212367_25218797_w31/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "7c958c831ed93808cb43631ccf29663dfea4bccdd183a41891b85c57026553bf",
+          "oracle_updates.csv": "084ed0cc7387eabf93112df91c7a834e2aef642d12fd3b1819d54ea24abdd870",
+          "pool_snapshot.json": "0c17773074706b1f081a5c4dee64e074f304212915f03ff9cee8966f3c4f2209",
+          "swap_samples.csv": "cc9f76002b42b0b6096ca43ff753d98feea947aebc1fa7fac4f01b091eb2e8b6"
+        },
+        "measured_regime": "normal",
+        "month": "2026_05",
+        "pool_family": "paxg_usdc_500",
+        "quote_unit": "PAXG",
+        "realized_vol_annualised_pct": 11.49332773108572,
+        "solver_gas_cost_quote": 3.302303277598815e-06,
+        "window_id": "paxg_usdc_500_month_25212367_25218797_w31"
+      },
+      {
+        "input_dir": "exports/study_rwa/2026_06_paxg_usdc/paxg_usdc_500_month_25218797_25225996_w01/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "f6318edf7b73742007e7664ade1c617e759a9242d43d7c3cf3910220c7c744df",
+          "oracle_updates.csv": "d1f5689b2d5bb7778e74fab05a3ba3ff3ff96671800b9d73fcc961d03c7c454a",
+          "pool_snapshot.json": "082b112a7979725e1035d6ce0b00cb1b66a14a3e2aeba56f15ff96f72933816b",
+          "swap_samples.csv": "96b21a32a24d1b4db9c8b1522cdad7b3670325f1ea2881f85606d544d87037e1"
+        },
+        "measured_regime": "normal",
+        "month": "2026_06",
+        "pool_family": "paxg_usdc_500",
+        "quote_unit": "PAXG",
+        "realized_vol_annualised_pct": 24.84177326850616,
+        "solver_gas_cost_quote": 3.304398969485655e-06,
+        "window_id": "paxg_usdc_500_month_25218797_25225996_w01"
+      },
+      {
+        "input_dir": "exports/study_rwa/2026_06_paxg_usdc/paxg_usdc_500_month_25254797_25261996_w06/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "a5f22bd47efc56b12821000be1619aa83607ff97d6050b7dc38bc4d631766afc",
+          "oracle_updates.csv": "c5f22f1b75f505b30205bd60fe5c029d77954d8e71043023ad59d84bfafd2733",
+          "pool_snapshot.json": "7e67613c803d4baf55080e2d996c1c106453bac173513010110b753967ebae2e",
+          "swap_samples.csv": "f2b8093c40ea37c03dee39e8cf0328fc67dfcb61f5757de622b449e539d3024c"
+        },
+        "measured_regime": "normal",
+        "month": "2026_06",
+        "pool_family": "paxg_usdc_500",
+        "quote_unit": "PAXG",
+        "realized_vol_annualised_pct": 2.552172579587726,
+        "solver_gas_cost_quote": 3.46760231159334e-06,
+        "window_id": "paxg_usdc_500_month_25254797_25261996_w06"
+      },
+      {
+        "input_dir": "exports/study_rwa/2026_06_paxg_usdc/paxg_usdc_500_month_25413197_25420396_w28/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "8d6315df5c71b1e8c57c9103d03a0a61457eb64dac50427b553eb8854bfeddda",
+          "oracle_updates.csv": "c80df7fc92752ab2d74d9994effaf62f21e36b9c8dc840fd4c6ffae35ddb0b2c",
+          "pool_snapshot.json": "3a99544e75a82c24ec860876b6f8dbdc6d80317117e529868d1e51e50e610c0d",
+          "swap_samples.csv": "00311789d2c1bcbce5db4a4b5ebe715b956389e15712c8ad2511f75fee1f475e"
+        },
+        "measured_regime": "normal",
+        "month": "2026_06",
+        "pool_family": "paxg_usdc_500",
+        "quote_unit": "PAXG",
+        "realized_vol_annualised_pct": 14.88950027962356,
+        "solver_gas_cost_quote": 3.6752170376531546e-06,
+        "window_id": "paxg_usdc_500_month_25413197_25420396_w28"
+      },
+      {
+        "input_dir": "exports/study_rwa/2026_06_paxg_usdc/paxg_usdc_500_month_25427597_25433938_w30/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "9b22a196c3b39bc77bd20a11649ff853a6d8affa0d2c03222c72197950f2141a",
+          "oracle_updates.csv": "07a112def2fad484b44946761c037077b80f67579d45998e9df7be88761be556",
+          "pool_snapshot.json": "ff4cd735955fc5a020e1c7c0d86e68f3699880fe8306ea6c0f0883b7328f3183",
+          "swap_samples.csv": "bf7f2f8b7094724ffbd283f0914f472f5abe3c45a61caadb267561a7430034b6"
+        },
+        "measured_regime": "normal",
+        "month": "2026_06",
+        "pool_family": "paxg_usdc_500",
+        "quote_unit": "PAXG",
+        "realized_vol_annualised_pct": 27.66697963662596,
+        "solver_gas_cost_quote": 3.7230252454522353e-06,
+        "window_id": "paxg_usdc_500_month_25427597_25433938_w30"
+      },
+      {
+        "input_dir": "exports/study_eurc/2026_01_eurc_usdc/eurc_usdc_500_month_24136052_24143251_w01/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "a9a19675eb483c99f89b67b5ca2657e318fb4910bc1fcb8016ebbdaafaf19f04",
+          "oracle_updates.csv": "082ab78909e54071dfb2058946f8b24ecc6b9ba3f9adafc78ab62d648116a498",
+          "pool_snapshot.json": "e516ef54159298f559122b5ce8f46b524d40600d2aa799a76481ced5b8fa7d55",
+          "swap_samples.csv": "ec0d2fe83af98372339c38476caf3976b9ea4b790bcf961a0bf4ef570bd45848"
+        },
+        "measured_regime": "normal",
+        "month": "2026_01",
+        "pool_family": "eurc_usdc_500",
+        "quote_unit": "EURC",
+        "realized_vol_annualised_pct": 3.0759834888733657,
+        "solver_gas_cost_quote": 0.01277338886854281,
+        "window_id": "eurc_usdc_500_month_24136052_24143251_w01"
+      },
+      {
+        "input_dir": "exports/study_eurc/2026_01_eurc_usdc/eurc_usdc_500_month_24150452_24157651_w03/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "b1b202ae35102dd9d5a866fe3895e6b167a7788142d245c8f9cc02b85f6060c1",
+          "oracle_updates.csv": "3793a9385b2d7889004d086309cfd6a1134dd9eaf773a6f558cd3f3f145e38c3",
+          "pool_snapshot.json": "7eefd0997a898f2fe910b4eafef9466da86fe4bd79953c81769fd59f404ba6be",
+          "swap_samples.csv": "94e7566c6aaf29d0a188a09191d9b053e137264e802ed26a8a8961d1f01ffe61"
+        },
+        "measured_regime": "normal",
+        "month": "2026_01",
+        "pool_family": "eurc_usdc_500",
+        "quote_unit": "EURC",
+        "realized_vol_annualised_pct": 13.88636600927824,
+        "solver_gas_cost_quote": 0.01277949579478773,
+        "window_id": "eurc_usdc_500_month_24150452_24157651_w03"
+      },
+      {
+        "input_dir": "exports/study_eurc/2026_01_eurc_usdc/eurc_usdc_500_month_24344852_24352051_w30/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "2d929e37556c5b8cc66196f26bb35460cf560db4a35ebe116128685ce23edcc0",
+          "oracle_updates.csv": "188c6266f94b30a56b32387e8579432db1d8a0d947bcc634c81cd0ef9bd44543",
+          "pool_snapshot.json": "edce4f4e09d869aaeae69ffee87ba0a7afbf7e142a9924f1906181dfea680abf",
+          "swap_samples.csv": "7bc6d8b233adb39a28fd92ee34280492b8db0b2fd6a86c66f2d63db2a0d19fc1"
+        },
+        "measured_regime": "normal",
+        "month": "2026_01",
+        "pool_family": "eurc_usdc_500",
+        "quote_unit": "EURC",
+        "realized_vol_annualised_pct": 12.067941515474455,
+        "solver_gas_cost_quote": 0.012565247775112818,
+        "window_id": "eurc_usdc_500_month_24344852_24352051_w30"
+      },
+      {
+        "input_dir": "exports/study_eurc/2026_01_eurc_usdc/eurc_usdc_500_month_24352052_24358292_w31/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "2cfdfa32c122ac65851aa80b3db50a86dfd223150a82b67cef9aca387e754056",
+          "oracle_updates.csv": "85c3932ce977c739ca8c6b65230e9aaaa1583354511f0286a373cbdf2b7180d2",
+          "pool_snapshot.json": "91b1145e12f0e3e8e531b1f08c88c86b612c3615c66cc8def21818a28de0b8e4",
+          "swap_samples.csv": "d512ba30b4db8a13a2b6f7facb7177199042fea65506a735a861e4e8ea9c1ee5"
+        },
+        "measured_regime": "normal",
+        "month": "2026_01",
+        "pool_family": "eurc_usdc_500",
+        "quote_unit": "EURC",
+        "realized_vol_annualised_pct": 8.192749609021583,
+        "solver_gas_cost_quote": 0.012640920248633955,
+        "window_id": "eurc_usdc_500_month_24352052_24358292_w31"
+      },
+      {
+        "input_dir": "exports/study_eurc/2026_02_eurc_usdc/eurc_usdc_500_month_24358292_24365491_w01/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "9252f47ad13bb08f2266953adcf441f228106698a4b47e88b512d29a7bd6da35",
+          "oracle_updates.csv": "17f9359e8a725384ea3cc723c33f9e9805cbd430296b3a41d901ab19346b99e1",
+          "pool_snapshot.json": "7efe4ba242942d788dd408e9febe2db68c7f54ab995c53f1c65293ce1c534dda",
+          "swap_samples.csv": "60a06e54d20cb5d88ae8cb22063ecaabb24f439203dac4f0c8953445de9323a3"
+        },
+        "measured_regime": "normal",
+        "month": "2026_02",
+        "pool_family": "eurc_usdc_500",
+        "quote_unit": "EURC",
+        "realized_vol_annualised_pct": 4.855933380978151,
+        "solver_gas_cost_quote": 0.012693043636292806,
+        "window_id": "eurc_usdc_500_month_24358292_24365491_w01"
+      },
+      {
+        "input_dir": "exports/study_eurc/2026_02_eurc_usdc/eurc_usdc_500_month_24365492_24372691_w02/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "b356fc4a5965d57e8530a150f9e5943b6de0dae5f07cc1da4d214559ca383dd0",
+          "oracle_updates.csv": "77a6c6d86dba365985e9705f5e941a24ae84597d24c3d224eee612993354ae9f",
+          "pool_snapshot.json": "62f98efd301b7bc6e29b6cbe414a5a3c92a5152d68669bcd95a997616dbf8dbf",
+          "swap_samples.csv": "07d9fa1e5f316f214593285cd1a4273c3a9ce98d0a6895ef3223c7180fb6da31"
+        },
+        "measured_regime": "normal",
+        "month": "2026_02",
+        "pool_family": "eurc_usdc_500",
+        "quote_unit": "EURC",
+        "realized_vol_annualised_pct": 9.900715379122591,
+        "solver_gas_cost_quote": 0.012661613521453221,
+        "window_id": "eurc_usdc_500_month_24365492_24372691_w02"
+      },
+      {
+        "input_dir": "exports/study_eurc/2026_02_eurc_usdc/eurc_usdc_500_month_24545492_24552691_w27/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "b6024e04fef32bd031e72e54015fae2324a18a06d01086ab68f7e9a674899fd5",
+          "oracle_updates.csv": "e57cc9fd417dfa47694ac711bbaba974b02210badf0940912c39ae753b9524aa",
+          "pool_snapshot.json": "4eb9321f4aaf36ed349e8aba1857c70b17b8b3fa23b1c5cded1e7b33aa183c78",
+          "swap_samples.csv": "c4e7f8371320a4eed064b834d9956d939d48c5a718044dc439a40dc36aa6a9d7"
+        },
+        "measured_regime": "normal",
+        "month": "2026_02",
+        "pool_family": "eurc_usdc_500",
+        "quote_unit": "EURC",
+        "realized_vol_annualised_pct": 26.610333472299143,
+        "solver_gas_cost_quote": 0.012737560059400167,
+        "window_id": "eurc_usdc_500_month_24545492_24552691_w27"
+      },
+      {
+        "input_dir": "exports/study_eurc/2026_02_eurc_usdc/eurc_usdc_500_month_24552692_24558867_w28/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "990e7a7e9eee694f21a5431be7bca47755a1169003758e31209dd5bf3652e1a9",
+          "oracle_updates.csv": "6b468fe4a74c7946765614ed2836c15d60ead1aac6f50e34e32cb7ace05f70b7",
+          "pool_snapshot.json": "25529cec7d8f6412f0f0951f8074605738c01b20e2635a33fae0df8fd3cdccb1",
+          "swap_samples.csv": "1d2d8c170ae48c9e83f210644a7e8b0fdace88bf564bbc84be425029a4737dd4"
+        },
+        "measured_regime": null,
+        "month": "2026_02",
+        "pool_family": "eurc_usdc_500",
+        "quote_unit": "EURC",
+        "realized_vol_annualised_pct": null,
+        "solver_gas_cost_quote": 0.01271634236445967,
+        "window_id": "eurc_usdc_500_month_24552692_24558867_w28"
+      },
+      {
+        "input_dir": "exports/study_eurc/2026_03_eurc_usdc/eurc_usdc_500_month_24558867_24566066_w01/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "9297987d14603cf8d62ee9046211a77ee2c771a85d913c3d09982121981004dc",
+          "oracle_updates.csv": "746f9a0ae0c42aa456b0387af7d06461f123845047c0159e051e8d4c4f5e1258",
+          "pool_snapshot.json": "f0ca68ab10adcdad9286bbdb43dbd76b80746c8915794f6f8d4325331e8af8cf",
+          "swap_samples.csv": "0403addbcab6ba22700d5b44bb5a1e189e08f32e9fdd2e439491289d21a8d58d"
+        },
+        "measured_regime": "normal",
+        "month": "2026_03",
+        "pool_family": "eurc_usdc_500",
+        "quote_unit": "EURC",
+        "realized_vol_annualised_pct": 4.692427216075146,
+        "solver_gas_cost_quote": 0.01271634236445967,
+        "window_id": "eurc_usdc_500_month_24558867_24566066_w01"
+      },
+      {
+        "input_dir": "exports/study_eurc/2026_03_eurc_usdc/eurc_usdc_500_month_24566067_24573266_w02/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "0ea5f1c05bff7b4540b350014e66902362e4e7a8b988b7bc0cd8259dfb8a031f",
+          "oracle_updates.csv": "98866c47040ba8124088bc259c60eba62ee8ebc4ef52f395a953cacfd73929ec",
+          "pool_snapshot.json": "b8d0d19250ee3b4b00feb6a586d00e5dfb1b85c5170fca3d91ab5604f0653e1c",
+          "swap_samples.csv": "cd1ff6ea7d03bb9b312512219865bbc0774a43883a06f4bdd63720a38c66a36e"
+        },
+        "measured_regime": "normal",
+        "month": "2026_03",
+        "pool_family": "eurc_usdc_500",
+        "quote_unit": "EURC",
+        "realized_vol_annualised_pct": 13.589408535403253,
+        "solver_gas_cost_quote": 0.012746929264740123,
+        "window_id": "eurc_usdc_500_month_24566067_24573266_w02"
+      },
+      {
+        "input_dir": "exports/study_eurc/2026_03_eurc_usdc/eurc_usdc_500_month_24760467_24767666_w29/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "557119c9f7fd76dd773b8c8f4881bedce6947b7f3a6d6e5190cd45e82f4e15ea",
+          "oracle_updates.csv": "18e9e336418501e941afc4321161910148a4e9c8cd187dbd46038f3bb6e3debe",
+          "pool_snapshot.json": "7bba9a3c3fb1437dbbfb401c53ac1126d06dd0519264b1574d9053824ee1ed3d",
+          "swap_samples.csv": "996a16ea2eb6554c526dc9e08c11f182bb81c2f115694f6bb0b2ccf1aac767a4"
+        },
+        "measured_regime": null,
+        "month": "2026_03",
+        "pool_family": "eurc_usdc_500",
+        "quote_unit": "EURC",
+        "realized_vol_annualised_pct": null,
+        "solver_gas_cost_quote": 0.01304439627626406,
+        "window_id": "eurc_usdc_500_month_24760467_24767666_w29"
+      },
+      {
+        "input_dir": "exports/study_eurc/2026_03_eurc_usdc/eurc_usdc_500_month_24774867_24781026_w31/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "fde5b204c600256e0761ad3b20138d60c0af7f858851f425565b01e3f6953073",
+          "oracle_updates.csv": "194e7caabbe2680a4a1fdb4fc471af6a66582eba509cde59b026671487948d2d",
+          "pool_snapshot.json": "4db2d0e072b791decc1a3c5b89711be9b4eaa3fa12636273986691cb7dfa086c",
+          "swap_samples.csv": "5a6a836b2c8e9fa1ab76d68a9ac647267b16c496ca7ae6eff19e1bf2576a1c49"
+        },
+        "measured_regime": "normal",
+        "month": "2026_03",
+        "pool_family": "eurc_usdc_500",
+        "quote_unit": "EURC",
+        "realized_vol_annualised_pct": 12.142780351936873,
+        "solver_gas_cost_quote": 0.013090083121237751,
+        "window_id": "eurc_usdc_500_month_24774867_24781026_w31"
+      },
+      {
+        "input_dir": "exports/study_eurc/2026_04_eurc_usdc/eurc_usdc_500_month_24781026_24788225_w01/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "f8c6e22dbfbeb5448b184dc8a0f941198c84600fabdb7e32af654eb6f4e5922d",
+          "oracle_updates.csv": "a4781d1aea31eaeb1e85f289e0764ec546915bd3a91c191d1257de1ea7eab557",
+          "pool_snapshot.json": "98b81f36a3ff4305001c4535091796aa1827c39ea9562d583f544e9ebf954042",
+          "swap_samples.csv": "bc85e4fc0d922508fcd5dd2ba60b91d7b2bd7db0d0ebf66f5800a7116a732e67"
+        },
+        "measured_regime": "normal",
+        "month": "2026_04",
+        "pool_family": "eurc_usdc_500",
+        "quote_unit": "EURC",
+        "realized_vol_annualised_pct": 9.421229779057432,
+        "solver_gas_cost_quote": 0.012971456473412938,
+        "window_id": "eurc_usdc_500_month_24781026_24788225_w01"
+      },
+      {
+        "input_dir": "exports/study_eurc/2026_04_eurc_usdc/eurc_usdc_500_month_24802626_24809825_w04/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "cfcc544b924aafd52b6003cfe5cfbce2834d1410f039f98d3dcdc43604d73785",
+          "oracle_updates.csv": "7a926384526d79d29315cc1c8f5b51d62ce9e5796f3dc7bb92aa77af69c58487",
+          "pool_snapshot.json": "946ee66e388f7891f561553cc971e9354c373dbcb08262a91d64392171c7325c",
+          "swap_samples.csv": "4b97379a87b4526284f257307332906aecaab8f901137fdb0e753a1d9f2baab4"
+        },
+        "measured_regime": "normal",
+        "month": "2026_04",
+        "pool_family": "eurc_usdc_500",
+        "quote_unit": "EURC",
+        "realized_vol_annualised_pct": 0.14894151479155984,
+        "solver_gas_cost_quote": 0.013021769562306072,
+        "window_id": "eurc_usdc_500_month_24802626_24809825_w04"
+      },
+      {
+        "input_dir": "exports/study_eurc/2026_04_eurc_usdc/eurc_usdc_500_month_24961026_24968225_w26/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "bbb8b09643def03fa20c11a1e3aea5b18fc82640b66bcce2f74e725de8402d9c",
+          "oracle_updates.csv": "f8a07ff1267e6b5f20bc4d584751f49e72e79b03d214a0e2a6239ae327ae690c",
+          "pool_snapshot.json": "33d765971b140f57ccda4137b316b1cee458a0438613edacf86c300d429a1f06",
+          "swap_samples.csv": "b029c126a93d27ec5b0231ab25dd7896e95b54d742963915248b88b52b262604"
+        },
+        "measured_regime": "normal",
+        "month": "2026_04",
+        "pool_family": "eurc_usdc_500",
+        "quote_unit": "EURC",
+        "realized_vol_annualised_pct": 0.26192423988707386,
+        "solver_gas_cost_quote": 0.012800967866088636,
+        "window_id": "eurc_usdc_500_month_24961026_24968225_w26"
+      },
+      {
+        "input_dir": "exports/study_eurc/2026_04_eurc_usdc/eurc_usdc_500_month_24989826_24996367_w30/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "d4fbea303ed8b818f59aa3de9597f0d9e399758ef4647b647ceece81daa3528b",
+          "oracle_updates.csv": "784f4cf02b59aca0d0c83416c18fb0ef5fdfd87dfe5e5158c34b8efe2a42cd21",
+          "pool_snapshot.json": "04d4b86a9d60b8c8df8bd881865c92436388f31976f284fa501d05c8c5fb8f02",
+          "swap_samples.csv": "6d28879c151be416a39dcf3dfcb8bcbfe068c9cd1d0abbbfafee1d170c9c8389"
+        },
+        "measured_regime": "normal",
+        "month": "2026_04",
+        "pool_family": "eurc_usdc_500",
+        "quote_unit": "EURC",
+        "realized_vol_annualised_pct": 15.46199539666925,
+        "solver_gas_cost_quote": 0.012853794364318855,
+        "window_id": "eurc_usdc_500_month_24989826_24996367_w30"
+      },
+      {
+        "input_dir": "exports/study_eurc/2026_05_eurc_usdc/eurc_usdc_500_month_24996367_25003566_w01/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "5c38bba647532c68ec9b13b27a3ad957f9fbf3f5de3471dbb2a14d346ff83de3",
+          "oracle_updates.csv": "15e6e0944aec316d17fb8f97c3d13ffea2d6bba006e0638379e1a5f867221795",
+          "pool_snapshot.json": "05828ff192688124a5c1bfac9726993c6d41d7c63086be7412654e46bf5d23cb",
+          "swap_samples.csv": "6d2bdb4670e01b1614e777fde68f0a7aed5310b5be932f32824e6dee815e4842"
+        },
+        "measured_regime": "normal",
+        "month": "2026_05",
+        "pool_family": "eurc_usdc_500",
+        "quote_unit": "EURC",
+        "realized_vol_annualised_pct": 8.839321258160092,
+        "solver_gas_cost_quote": 0.012813270381652512,
+        "window_id": "eurc_usdc_500_month_24996367_25003566_w01"
+      },
+      {
+        "input_dir": "exports/study_eurc/2026_05_eurc_usdc/eurc_usdc_500_month_25003567_25010766_w02/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "a4482392beac8a0308019b1fc059726fa105d28fa90224683561fef389d64e2b",
+          "oracle_updates.csv": "4ceea03f7df8b0003bc643b16f74c3900a807d6fc32fde02067b6861edd4e3fc",
+          "pool_snapshot.json": "16f389ae91fca2e4292b5ef5d305b9af4a586a7373b81d030c8c3d4d1dba959a",
+          "swap_samples.csv": "7f055674ca101eacee28f1f3911539468411683a5bf2acc3bad5032f72fa8e1b"
+        },
+        "measured_regime": "normal",
+        "month": "2026_05",
+        "pool_family": "eurc_usdc_500",
+        "quote_unit": "EURC",
+        "realized_vol_annualised_pct": 4.009661202563226,
+        "solver_gas_cost_quote": 0.012775612732466067,
+        "window_id": "eurc_usdc_500_month_25003567_25010766_w02"
+      },
+      {
+        "input_dir": "exports/study_eurc/2026_05_eurc_usdc/eurc_usdc_500_month_25197967_25205166_w29/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "c50eb590bcf128f8133d856524fb77574c74dd5a29a1baac5b1c67bf71a75bd1",
+          "oracle_updates.csv": "2c67201a3057b11c4c7ca8a68c3bfa25dd35a12ca9ba654d2e2a8feec3b9cf65",
+          "pool_snapshot.json": "2dc0bc95fa22f878fe9047f3ac886bf322e9aabbf933bfe95480201f78f0442c",
+          "swap_samples.csv": "a79ea1fe8bf16bccdad5aaaf11fcbdf06b2f1bb655a9c179ffead5b6e167c425"
+        },
+        "measured_regime": "normal",
+        "month": "2026_05",
+        "pool_family": "eurc_usdc_500",
+        "quote_unit": "EURC",
+        "realized_vol_annualised_pct": 9.967715473042793,
+        "solver_gas_cost_quote": 0.012882714376304383,
+        "window_id": "eurc_usdc_500_month_25197967_25205166_w29"
+      },
+      {
+        "input_dir": "exports/study_eurc/2026_05_eurc_usdc/eurc_usdc_500_month_25212367_25218797_w31/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "673b8c6ba5ff1e7083b160422e56fcfb23e30ace8f90527fcd6b0054c25e0ebd",
+          "oracle_updates.csv": "e13e93af60ccf18f470b3b4927d07572ad34a5c33f41c9dbe370dbbe25ac078b",
+          "pool_snapshot.json": "79628d70288c2fe740adbddbb68ec1a54185d6c34ea51e6823001b95b22e2224",
+          "swap_samples.csv": "309049cd6f6b88b417e43d97227eaf769ee9a46904bc039181f51703e8dcb06b"
+        },
+        "measured_regime": "normal",
+        "month": "2026_05",
+        "pool_family": "eurc_usdc_500",
+        "quote_unit": "EURC",
+        "realized_vol_annualised_pct": 0.47686357344292285,
+        "solver_gas_cost_quote": 0.012862588564179074,
+        "window_id": "eurc_usdc_500_month_25212367_25218797_w31"
+      },
+      {
+        "input_dir": "exports/study_eurc/2026_06_eurc_usdc/eurc_usdc_500_month_25218797_25225996_w01/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "8488afcd7ffde942e61d7d6d149718d335061c8d43b2661e276f0de7cd684788",
+          "oracle_updates.csv": "fb64ef95756748433b697316ad6e93ae9578d8e7a8913f798cd9b87c15f463a1",
+          "pool_snapshot.json": "7ee4f60d49d372ff3685f6c966649e46487e625152aca54693ede0b8097b7224",
+          "swap_samples.csv": "c9257bb204c7c6c47e1f68d5f8c46c8ba0040e92cd874f4b15787c208a0de4f0"
+        },
+        "measured_regime": "normal",
+        "month": "2026_06",
+        "pool_family": "eurc_usdc_500",
+        "quote_unit": "EURC",
+        "realized_vol_annualised_pct": 5.9845332312709845,
+        "solver_gas_cost_quote": 0.012864520012114774,
+        "window_id": "eurc_usdc_500_month_25218797_25225996_w01"
+      },
+      {
+        "input_dir": "exports/study_eurc/2026_06_eurc_usdc/eurc_usdc_500_month_25254797_25261996_w06/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "6d20ee56cca7ceb1516d92308da5a9d77320bd4b6f754b915a5fd8277d42920b",
+          "oracle_updates.csv": "46cc367c4f4cbecb5ffc8b6721923dabe8e2aa28e43bbd5ad3e55d09521d6cab",
+          "pool_snapshot.json": "6fe47360b89b9ed59ba3195f8f756c053f77d8bb4b74ea523dfeaf6b23ee53b1",
+          "swap_samples.csv": "49c008832bf9bf38943796d09e1fe5d139143fe596c22c663066bd9c5dc4fed0"
+        },
+        "measured_regime": "normal",
+        "month": "2026_06",
+        "pool_family": "eurc_usdc_500",
+        "quote_unit": "EURC",
+        "realized_vol_annualised_pct": 7.952710682031173,
+        "solver_gas_cost_quote": 0.013004772330896815,
+        "window_id": "eurc_usdc_500_month_25254797_25261996_w06"
+      },
+      {
+        "input_dir": "exports/study_eurc/2026_06_eurc_usdc/eurc_usdc_500_month_25413197_25420396_w28/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "ac56454794eb4cbe2bf49663749ccd3179f24f3a0eea7b52dc59481ac4321cc6",
+          "oracle_updates.csv": "2f2de038929a9ac7750ea746448eb947be3f9ad2cbb44d29d5a4985d32d4697d",
+          "pool_snapshot.json": "0f495b63981954e965841f27844565d18fdb68649bfb0f04be83034ba96233df",
+          "swap_samples.csv": "c29367df2954580de6409dd4c45156c2e5762291760cb17024aa10ec34a74c54"
+        },
+        "measured_regime": "normal",
+        "month": "2026_06",
+        "pool_family": "eurc_usdc_500",
+        "quote_unit": "EURC",
+        "realized_vol_annualised_pct": 0.970295188629801,
+        "solver_gas_cost_quote": 0.013162369550420166,
+        "window_id": "eurc_usdc_500_month_25413197_25420396_w28"
+      },
+      {
+        "input_dir": "exports/study_eurc/2026_06_eurc_usdc/eurc_usdc_500_month_25427597_25433938_w30/inputs",
+        "input_sha256": {
+          "liquidity_events.csv": "549c082eba00aad7302a8b40dc36fa5e83f6e0b65de6c0a8fd6ce0dea417acfc",
+          "oracle_updates.csv": "70011e6a1d16a7927ad53a8aae7f3667303d8cd9e8b49fbfb03e2ee17825b151",
+          "pool_snapshot.json": "e7b8e913948b55d28d6bbbedbf3e8db76f3d43867e266a88b273383e1a6bc730",
+          "swap_samples.csv": "4d71a63bd4fbf46c19f844d5f72146bda9b3c00018df3fb078d5477e39c6917c"
+        },
+        "measured_regime": "normal",
+        "month": "2026_06",
+        "pool_family": "eurc_usdc_500",
+        "quote_unit": "EURC",
+        "realized_vol_annualised_pct": 10.302813770037464,
+        "solver_gas_cost_quote": 0.013166958278465849,
+        "window_id": "eurc_usdc_500_month_25427597_25433938_w30"
+      }
+    ]
+  },
+  "output_dir": "/Users/mitch/uni-v4-hook/uni-v4-hook/reports/temperature_out_of_sample_2026",
+  "summary": [
+    {
+      "aggregate_clear_rate": 0.0,
+      "clear_count": 0,
+      "delta_clear_count_vs_temp0": 0.0,
+      "delta_cumulative_stale_time_seconds_vs_temp0": 0.0,
+      "delta_total_lp_net_quote_vs_temp0": null,
+      "improved_window_count": 0,
+      "mean_delay_seconds": 846.7300473493328,
+      "mean_effective_start_concession_bps": 10.0,
+      "mean_stale_time_share": 0.5453098863315853,
+      "median_window_mean_minimum_solver_concession_bps": 5005.612050134175,
+      "normal_window_count": 66,
+      "pool_family": "all_pools",
+      "quote_unit": "mixed_do_not_sum",
+      "stress_window_count": 4,
+      "temperature_multiplier": 0.0,
+      "total_lp_net_quote": null,
+      "trigger_count": 1416,
+      "unchanged_window_count": 72,
+      "unmeasurable_window_count": 2,
+      "weighted_stale_time_share": 0.5439928835484266,
+      "window_count": 72,
+      "worsened_window_count": 0
+    },
+    {
+      "aggregate_clear_rate": 0.0,
+      "clear_count": 0,
+      "delta_clear_count_vs_temp0": 0.0,
+      "delta_cumulative_stale_time_seconds_vs_temp0": 0.0,
+      "delta_total_lp_net_quote_vs_temp0": null,
+      "improved_window_count": 0,
+      "mean_delay_seconds": 846.7300473493328,
+      "mean_effective_start_concession_bps": 11.645116675429607,
+      "mean_stale_time_share": 0.5453098863315853,
+      "median_window_mean_minimum_solver_concession_bps": 5005.612050134175,
+      "normal_window_count": 66,
+      "pool_family": "all_pools",
+      "quote_unit": "mixed_do_not_sum",
+      "stress_window_count": 4,
+      "temperature_multiplier": 0.25,
+      "total_lp_net_quote": null,
+      "trigger_count": 1416,
+      "unchanged_window_count": 72,
+      "unmeasurable_window_count": 2,
+      "weighted_stale_time_share": 0.5439928835484266,
+      "window_count": 72,
+      "worsened_window_count": 0
+    },
+    {
+      "aggregate_clear_rate": 0.0,
+      "clear_count": 0,
+      "delta_clear_count_vs_temp0": 0.0,
+      "delta_cumulative_stale_time_seconds_vs_temp0": 0.0,
+      "delta_total_lp_net_quote_vs_temp0": null,
+      "improved_window_count": 0,
+      "mean_delay_seconds": 846.7300473493328,
+      "mean_effective_start_concession_bps": 13.290233350859214,
+      "mean_stale_time_share": 0.5453098863315853,
+      "median_window_mean_minimum_solver_concession_bps": 5005.612050134175,
+      "normal_window_count": 66,
+      "pool_family": "all_pools",
+      "quote_unit": "mixed_do_not_sum",
+      "stress_window_count": 4,
+      "temperature_multiplier": 0.5,
+      "total_lp_net_quote": null,
+      "trigger_count": 1416,
+      "unchanged_window_count": 72,
+      "unmeasurable_window_count": 2,
+      "weighted_stale_time_share": 0.5439928835484266,
+      "window_count": 72,
+      "worsened_window_count": 0
+    },
+    {
+      "aggregate_clear_rate": 0.0,
+      "clear_count": 0,
+      "delta_clear_count_vs_temp0": 0.0,
+      "delta_cumulative_stale_time_seconds_vs_temp0": 0.0,
+      "delta_total_lp_net_quote_vs_temp0": null,
+      "improved_window_count": 0,
+      "mean_delay_seconds": 846.7300473493328,
+      "mean_effective_start_concession_bps": 16.58046670171843,
+      "mean_stale_time_share": 0.5453098863315853,
+      "median_window_mean_minimum_solver_concession_bps": 5005.612050134175,
+      "normal_window_count": 66,
+      "pool_family": "all_pools",
+      "quote_unit": "mixed_do_not_sum",
+      "stress_window_count": 4,
+      "temperature_multiplier": 1.0,
+      "total_lp_net_quote": null,
+      "trigger_count": 1416,
+      "unchanged_window_count": 72,
+      "unmeasurable_window_count": 2,
+      "weighted_stale_time_share": 0.5439928835484266,
+      "window_count": 72,
+      "worsened_window_count": 0
+    },
+    {
+      "aggregate_clear_rate": 0.0,
+      "clear_count": 0,
+      "delta_clear_count_vs_temp0": 0.0,
+      "delta_cumulative_stale_time_seconds_vs_temp0": 0.0,
+      "delta_total_lp_net_quote_vs_temp0": null,
+      "improved_window_count": 0,
+      "mean_delay_seconds": 846.7300473493328,
+      "mean_effective_start_concession_bps": 23.160933403436857,
+      "mean_stale_time_share": 0.5453098863315853,
+      "median_window_mean_minimum_solver_concession_bps": 5005.612050134175,
+      "normal_window_count": 66,
+      "pool_family": "all_pools",
+      "quote_unit": "mixed_do_not_sum",
+      "stress_window_count": 4,
+      "temperature_multiplier": 2.0,
+      "total_lp_net_quote": null,
+      "trigger_count": 1416,
+      "unchanged_window_count": 72,
+      "unmeasurable_window_count": 2,
+      "weighted_stale_time_share": 0.5439928835484266,
+      "window_count": 72,
+      "worsened_window_count": 0
+    },
+    {
+      "aggregate_clear_rate": 0.0,
+      "clear_count": 0,
+      "delta_clear_count_vs_temp0": 0.0,
+      "delta_cumulative_stale_time_seconds_vs_temp0": 0.0,
+      "delta_total_lp_net_quote_vs_temp0": 0.0,
+      "improved_window_count": 0,
+      "mean_delay_seconds": 957.1818181818181,
+      "mean_effective_start_concession_bps": 10.0,
+      "mean_stale_time_share": 0.6344984676759905,
+      "median_window_mean_minimum_solver_concession_bps": 6546.813298737347,
+      "normal_window_count": 22,
+      "pool_family": "eurc_usdc_500",
+      "quote_unit": "EURC",
+      "stress_window_count": 0,
+      "temperature_multiplier": 0.0,
+      "total_lp_net_quote": -2198.167462164387,
+      "trigger_count": 331,
+      "unchanged_window_count": 24,
+      "unmeasurable_window_count": 2,
+      "weighted_stale_time_share": 0.6332446759949605,
+      "window_count": 24,
+      "worsened_window_count": 0
+    },
+    {
+      "aggregate_clear_rate": 0.0,
+      "clear_count": 0,
+      "delta_clear_count_vs_temp0": 0.0,
+      "delta_cumulative_stale_time_seconds_vs_temp0": 0.0,
+      "delta_total_lp_net_quote_vs_temp0": 0.0,
+      "improved_window_count": 0,
+      "mean_delay_seconds": 957.1818181818181,
+      "mean_effective_start_concession_bps": 11.11213815306138,
+      "mean_stale_time_share": 0.6344984676759905,
+      "median_window_mean_minimum_solver_concession_bps": 6546.813298737347,
+      "normal_window_count": 22,
+      "pool_family": "eurc_usdc_500",
+      "quote_unit": "EURC",
+      "stress_window_count": 0,
+      "temperature_multiplier": 0.25,
+      "total_lp_net_quote": -2198.167462164387,
+      "trigger_count": 331,
+      "unchanged_window_count": 24,
+      "unmeasurable_window_count": 2,
+      "weighted_stale_time_share": 0.6332446759949605,
+      "window_count": 24,
+      "worsened_window_count": 0
+    },
+    {
+      "aggregate_clear_rate": 0.0,
+      "clear_count": 0,
+      "delta_clear_count_vs_temp0": 0.0,
+      "delta_cumulative_stale_time_seconds_vs_temp0": 0.0,
+      "delta_total_lp_net_quote_vs_temp0": 0.0,
+      "improved_window_count": 0,
+      "mean_delay_seconds": 957.1818181818181,
+      "mean_effective_start_concession_bps": 12.22427630612276,
+      "mean_stale_time_share": 0.6344984676759905,
+      "median_window_mean_minimum_solver_concession_bps": 6546.813298737347,
+      "normal_window_count": 22,
+      "pool_family": "eurc_usdc_500",
+      "quote_unit": "EURC",
+      "stress_window_count": 0,
+      "temperature_multiplier": 0.5,
+      "total_lp_net_quote": -2198.167462164387,
+      "trigger_count": 331,
+      "unchanged_window_count": 24,
+      "unmeasurable_window_count": 2,
+      "weighted_stale_time_share": 0.6332446759949605,
+      "window_count": 24,
+      "worsened_window_count": 0
+    },
+    {
+      "aggregate_clear_rate": 0.0,
+      "clear_count": 0,
+      "delta_clear_count_vs_temp0": 0.0,
+      "delta_cumulative_stale_time_seconds_vs_temp0": 0.0,
+      "delta_total_lp_net_quote_vs_temp0": 0.0,
+      "improved_window_count": 0,
+      "mean_delay_seconds": 957.1818181818181,
+      "mean_effective_start_concession_bps": 14.44855261224552,
+      "mean_stale_time_share": 0.6344984676759905,
+      "median_window_mean_minimum_solver_concession_bps": 6546.813298737347,
+      "normal_window_count": 22,
+      "pool_family": "eurc_usdc_500",
+      "quote_unit": "EURC",
+      "stress_window_count": 0,
+      "temperature_multiplier": 1.0,
+      "total_lp_net_quote": -2198.167462164387,
+      "trigger_count": 331,
+      "unchanged_window_count": 24,
+      "unmeasurable_window_count": 2,
+      "weighted_stale_time_share": 0.6332446759949605,
+      "window_count": 24,
+      "worsened_window_count": 0
+    },
+    {
+      "aggregate_clear_rate": 0.0,
+      "clear_count": 0,
+      "delta_clear_count_vs_temp0": 0.0,
+      "delta_cumulative_stale_time_seconds_vs_temp0": 0.0,
+      "delta_total_lp_net_quote_vs_temp0": 0.0,
+      "improved_window_count": 0,
+      "mean_delay_seconds": 957.1818181818181,
+      "mean_effective_start_concession_bps": 18.89710522449104,
+      "mean_stale_time_share": 0.6344984676759905,
+      "median_window_mean_minimum_solver_concession_bps": 6546.813298737347,
+      "normal_window_count": 22,
+      "pool_family": "eurc_usdc_500",
+      "quote_unit": "EURC",
+      "stress_window_count": 0,
+      "temperature_multiplier": 2.0,
+      "total_lp_net_quote": -2198.167462164387,
+      "trigger_count": 331,
+      "unchanged_window_count": 24,
+      "unmeasurable_window_count": 2,
+      "weighted_stale_time_share": 0.6332446759949605,
+      "window_count": 24,
+      "worsened_window_count": 0
+    },
+    {
+      "aggregate_clear_rate": 0.0,
+      "clear_count": 0,
+      "delta_clear_count_vs_temp0": 0.0,
+      "delta_cumulative_stale_time_seconds_vs_temp0": 0.0,
+      "delta_total_lp_net_quote_vs_temp0": 0.0,
+      "improved_window_count": 0,
+      "mean_delay_seconds": 748.5574191353305,
+      "mean_effective_start_concession_bps": 10.0,
+      "mean_stale_time_share": 0.5108095466901003,
+      "median_window_mean_minimum_solver_concession_bps": 37247.69578144852,
+      "normal_window_count": 22,
+      "pool_family": "paxg_usdc_500",
+      "quote_unit": "PAXG",
+      "stress_window_count": 2,
+      "temperature_multiplier": 0.0,
+      "total_lp_net_quote": -4.800119798700041,
+      "trigger_count": 365,
+      "unchanged_window_count": 24,
+      "unmeasurable_window_count": 0,
+      "weighted_stale_time_share": 0.5093149452855644,
+      "window_count": 24,
+      "worsened_window_count": 0
+    },
+    {
+      "aggregate_clear_rate": 0.0,
+      "clear_count": 0,
+      "delta_clear_count_vs_temp0": 0.0,
+      "delta_cumulative_stale_time_seconds_vs_temp0": 0.0,
+      "delta_total_lp_net_quote_vs_temp0": 0.0,
+      "improved_window_count": 0,
+      "mean_delay_seconds": 748.5574191353305,
+      "mean_effective_start_concession_bps": 11.75608057752259,
+      "mean_stale_time_share": 0.5108095466901003,
+      "median_window_mean_minimum_solver_concession_bps": 37247.69578144852,
+      "normal_window_count": 22,
+      "pool_family": "paxg_usdc_500",
+      "quote_unit": "PAXG",
+      "stress_window_count": 2,
+      "temperature_multiplier": 0.25,
+      "total_lp_net_quote": -4.800119798700041,
+      "trigger_count": 365,
+      "unchanged_window_count": 24,
+      "unmeasurable_window_count": 0,
+      "weighted_stale_time_share": 0.5093149452855644,
+      "window_count": 24,
+      "worsened_window_count": 0
+    },
+    {
+      "aggregate_clear_rate": 0.0,
+      "clear_count": 0,
+      "delta_clear_count_vs_temp0": 0.0,
+      "delta_cumulative_stale_time_seconds_vs_temp0": 0.0,
+      "delta_total_lp_net_quote_vs_temp0": 0.0,
+      "improved_window_count": 0,
+      "mean_delay_seconds": 748.5574191353305,
+      "mean_effective_start_concession_bps": 13.512161155045181,
+      "mean_stale_time_share": 0.5108095466901003,
+      "median_window_mean_minimum_solver_concession_bps": 37247.69578144852,
+      "normal_window_count": 22,
+      "pool_family": "paxg_usdc_500",
+      "quote_unit": "PAXG",
+      "stress_window_count": 2,
+      "temperature_multiplier": 0.5,
+      "total_lp_net_quote": -4.800119798700041,
+      "trigger_count": 365,
+      "unchanged_window_count": 24,
+      "unmeasurable_window_count": 0,
+      "weighted_stale_time_share": 0.5093149452855644,
+      "window_count": 24,
+      "worsened_window_count": 0
+    },
+    {
+      "aggregate_clear_rate": 0.0,
+      "clear_count": 0,
+      "delta_clear_count_vs_temp0": 0.0,
+      "delta_cumulative_stale_time_seconds_vs_temp0": 0.0,
+      "delta_total_lp_net_quote_vs_temp0": 0.0,
+      "improved_window_count": 0,
+      "mean_delay_seconds": 748.5574191353305,
+      "mean_effective_start_concession_bps": 17.024322310090362,
+      "mean_stale_time_share": 0.5108095466901003,
+      "median_window_mean_minimum_solver_concession_bps": 37247.69578144852,
+      "normal_window_count": 22,
+      "pool_family": "paxg_usdc_500",
+      "quote_unit": "PAXG",
+      "stress_window_count": 2,
+      "temperature_multiplier": 1.0,
+      "total_lp_net_quote": -4.800119798700041,
+      "trigger_count": 365,
+      "unchanged_window_count": 24,
+      "unmeasurable_window_count": 0,
+      "weighted_stale_time_share": 0.5093149452855644,
+      "window_count": 24,
+      "worsened_window_count": 0
+    },
+    {
+      "aggregate_clear_rate": 0.0,
+      "clear_count": 0,
+      "delta_clear_count_vs_temp0": 0.0,
+      "delta_cumulative_stale_time_seconds_vs_temp0": 0.0,
+      "delta_total_lp_net_quote_vs_temp0": 0.0,
+      "improved_window_count": 0,
+      "mean_delay_seconds": 748.5574191353305,
+      "mean_effective_start_concession_bps": 24.04864462018072,
+      "mean_stale_time_share": 0.5108095466901003,
+      "median_window_mean_minimum_solver_concession_bps": 37247.69578144852,
+      "normal_window_count": 22,
+      "pool_family": "paxg_usdc_500",
+      "quote_unit": "PAXG",
+      "stress_window_count": 2,
+      "temperature_multiplier": 2.0,
+      "total_lp_net_quote": -4.800119798700041,
+      "trigger_count": 365,
+      "unchanged_window_count": 24,
+      "unmeasurable_window_count": 0,
+      "weighted_stale_time_share": 0.5093149452855644,
+      "window_count": 24,
+      "worsened_window_count": 0
+    },
+    {
+      "aggregate_clear_rate": 0.0,
+      "clear_count": 0,
+      "delta_clear_count_vs_temp0": 0.0,
+      "delta_cumulative_stale_time_seconds_vs_temp0": 0.0,
+      "delta_total_lp_net_quote_vs_temp0": 0.0,
+      "improved_window_count": 0,
+      "mean_delay_seconds": 890.1884210895292,
+      "mean_effective_start_concession_bps": 10.0,
+      "mean_stale_time_share": 0.4906216446286651,
+      "median_window_mean_minimum_solver_concession_bps": 2584.550779634679,
+      "normal_window_count": 22,
+      "pool_family": "weth_usdc_3000",
+      "quote_unit": "WETH",
+      "stress_window_count": 2,
+      "temperature_multiplier": 0.0,
+      "total_lp_net_quote": -103.12493823901549,
+      "trigger_count": 720,
+      "unchanged_window_count": 24,
+      "unmeasurable_window_count": 0,
+      "weighted_stale_time_share": 0.4907891662622886,
+      "window_count": 24,
+      "worsened_window_count": 0
+    },
+    {
+      "aggregate_clear_rate": 0.0,
+      "clear_count": 0,
+      "delta_clear_count_vs_temp0": 0.0,
+      "delta_cumulative_stale_time_seconds_vs_temp0": 0.0,
+      "delta_total_lp_net_quote_vs_temp0": 0.0,
+      "improved_window_count": 0,
+      "mean_delay_seconds": 890.1884210895292,
+      "mean_effective_start_concession_bps": 11.982925037897354,
+      "mean_stale_time_share": 0.4906216446286651,
+      "median_window_mean_minimum_solver_concession_bps": 2584.550779634679,
+      "normal_window_count": 22,
+      "pool_family": "weth_usdc_3000",
+      "quote_unit": "WETH",
+      "stress_window_count": 2,
+      "temperature_multiplier": 0.25,
+      "total_lp_net_quote": -103.12493823901549,
+      "trigger_count": 720,
+      "unchanged_window_count": 24,
+      "unmeasurable_window_count": 0,
+      "weighted_stale_time_share": 0.4907891662622886,
+      "window_count": 24,
+      "worsened_window_count": 0
+    },
+    {
+      "aggregate_clear_rate": 0.0,
+      "clear_count": 0,
+      "delta_clear_count_vs_temp0": 0.0,
+      "delta_cumulative_stale_time_seconds_vs_temp0": 0.0,
+      "delta_total_lp_net_quote_vs_temp0": 0.0,
+      "improved_window_count": 0,
+      "mean_delay_seconds": 890.1884210895292,
+      "mean_effective_start_concession_bps": 13.965850075794709,
+      "mean_stale_time_share": 0.4906216446286651,
+      "median_window_mean_minimum_solver_concession_bps": 2584.550779634679,
+      "normal_window_count": 22,
+      "pool_family": "weth_usdc_3000",
+      "quote_unit": "WETH",
+      "stress_window_count": 2,
+      "temperature_multiplier": 0.5,
+      "total_lp_net_quote": -103.12493823901549,
+      "trigger_count": 720,
+      "unchanged_window_count": 24,
+      "unmeasurable_window_count": 0,
+      "weighted_stale_time_share": 0.4907891662622886,
+      "window_count": 24,
+      "worsened_window_count": 0
+    },
+    {
+      "aggregate_clear_rate": 0.0,
+      "clear_count": 0,
+      "delta_clear_count_vs_temp0": 0.0,
+      "delta_cumulative_stale_time_seconds_vs_temp0": 0.0,
+      "delta_total_lp_net_quote_vs_temp0": 0.0,
+      "improved_window_count": 0,
+      "mean_delay_seconds": 890.1884210895292,
+      "mean_effective_start_concession_bps": 17.931700151589418,
+      "mean_stale_time_share": 0.4906216446286651,
+      "median_window_mean_minimum_solver_concession_bps": 2584.550779634679,
+      "normal_window_count": 22,
+      "pool_family": "weth_usdc_3000",
+      "quote_unit": "WETH",
+      "stress_window_count": 2,
+      "temperature_multiplier": 1.0,
+      "total_lp_net_quote": -103.12493823901549,
+      "trigger_count": 720,
+      "unchanged_window_count": 24,
+      "unmeasurable_window_count": 0,
+      "weighted_stale_time_share": 0.4907891662622886,
+      "window_count": 24,
+      "worsened_window_count": 0
+    },
+    {
+      "aggregate_clear_rate": 0.0,
+      "clear_count": 0,
+      "delta_clear_count_vs_temp0": 0.0,
+      "delta_cumulative_stale_time_seconds_vs_temp0": 0.0,
+      "delta_total_lp_net_quote_vs_temp0": 0.0,
+      "improved_window_count": 0,
+      "mean_delay_seconds": 890.1884210895292,
+      "mean_effective_start_concession_bps": 25.863400303178835,
+      "mean_stale_time_share": 0.4906216446286651,
+      "median_window_mean_minimum_solver_concession_bps": 2584.550779634679,
+      "normal_window_count": 22,
+      "pool_family": "weth_usdc_3000",
+      "quote_unit": "WETH",
+      "stress_window_count": 2,
+      "temperature_multiplier": 2.0,
+      "total_lp_net_quote": -103.12493823901549,
+      "trigger_count": 720,
+      "unchanged_window_count": 24,
+      "unmeasurable_window_count": 0,
+      "weighted_stale_time_share": 0.4907891662622886,
+      "window_count": 24,
+      "worsened_window_count": 0
+    }
+  ]
+}

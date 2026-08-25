@@ -178,6 +178,16 @@ above `--max-gas-price-gwei` or above the first-party
 `--max-concession-wad` reserve. `--dry-run` exercises that full preflight without
 broadcasting.
 
+The same preflight now exposes free-energy/minimum-compensation accounting. Let
+`V_gap` be the simulated solver surplus before gas plus the conservatively
+estimated LP input fee, and let `C_required` be buffered gas, solver edge, and
+the configured minimum profit. The minimum economically viable share is
+`c_min = C_required / V_gap`, rounded up in WAD arithmetic. A zero available gap
+with nonzero costs is reported as unmeasurable instead of being assigned a
+default. The event also records `(exp(abs(z)/2) - 1)^2`, computed directly as the
+square of the hook's premium. These are accounting and observability fields; the
+existing profitability and operator concession caps remain the execution gates.
+
 Transactions use an explicit pending nonce and confirmation count. Unconfirmed
 transactions are replaced at the same nonce with bounded fee bumps; hashes and
 nonce are persisted before receipt polling. On restart, the bot refuses to issue
@@ -200,6 +210,12 @@ python3 script/solver_bot.py \
 The loop backs off exponentially after errors and exits once its configured
 consecutive-error budget is exhausted, allowing a process supervisor to alert and
 restart only after operator review.
+
+Each `fill_evaluated` JSONL event and the corresponding
+`lvr_solver_last_fill_*` Prometheus gauges include available gap value, estimated
+LP fee, required compensation, minimum/current solver share, free-energy gap
+potential, gas, edge, minimum profit, and net profit in raw token1 units (share
+and potential fields use WAD).
 
 ## What the live demo showed (Base Sepolia, 2026-07-10)
 

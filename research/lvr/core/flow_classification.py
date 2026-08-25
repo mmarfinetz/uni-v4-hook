@@ -168,6 +168,11 @@ def compute_signed_markout(
     return math.log(pool_price_before / future_price) * 10_000.0
 
 
+def compute_signed_markout_against_price(swap_row: Any, future_price: float) -> float:
+    """Public single-price form used by the observable economic label pipeline."""
+    return _signed_markout_against_price(swap_row, future_price)
+
+
 def compute_gap_closure_fraction(
     swap_row: Any,
     pre_oracle_price: float,

@@ -18,7 +18,6 @@ It emits:
 from __future__ import annotations
 
 import argparse
-import csv
 import json
 import math
 import sys
@@ -36,18 +35,35 @@ from research.lvr.core.flow_classification import (
     assign_outcome_label,
     choose_uncertain_reason,
     compute_gap_closure_fraction,
-    compute_signed_markout,
     load_label_config,
+)
+from research.lvr.core.economic_outcome_labels import (
+    PrimaryHorizonSelection,
+    build_horizon_economic_outcomes,
+    classify_primary_economic_outcome,
+    horizon_columns,
+    primary_horizon_spec,
+    select_primary_horizon,
 )
 from research.lvr.backtest.lvr_historical_replay import (
     OracleUpdate,
     load_oracle_updates,
     load_rows,
+    load_swap_samples,
     write_rows_csv,
 )
 
 
 DEFAULT_GAP_BUCKETS_BPS = (0.0, 1.0, 2.0, 5.0, 10.0, 25.0, 50.0, 100.0)
+USD_STABLE_TOKEN_ADDRESSES = {
+    # Mainnet USDC, USDT, DAI, USDS, and EURC.  This is used only for offline
+    # dollar reporting; native quote-unit accounting remains authoritative.
+    "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+    "0xdac17f958d2ee523a2206206994597c13d831ec7",
+    "0x6b175474e89094c44da98b954eedeac495271d0f",
+    "0xdc035d45d973e3ec169d2276ddab16f1e407384f",
+    "0x1abaea1f7c830bd89acc67ec4af516284b1bc33c",
+}
 
 
 @dataclass(frozen=True)
@@ -94,6 +110,27 @@ def parse_args() -> argparse.Namespace:
         "--include-unexecuted",
         action="store_true",
         help="Include replay rows where executed=false. Default is to keep executed swaps only.",
+    )
+    parser.add_argument(
+        "--swap-samples",
+        default=None,
+        help="Optional swap_samples.csv used for fee-adjusted LP-loss accounting.",
+    )
+    parser.add_argument(
+        "--pool-snapshot",
+        default=None,
+        help="Optional pool_snapshot.json used to convert native quote losses to USD.",
+    )
+    parser.add_argument(
+        "--auction-accounting",
+        default=None,
+        help="Optional dutch_auction_swaps.csv used only to select the latency-aligned horizon.",
+    )
+    parser.add_argument(
+        "--base-fee-bps",
+        type=float,
+        default=5.0,
+        help="Baseline LP fee subtracted from markout loss. Default: 5 bps.",
     )
     return parser.parse_args()
 
@@ -162,9 +199,27 @@ def build_oracle_signal_dataset(
     oracle_specs: list[OracleSpec],
     markout_reference_updates: list[OracleUpdate],
     cfg: dict[str, Any],
+    *,
+    primary_horizon_selection: PrimaryHorizonSelection | None = None,
+    swap_accounting_rows: list[Any] | None = None,
+    base_fee_bps: float | None = None,
+    pool_assets: tuple[str | None, str | None] | None = None,
+    max_reference_sampling_delay_seconds: int | None = None,
 ) -> list[dict[str, Any]]:
     horizons = [int(value) for value in cfg["markout_horizons_seconds"]]
     shortest_horizon = min(horizons)
+    if primary_horizon_selection is None:
+        economic_cfg = cfg.get("economic_outcome") or {}
+        primary_horizon_selection = select_primary_horizon(
+            horizons,
+            [],
+            latency_quantile=float(economic_cfg.get("auction_latency_quantile", 0.90)),
+            fallback_horizon_seconds=int(economic_cfg.get("fallback_primary_horizon_seconds", 60)),
+        )
+    accounting_by_identity = {
+        _event_identity(row): row for row in (swap_accounting_rows or [])
+    }
+    markout_reference_timestamps = [row.timestamp for row in markout_reference_updates]
     dataset_rows: list[dict[str, Any]] = []
 
     for point in series_rows:
@@ -179,16 +234,49 @@ def build_oracle_signal_dataset(
         if pre_markout_reference is not None:
             markout_swap_row["reference_price"] = pre_markout_reference.price
 
+        accounting_row = accounting_by_identity.get(_event_identity(point))
+        notional_quote = _swap_notional_quote(
+            accounting_row,
+            pre_markout_reference.price if pre_markout_reference is not None else None,
+        )
+        baseline_fee_quote = (
+            notional_quote * float(base_fee_bps) / 10_000.0
+            if notional_quote is not None and base_fee_bps is not None
+            else None
+        )
+        quote_usd_multiplier, usd_conversion_reason = _quote_usd_conversion(
+            pool_assets,
+            pre_markout_reference.price if pre_markout_reference is not None else None,
+        )
+        economic_horizons = sorted(
+            {*horizons, primary_horizon_selection.horizon_seconds}
+        )
+        economic_outcomes = build_horizon_economic_outcomes(
+            markout_swap_row,
+            markout_reference_updates,
+            economic_horizons,
+            notional_quote=notional_quote,
+            baseline_fee_quote=baseline_fee_quote,
+            quote_usd_multiplier=quote_usd_multiplier,
+            reference_timestamps=markout_reference_timestamps,
+            max_reference_sampling_delay_seconds=max_reference_sampling_delay_seconds,
+        )
         markout_columns: dict[str, Any] = {}
         for horizon_seconds in horizons:
-            try:
-                markout_columns[f"markout_{horizon_seconds}s"] = compute_signed_markout(
-                    markout_swap_row,
-                    future_markout_rows,
-                    horizon_seconds,
-                )
-            except ValueError:
-                markout_columns[f"markout_{horizon_seconds}s"] = None
+            markout_columns.update(horizon_columns(economic_outcomes[horizon_seconds]))
+
+        primary_economic_outcome = economic_outcomes[
+            primary_horizon_selection.horizon_seconds
+        ]
+        economic_label, economic_reason = classify_primary_economic_outcome(
+            primary_economic_outcome,
+            has_economic_accounting=(notional_quote is not None and baseline_fee_quote is not None),
+        )
+        censoring_reasons = [
+            f"{horizon}s:{economic_outcomes[horizon].censoring_reason}"
+            for horizon in horizons
+            if economic_outcomes[horizon].censoring_reason is not None
+        ]
 
         if pre_markout_reference is None:
             outcome_label = "uncertain"
@@ -280,6 +368,27 @@ def build_oracle_signal_dataset(
                     "markout_reference_price_before": pre_markout_reference_price,
                     "outcome_label": outcome_label,
                     "gap_closure_fraction": gap_closure_fraction,
+                    "outcome_observability": (
+                        "observed" if primary_economic_outcome.observed else "unobservable"
+                    ),
+                    "all_horizons_observed": all(
+                        economic_outcomes[horizon].observed for horizon in horizons
+                    ),
+                    "censoring_reason": ";".join(censoring_reasons) or None,
+                    "primary_horizon_seconds": primary_horizon_selection.horizon_seconds,
+                    "primary_horizon_source": primary_horizon_selection.source,
+                    "economic_outcome_label": economic_label,
+                    "economic_outcome_reason": economic_reason,
+                    "notional_quote": notional_quote,
+                    "baseline_fee_quote": baseline_fee_quote,
+                    "quote_usd_multiplier": quote_usd_multiplier,
+                    "usd_conversion_reason": usd_conversion_reason,
+                    "primary_lp_loss_quote": primary_economic_outcome.lp_loss_quote,
+                    "primary_lp_loss_lower_quote": primary_economic_outcome.lp_loss_lower_quote,
+                    "primary_lp_loss_upper_quote": primary_economic_outcome.lp_loss_upper_quote,
+                    "primary_lp_loss_usd": primary_economic_outcome.lp_loss_usd,
+                    "primary_lp_loss_lower_usd": primary_economic_outcome.lp_loss_lower_usd,
+                    "primary_lp_loss_upper_usd": primary_economic_outcome.lp_loss_upper_usd,
                     **markout_columns,
                 }
             )
@@ -317,6 +426,18 @@ def summarize_oracle_predictiveness(
         )
 
         usable_rows = [row for row in rows if row["oracle_signed_gap_bps"] is not None]
+        economic_toxic_count = sum(
+            row.get("economic_outcome_label") == "toxic" for row in rows
+        )
+        economic_benign_count = sum(
+            row.get("economic_outcome_label") == "benign" for row in rows
+        )
+        economic_abstain_count = sum(
+            row.get("economic_outcome_label") == "abstain" for row in rows
+        )
+        primary_observed_count = sum(
+            row.get("outcome_observability") == "observed" for row in rows
+        )
         summary_row: dict[str, Any] = {
             "oracle_name": oracle_name,
             "oracle_path": rows[0]["oracle_path"],
@@ -330,6 +451,15 @@ def summarize_oracle_predictiveness(
             "uncertain_decision_rate": _ratio(uncertain_count, sample_count),
             "toxic_confirmed_count": toxic_confirmed_count,
             "benign_confirmed_count": benign_confirmed_count,
+            "economic_toxic_count": economic_toxic_count,
+            "economic_benign_count": economic_benign_count,
+            "economic_abstain_count": economic_abstain_count,
+            "economic_abstain_rate": _ratio(economic_abstain_count, sample_count),
+            "primary_horizon_observed_count": primary_observed_count,
+            "primary_horizon_observed_rate": _ratio(primary_observed_count, sample_count),
+            "all_horizons_observed_rate": _ratio(
+                sum(bool(row.get("all_horizons_observed")) for row in rows), sample_count
+            ),
             # Precision is TP / (TP + FP). Dividing by every candidate instead
             # counts each unresolved (`outcome_label == "uncertain"`) candidate as
             # a failure; since ~92% of candidates never resolve, that understated
@@ -507,6 +637,12 @@ def run_oracle_gap_predictiveness(
     series_strategy: str | None,
     label_config_path: str = str(DEFAULT_LABEL_CONFIG_PATH),
     include_unexecuted: bool = False,
+    swap_samples_path: str | None = None,
+    pool_snapshot_path: str | None = None,
+    base_fee_bps: float | None = None,
+    auction_clearing_times_seconds: list[float | int | None] | None = None,
+    primary_horizon_selection: PrimaryHorizonSelection | None = None,
+    max_reference_sampling_delay_seconds: int | None = None,
 ) -> dict[str, Any]:
     cfg = load_label_config(label_config_path)
     oracle_specs = (
@@ -520,7 +656,31 @@ def run_oracle_gap_predictiveness(
         include_unexecuted=include_unexecuted,
     )
     markout_reference_updates = load_oracle_updates(markout_reference_path)
-    dataset_rows = build_oracle_signal_dataset(series_rows, oracle_specs, markout_reference_updates, cfg)
+    economic_cfg = cfg.get("economic_outcome") or {}
+    primary_selection = primary_horizon_selection or select_primary_horizon(
+        [int(value) for value in cfg["markout_horizons_seconds"]],
+        auction_clearing_times_seconds or [],
+        latency_quantile=float(economic_cfg.get("auction_latency_quantile", 0.90)),
+        fallback_horizon_seconds=int(economic_cfg.get("fallback_primary_horizon_seconds", 60)),
+    )
+    sampling_delay = (
+        max_reference_sampling_delay_seconds
+        if max_reference_sampling_delay_seconds is not None
+        else int(economic_cfg.get("max_reference_sampling_delay_seconds", 3600))
+    )
+    swap_accounting_rows = load_swap_samples(swap_samples_path) if swap_samples_path else None
+    pool_assets = _load_pool_assets(pool_snapshot_path)
+    dataset_rows = build_oracle_signal_dataset(
+        series_rows,
+        oracle_specs,
+        markout_reference_updates,
+        cfg,
+        primary_horizon_selection=primary_selection,
+        swap_accounting_rows=swap_accounting_rows,
+        base_fee_bps=base_fee_bps,
+        pool_assets=pool_assets,
+        max_reference_sampling_delay_seconds=sampling_delay,
+    )
     if not dataset_rows:
         raise ValueError("No dataset rows were built.")
 
@@ -561,7 +721,42 @@ def run_oracle_gap_predictiveness(
         "markout_reference_price_before",
         "outcome_label",
         "gap_closure_fraction",
-        *[f"markout_{horizon}s" for horizon in horizons],
+        "outcome_observability",
+        "all_horizons_observed",
+        "censoring_reason",
+        "primary_horizon_seconds",
+        "primary_horizon_source",
+        "economic_outcome_label",
+        "economic_outcome_reason",
+        "notional_quote",
+        "baseline_fee_quote",
+        "quote_usd_multiplier",
+        "usd_conversion_reason",
+        "primary_lp_loss_quote",
+        "primary_lp_loss_lower_quote",
+        "primary_lp_loss_upper_quote",
+        "primary_lp_loss_usd",
+        "primary_lp_loss_lower_usd",
+        "primary_lp_loss_upper_usd",
+        *[
+            field
+            for horizon in horizons
+            for field in (
+                f"observed_{horizon}s",
+                f"censoring_reason_{horizon}s",
+                f"reference_before_{horizon}s_timestamp",
+                f"reference_after_{horizon}s_timestamp",
+                f"markout_{horizon}s",
+                f"markout_lower_{horizon}s",
+                f"markout_upper_{horizon}s",
+                f"lp_loss_quote_{horizon}s",
+                f"lp_loss_lower_quote_{horizon}s",
+                f"lp_loss_upper_quote_{horizon}s",
+                f"lp_loss_usd_{horizon}s",
+                f"lp_loss_lower_usd_{horizon}s",
+                f"lp_loss_upper_usd_{horizon}s",
+            )
+        ],
     ]
     summary_fieldnames = [
         "oracle_name",
@@ -576,6 +771,13 @@ def run_oracle_gap_predictiveness(
         "uncertain_decision_rate",
         "toxic_confirmed_count",
         "benign_confirmed_count",
+        "economic_toxic_count",
+        "economic_benign_count",
+        "economic_abstain_count",
+        "economic_abstain_rate",
+        "primary_horizon_observed_count",
+        "primary_horizon_observed_rate",
+        "all_horizons_observed_rate",
         "toxic_candidate_decided_count",
         "toxic_candidate_precision",
         "toxic_candidate_recall",
@@ -602,9 +804,23 @@ def run_oracle_gap_predictiveness(
     dataset_path = output_dir_path / "oracle_signal_dataset.csv"
     summary_path = output_dir_path / "oracle_predictiveness_summary.csv"
     bucket_path = output_dir_path / "oracle_gap_buckets.csv"
+    label_spec_path = output_dir_path / "economic_outcome_label_spec.json"
     write_rows_csv(str(dataset_path), dataset_fieldnames, dataset_rows)
     write_rows_csv(str(summary_path), summary_fieldnames, summary_rows)
     write_rows_csv(str(bucket_path), bucket_fieldnames, bucket_rows)
+    label_spec_path.write_text(
+        json.dumps(
+            {
+                **primary_horizon_spec(primary_selection),
+                "baseline_fee_bps": base_fee_bps,
+                "markout_horizons_seconds": horizons,
+                "max_reference_sampling_delay_seconds": sampling_delay,
+            },
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
 
     return {
         "series_rows": len(series_rows),
@@ -613,6 +829,8 @@ def run_oracle_gap_predictiveness(
         "summary_path": str(summary_path),
         "dataset_path": str(dataset_path),
         "bucket_path": str(bucket_path),
+        "economic_outcome_label_spec_path": str(label_spec_path),
+        "primary_horizon_selection": primary_horizon_spec(primary_selection),
         "output_dir": str(output_dir_path),
         "horizons": horizons,
         "dataset": dataset_rows,
@@ -623,6 +841,13 @@ def run_oracle_gap_predictiveness(
 
 def main() -> None:
     args = parse_args()
+    auction_clearing_times = None
+    if args.auction_accounting:
+        auction_clearing_times = [
+            row.get("time_to_fill_seconds")
+            for row in load_rows(args.auction_accounting)
+            if _parse_bool(row.get("filled"), default=False)
+        ]
     result = run_oracle_gap_predictiveness(
         series_path=args.series,
         oracle_specs_input=args.oracle,
@@ -631,6 +856,10 @@ def main() -> None:
         series_strategy=args.series_strategy,
         label_config_path=args.label_config,
         include_unexecuted=args.include_unexecuted,
+        swap_samples_path=args.swap_samples,
+        pool_snapshot_path=args.pool_snapshot,
+        base_fee_bps=args.base_fee_bps,
+        auction_clearing_times_seconds=auction_clearing_times,
     )
 
     print(
@@ -683,6 +912,81 @@ def _required_direction(row: dict[str, Any]) -> str:
     if direction not in {"zero_for_one", "one_for_zero"}:
         raise ValueError(f"Unsupported direction '{raw_direction}'.")
     return direction
+
+
+def _event_identity(row: Any) -> tuple[int | None, int | None, str | None, int | None, str | None]:
+    return (
+        _generic_optional_int(row, "timestamp"),
+        _generic_optional_int(row, "block_number"),
+        _generic_optional_str(row, "tx_hash"),
+        _generic_optional_int(row, "log_index"),
+        _generic_optional_str(row, "direction"),
+    )
+
+
+def _swap_notional_quote(swap: Any | None, reference_price: float | None) -> float | None:
+    if swap is None:
+        return None
+    notional_quote = _generic_optional_float(swap, "notional_quote")
+    if notional_quote is not None:
+        return notional_quote
+    direction = (_generic_optional_str(swap, "direction") or "").lower().replace("-", "_")
+    if direction == "one_for_zero":
+        return _generic_optional_float(swap, "token1_in")
+    token0_in = _generic_optional_float(swap, "token0_in")
+    if direction == "zero_for_one" and token0_in is not None and reference_price is not None:
+        return token0_in * reference_price
+    return None
+
+
+def _load_pool_assets(path_str: str | None) -> tuple[str | None, str | None] | None:
+    if not path_str:
+        return None
+    payload = json.loads(Path(path_str).read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("pool_snapshot.json must decode to an object.")
+    token0 = str(payload.get("token0") or "").lower() or None
+    token1 = str(payload.get("token1") or "").lower() or None
+    return token0, token1
+
+
+def _quote_usd_conversion(
+    pool_assets: tuple[str | None, str | None] | None,
+    reference_price: float | None,
+) -> tuple[float | None, str | None]:
+    if pool_assets is None:
+        return None, "missing_pool_assets"
+    token0, token1 = pool_assets
+    if token1 in USD_STABLE_TOKEN_ADDRESSES:
+        return 1.0, None
+    if token0 in USD_STABLE_TOKEN_ADDRESSES:
+        if reference_price is None or reference_price <= 0.0:
+            return None, "missing_reference_for_token0_stable_conversion"
+        # Replay prices and notionals use token1 per token0.  When token0 is a
+        # dollar stablecoin, one unit of token1 is worth 1 / reference_price USD.
+        return 1.0 / reference_price, None
+    return None, "non_usd_quote_without_conversion_reference"
+
+
+def _generic_lookup(row: Any, key: str) -> Any:
+    if isinstance(row, dict):
+        return row.get(key)
+    return getattr(row, key, None)
+
+
+def _generic_optional_int(row: Any, key: str) -> int | None:
+    value = _generic_lookup(row, key)
+    return None if value in (None, "") else int(value)
+
+
+def _generic_optional_float(row: Any, key: str) -> float | None:
+    value = _generic_lookup(row, key)
+    return None if value in (None, "") else float(value)
+
+
+def _generic_optional_str(row: Any, key: str) -> str | None:
+    value = _generic_lookup(row, key)
+    return None if value in (None, "") else str(value)
 
 
 def _parse_bool(value: Any, *, default: bool) -> bool:

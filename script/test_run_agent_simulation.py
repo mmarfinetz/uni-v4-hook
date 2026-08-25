@@ -1,6 +1,7 @@
 import argparse
 import csv
 import json
+import math
 import subprocess
 import sys
 import tempfile
@@ -119,6 +120,7 @@ class RunAgentSimulationTest(unittest.TestCase):
         self.assertIn("--auction-expiry-policy", result.stdout)
         self.assertIn("--solver-competition-mode", result.stdout)
         self.assertIn("--solver-count", result.stdout)
+        self.assertIn("--adaptive-economic-trigger", result.stdout)
 
     def test_single_block_immediate_rebalance_matches_correction_trade_accounting(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -171,6 +173,10 @@ class RunAgentSimulationTest(unittest.TestCase):
             self.assertIn("foregone_gross_lvr_quote", rows[0])
             self.assertIn("stale_seconds_to_next_observed_block", rows[0])
             self.assertIn("gap_time_bps_seconds_to_next_observed_block", rows[0])
+            self.assertIn("market_temperature", rows[0])
+            self.assertIn("standardized_disequilibrium", rows[0])
+            self.assertIn("minimum_solver_concession_bps", rows[0])
+            self.assertIn("economically_correctable", rows[0])
 
             with Path(result["summary_output"]).open(encoding="utf-8") as handle:
                 summary_payload = json.load(handle)
@@ -243,6 +249,8 @@ class RunAgentSimulationTest(unittest.TestCase):
 
             self.assertEqual(result["summary"]["block_calendar_policy"], "observed_blocks_only")
             self.assertEqual(result["summary"]["reference_update_policy"], "update_in_place")
+            self.assertFalse(result["summary"]["config"]["disequilibrium_policy_enabled"])
+            self.assertEqual(result["summary"]["config"]["concession_schedule"], "linear")
 
     def test_agent_targets_next_block_reference_price(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -624,6 +632,163 @@ class RunAgentSimulationTest(unittest.TestCase):
             self.assertEqual(dutch_summary["trigger_count"], 1)
             self.assertEqual(dutch_summary["clear_count"], 0)
             self.assertEqual(dutch_summary["auction_clear_rate"], 0.0)
+
+    def test_free_energy_gate_rejects_economically_uncorrectable_gap(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            pool_snapshot = self.make_pool_snapshot(tmp_path, from_block=100, to_block=100)
+            oracle_path = self.write_csv(
+                tmp_path,
+                "oracle_updates.csv",
+                ["timestamp", "block_number", "price"],
+                [
+                    {"timestamp": 1_700_000_000, "block_number": 100, "price": 1.0},
+                    {"timestamp": 1_700_000_001, "block_number": 101, "price": 1.0012},
+                ],
+            )
+
+            result = run_agent_simulation(
+                self.make_args(
+                    oracle_updates=oracle_path,
+                    pool_snapshot=pool_snapshot,
+                    output_dir=tmp_path,
+                    disequilibrium_policy=True,
+                    trigger_gap_bps=10.0,
+                    trigger_condition="stale_gap_bps_before",
+                    base_fee_bps=600.0,
+                    max_fee_bps=500.0,
+                    solver_gas_cost_quote=10**30,
+                )
+            )
+
+            dutch_row = next(
+                row for row in result["rows"] if row["strategy"] == DUTCH_AUCTION_PARAMETERIZED
+            )
+            self.assertFalse(dutch_row["auction_triggered_this_block"])
+            self.assertFalse(dutch_row["auction_open"])
+            self.assertFalse(dutch_row["economically_correctable"])
+            self.assertGreater(dutch_row["minimum_solver_concession_bps"], 10_000.0)
+            self.assertEqual(dutch_row["decision_reason"], "auction_economically_uncorrectable")
+            self.assertEqual(
+                result["summary"]["strategies"][DUTCH_AUCTION_PARAMETERIZED][
+                    "economically_uncorrectable_block_count"
+                ],
+                1,
+            )
+
+    def test_adaptive_economic_trigger_waits_for_solver_break_even_gap(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            pool_snapshot = self.make_pool_snapshot(
+                tmp_path,
+                from_block=100,
+                to_block=101,
+            )
+            oracle_path = self.write_csv(
+                tmp_path,
+                "oracle_updates.csv",
+                ["timestamp", "block_number", "price"],
+                [
+                    {"timestamp": 1_700_000_000, "block_number": 100, "price": 1.0},
+                    {
+                        "timestamp": 1_700_000_001,
+                        "block_number": 101,
+                        "price": math.exp(0.0006),
+                    },
+                    {
+                        "timestamp": 1_700_000_002,
+                        "block_number": 102,
+                        "price": math.exp(0.001),
+                    },
+                ],
+            )
+
+            result = run_agent_simulation(
+                self.make_args(
+                    oracle_updates=oracle_path,
+                    pool_snapshot=pool_snapshot,
+                    output_dir=tmp_path,
+                    base_fee_bps=0.01,
+                    alpha_bps=10_000.0,
+                    solver_gas_cost_quote=0.001,
+                    trigger_condition="stale_gap_bps_before",
+                    auction_accounting_mode="fee_concession",
+                    adaptive_economic_trigger=True,
+                    adaptive_min_trigger_gap_bps=5.0,
+                    adaptive_max_trigger_gap_bps=100.0,
+                    adaptive_target_clear_seconds=0,
+                    adaptive_min_lp_recovery_bps=9_000.0,
+                    start_concession_bps=100.0,
+                    concession_growth_bps_per_second=0.0,
+                )
+            )
+
+            rows = [
+                row
+                for row in result["rows"]
+                if row["strategy"] == DUTCH_AUCTION_PARAMETERIZED
+            ]
+            self.assertEqual(len(rows), 2)
+            self.assertAlmostEqual(rows[0]["stale_gap_bps_before"], 6.0, places=9)
+            self.assertGreater(rows[0]["effective_trigger_gap_bps"], 6.0)
+            self.assertFalse(rows[0]["auction_triggered_this_block"])
+            self.assertEqual(rows[0]["economic_threshold_binding_bound"], "economic")
+            self.assertTrue(rows[0]["economic_threshold_feasible"])
+
+            self.assertGreater(rows[1]["stale_gap_bps_before"], 9.9)
+            self.assertTrue(rows[1]["auction_triggered_this_block"])
+            self.assertTrue(rows[1]["auction_cleared_this_block"])
+            self.assertGreater(rows[1]["winning_solver_profit_quote"], 0.0)
+
+    def test_temperature_is_trailing_and_relaxation_schedule_clears_later(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            pool_snapshot = self.make_pool_snapshot(tmp_path, from_block=100, to_block=101)
+            oracle_path = self.write_csv(
+                tmp_path,
+                "oracle_updates.csv",
+                ["timestamp", "block_number", "price"],
+                [
+                    {"timestamp": 1_700_000_000, "block_number": 100, "price": 1.0},
+                    {"timestamp": 1_700_000_010, "block_number": 101, "price": 1.1},
+                    {"timestamp": 1_700_000_011, "block_number": 102, "price": 1.1},
+                    {"timestamp": 1_700_000_012, "block_number": 103, "price": 10.0},
+                ],
+            )
+
+            result = run_agent_simulation(
+                self.make_args(
+                    oracle_updates=oracle_path,
+                    pool_snapshot=pool_snapshot,
+                    output_dir=tmp_path,
+                    disequilibrium_policy=True,
+                    trigger_gap_bps=0.0,
+                    free_energy_solver_gate=False,
+                    trigger_condition="hook_lp_net_negative",
+                    start_concession_bps=0.0,
+                    temperature_concession_multiplier=0.0,
+                    concession_schedule="exponential",
+                    relaxation_tau_seconds=1.0,
+                    max_concession_bps=10_000.0,
+                    solver_edge_bps=100.0,
+                    max_duration_seconds=60,
+                )
+            )
+
+            dutch_rows = [
+                row for row in result["rows"] if row["strategy"] == DUTCH_AUCTION_PARAMETERIZED
+            ]
+            expected_sigma2 = math.log(1.1) ** 2 / 10.0
+            self.assertAlmostEqual(dutch_rows[0]["sigma2_per_second"], expected_sigma2, places=15)
+            self.assertFalse(dutch_rows[0]["agent_traded"])
+            self.assertAlmostEqual(dutch_rows[0]["scheduled_concession_bps"], 0.0, places=12)
+            self.assertTrue(dutch_rows[1]["auction_cleared_this_block"])
+            self.assertAlmostEqual(
+                dutch_rows[1]["scheduled_concession_bps"],
+                10_000.0 * (1.0 - math.exp(-10.0)),
+                places=9,
+            )
+            self.assertLess(dutch_rows[1]["sigma2_per_second"], 0.01)
 
 
 if __name__ == "__main__":

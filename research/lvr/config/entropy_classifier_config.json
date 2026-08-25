@@ -1,0 +1,43 @@
+{
+  "classifier_config_version": 1,
+  "model": "hierarchical_beta_bernoulli_signed_gap_age",
+  "gap_magnitude_bins_bps": [
+    1.0,
+    2.0,
+    5.0,
+    10.0,
+    25.0,
+    50.0,
+    100.0,
+    250.0,
+    500.0
+  ],
+  "oracle_age_bins_seconds": [
+    60.0,
+    300.0,
+    900.0,
+    1800.0,
+    3600.0,
+    21600.0,
+    86400.0
+  ],
+  "prior_alpha": 0.5,
+  "prior_beta": 0.5,
+  "confidence_z": 1.959963984540054,
+  "min_cell_support": 30,
+  "min_cell_groups": 5,
+  "toxic_probability_lower_bound": 0.95,
+  "benign_probability_upper_bound": 0.05,
+  "max_predictive_entropy": 0.30,
+  "noise_band_bps": 1.0,
+  "noise_floor_bps": 2.0,
+  "max_oracle_age_seconds": 3600.0,
+  "chronological_train_fraction": 0.70,
+  "base_fee_bps": 5.0,
+  "alpha_bps": 10000.0,
+  "oracle_name": "chainlink",
+  "accounting_policy": {
+    "abstain_incremental_surcharge_bps": 0.0,
+    "description": "Only the toxic state receives the existing exact gap surcharge; benign and abstain receive no incremental surcharge in this offline counterfactual."
+  }
+}

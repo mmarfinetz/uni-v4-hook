@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">FairFlow — MEV auctions without the ordering game</title>
+  <desc id="desc">FairFlow keeps benign Uniswap v4 swaps cheap, charges oracle-visible toxic flow, and returns captured value to liquidity providers.</desc>
+  <defs>
+    <pattern id="scan" width="4" height="4" patternUnits="userSpaceOnUse">
+      <path d="M0 3.5H4" stroke="#000000" stroke-opacity="0.16"/>
+    </pattern>
+    <radialGradient id="glow" cx="74%" cy="35%" r="65%">
+      <stop offset="0" stop-color="#ffb454" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#0d0b08" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="flow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffb454"/>
+      <stop offset="1" stop-color="#7fd4e6"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="#0d0b08"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <rect width="1200" height="630" fill="url(#scan)"/>
+  <rect x="34" y="34" width="1132" height="562" rx="18" fill="none" stroke="#4a3c22" stroke-width="2"/>
+
+  <g transform="translate(76 74)">
+    <text x="0" y="34" fill="#ffb454" font-family="Georgia, serif" font-size="36" font-style="italic">FAIR</text>
+    <circle cx="92" cy="23" r="4" fill="#e8ddc8"/>
+    <text x="106" y="34" fill="#ffb454" font-family="Georgia, serif" font-size="36" font-style="italic">FLOW</text>
+    <text x="235" y="30" fill="#9c8f74" font-family="Menlo, monospace" font-size="15" letter-spacing="2">/ UNISWAP V4</text>
+  </g>
+
+  <g transform="translate(76 178)">
+    <text x="0" y="0" fill="#e8ddc8" font-family="Georgia, serif" font-size="76" font-style="italic">MEV auctions without</text>
+    <text x="0" y="86" fill="#ffb454" font-family="Georgia, serif" font-size="76" font-style="italic">the ordering game.</text>
+    <text x="2" y="150" fill="#9c8f74" font-family="Menlo, monospace" font-size="21">Keep benign swaps cheap. Charge oracle-visible toxic flow.</text>
+    <text x="2" y="184" fill="#9c8f74" font-family="Menlo, monospace" font-size="21">Return captured value to LPs through standard v4 fees.</text>
+  </g>
+
+  <g transform="translate(76 495)" font-family="Menlo, monospace" font-size="14" letter-spacing="1.2">
+    <rect width="286" height="56" rx="8" fill="#151109" stroke="#4a3c22"/>
+    <text x="20" y="34" fill="#6fe3a3">LOW-COST BENIGN FLOW</text>
+    <rect x="302" width="300" height="56" rx="8" fill="#151109" stroke="#4a3c22"/>
+    <text x="322" y="34" fill="#ffb454">TOXIC-FLOW PRICING</text>
+    <rect x="618" width="284" height="56" rx="8" fill="#151109" stroke="#4a3c22"/>
+    <text x="638" y="34" fill="#7fd4e6">LP-OWNED CAPTURE</text>
+  </g>
+
+  <path d="M1008 170h64M1040 138v64" stroke="url(#flow)" stroke-width="5" stroke-linecap="round"/>
+  <path d="M1010 230c44 0 74 26 74 66s-30 66-74 66" fill="none" stroke="url(#flow)" stroke-width="9" stroke-linecap="round"/>
+  <path d="M970 256h78M970 296h54M970 336h78" fill="none" stroke="#ffb454" stroke-width="9" stroke-linecap="round"/>
+</svg>

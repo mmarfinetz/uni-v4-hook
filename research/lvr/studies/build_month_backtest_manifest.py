@@ -170,6 +170,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--oracle-lookback-blocks", type=int, default=4_800)
     parser.add_argument("--markout-extension-blocks", type=int, default=300)
+    parser.add_argument(
+        "--markout-extension-seconds",
+        type=int,
+        default=3600,
+        help="Required outcome-reference tail after the swap window. Default: 3600 seconds.",
+    )
     parser.add_argument("--replay-error-tolerance", type=float, default=0.001)
     parser.add_argument(
         "--require-exact-replay",
@@ -211,6 +217,9 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
                     "market_quote_feed": pool_spec.quote_feed,
                     "oracle_lookback_blocks": int(args.oracle_lookback_blocks),
                     "markout_extension_blocks": int(args.markout_extension_blocks),
+                    "markout_extension_seconds": int(
+                        getattr(args, "markout_extension_seconds", 3600)
+                    ),
                     "require_exact_replay": bool(args.require_exact_replay),
                     "replay_error_tolerance": float(args.replay_error_tolerance),
                     "input_dir": None,

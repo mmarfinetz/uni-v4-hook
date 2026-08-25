@@ -1,8 +1,12 @@
-# uni-v4-hook
+# FairFlow
 
-`uni-v4-hook` is a Foundry research repo for an oracle-anchored Uniswap v4 hook that targets loss-versus-rebalancing (LVR) on stale pools with dynamic toxic-flow fees, oracle freshness checks, LP width/centering guards, and an on-chain Dutch-auction repricing path (a gap-triggered, time-growing concession on the toxic surcharge).
+> An ordering-independent MEV auction for Uniswap v4 that keeps benign swaps cheap, charges oracle-visible toxic flow, and returns the captured value to LPs through standard v4 fees.
 
-**Live instrument:** [lvr-minimizer.vercel.app](https://lvr-minimizer.vercel.app) —
+FairFlow is the product identity for the oracle-anchored Uniswap v4 mechanism in this repository. It targets loss-versus-rebalancing (LVR) on stale pools with dynamic toxic-flow fees, oracle freshness checks, LP width/centering guards, and an on-chain Dutch-auction repricing path. The deployed Solidity implementation remains [`OracleAnchoredLVRHook`](src/OracleAnchoredLVRHook.sol), preserving its interface, test history, CREATE2 permission bits, and live addresses.
+
+The short product narrative, mechanism flow, claim boundaries, and demo script are in [docs/fairflow.md](docs/fairflow.md).
+
+**FairFlow live instrument:** [fairflow-v4.vercel.app](https://fairflow-v4.vercel.app) —
 a real-time dashboard over the live Base Sepolia USDC/WETH deployment: stale-gap
 gauge, fee previews, Dutch-auction state, wallet-driven pool operation, and a raw
 EVM bus inspector logging every call, return, revert, and event the page touches
@@ -81,7 +85,7 @@ The Dutch-auction study separates baseline strategies from auction trigger rules
 
 The selected policy uses the stale-gap bps gate. Solver gas, solver edge, and reserve margin are zero in the headline counterfactual, so the result is a research benchmark rather than a production solver-profit claim.
 
-## What The Hook Does
+## How FairFlow Works
 
 Every mechanism below traces to a research artifact and a pinning test —
 [docs/design_traceability.md](docs/design_traceability.md) is the claim-by-claim

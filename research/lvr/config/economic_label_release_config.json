@@ -1,0 +1,18 @@
+{
+  "release_config_version": 1,
+  "release_name": "economic_label_v3_2026",
+  "oracle_name": "chainlink",
+  "base_fee_bps": 5.0,
+  "auction_latency_quantile": 0.9,
+  "fallback_primary_horizon_seconds": 60,
+  "reference_tail_seconds": 3600,
+  "max_reference_sampling_delay_seconds": 3600,
+  "input_globs": [
+    "exports/oct2025/windows/*/oracle_gap_analysis/oracle_signal_dataset.csv",
+    "exports/study_recent/fixed/2026_*_weth_usdc/*/oracle_gap_analysis/oracle_signal_dataset.csv",
+    "exports/study_rwa/2026_*_paxg_usdc/*/oracle_gap_analysis/oracle_signal_dataset.csv",
+    "exports/study_eurc/2026_*_eurc_usdc/*/oracle_gap_analysis/oracle_signal_dataset.csv"
+  ],
+  "output_subdirectory": "oracle_gap_analysis_v3",
+  "benign_surcharge_budget_usd_per_fold": 0.0
+}

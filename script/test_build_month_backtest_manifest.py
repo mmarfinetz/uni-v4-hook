@@ -27,6 +27,7 @@ class BuildMonthBacktestManifestTest(unittest.TestCase):
             "regime": "stress",
             "oracle_lookback_blocks": 4800,
             "markout_extension_blocks": 300,
+            "markout_extension_seconds": 3600,
             "replay_error_tolerance": 0.001,
             "require_exact_replay": False,
         }
@@ -50,6 +51,7 @@ class BuildMonthBacktestManifestTest(unittest.TestCase):
         )
         self.assertEqual(manifest_payload["windows"][0]["market_base_feed"], manifest_payload["windows"][0]["base_feed"])
         self.assertEqual(manifest_payload["windows"][0]["oracle_sources"][0]["name"], "chainlink")
+        self.assertEqual(manifest_payload["windows"][0]["markout_extension_seconds"], 3600)
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             path = Path(tmp_dir) / "manifest.json"

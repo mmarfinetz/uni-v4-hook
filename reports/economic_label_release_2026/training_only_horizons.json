@@ -1,0 +1,74 @@
+[
+  {
+    "horizon_seconds": 10,
+    "latency_quantile": 0.9,
+    "latency_quantile_seconds": 10.0,
+    "observed_fill_count": 22,
+    "pool_family": "eurc_usdc_500",
+    "source": "auction_fill_latency_nearest_rank_ceil_seconds",
+    "training_month": "2026-01",
+    "training_window_count": 4,
+    "training_window_end": 1769903771,
+    "training_window_start": 1767225743
+  },
+  {
+    "horizon_seconds": 530,
+    "latency_quantile": 0.9,
+    "latency_quantile_seconds": 530.0,
+    "observed_fill_count": 52,
+    "pool_family": "link_weth_3000",
+    "source": "auction_fill_latency_nearest_rank_ceil_seconds",
+    "training_month": "2025-10",
+    "training_window_count": 31,
+    "training_window_end": 1761954539,
+    "training_window_start": 1759276883
+  },
+  {
+    "horizon_seconds": 338,
+    "latency_quantile": 0.9,
+    "latency_quantile_seconds": 338.0,
+    "observed_fill_count": 0,
+    "pool_family": "paxg_usdc_500",
+    "source": "global_earliest_month_fallback_no_pool_fills",
+    "training_month": "2026-01",
+    "training_window_count": 4,
+    "training_window_end": 1769903891,
+    "training_window_start": 1767225695
+  },
+  {
+    "horizon_seconds": 556,
+    "latency_quantile": 0.9,
+    "latency_quantile_seconds": 556.0,
+    "observed_fill_count": 15,
+    "pool_family": "uni_weth_3000",
+    "source": "auction_fill_latency_nearest_rank_ceil_seconds",
+    "training_month": "2025-10",
+    "training_window_count": 31,
+    "training_window_end": 1761952943,
+    "training_window_start": 1759279031
+  },
+  {
+    "horizon_seconds": 333,
+    "latency_quantile": 0.9,
+    "latency_quantile_seconds": 333.0,
+    "observed_fill_count": 6388,
+    "pool_family": "wbtc_usdc_500",
+    "source": "auction_fill_latency_nearest_rank_ceil_seconds",
+    "training_month": "2025-10",
+    "training_window_count": 31,
+    "training_window_end": 1761955187,
+    "training_window_start": 1759276811
+  },
+  {
+    "horizon_seconds": 546,
+    "latency_quantile": 0.9,
+    "latency_quantile_seconds": 546.0,
+    "observed_fill_count": 46,
+    "pool_family": "weth_usdc_3000",
+    "source": "auction_fill_latency_nearest_rank_ceil_seconds",
+    "training_month": "2025-10",
+    "training_window_count": 31,
+    "training_window_end": 1761954311,
+    "training_window_start": 1759276811
+  }
+]

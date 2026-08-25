@@ -37,7 +37,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -62,6 +62,12 @@ class FillEconomics:
     gas_cost_token1: int
     required_edge_token1: int
     minimum_profit_token1: int
+    estimated_lp_fee_token1: int
+    available_gap_value_token1: int
+    required_compensation_token1: int
+    minimum_compensation_wad: Optional[int]
+    current_solver_share_wad: Optional[int]
+    free_energy_gap_potential_wad: int
     net_profit_token1: int
     profitable: bool
     reason: str
@@ -73,9 +79,29 @@ def evaluate_fill_economics(
     gas_cost_token1: int,
     required_edge_token1: int,
     minimum_profit_token1: int,
+    estimated_lp_fee_token1: int = 0,
+    free_energy_gap_potential_wad: int = 0,
 ) -> FillEconomics:
-    """Apply the solver-cost and edge reserve gates to a simulated fill."""
+    """Apply solver gates and expose the minimum share of gap value required."""
+    if min(
+        gross_surplus_token1,
+        gas_cost_token1,
+        required_edge_token1,
+        minimum_profit_token1,
+        estimated_lp_fee_token1,
+        free_energy_gap_potential_wad,
+    ) < 0:
+        raise ValueError("fill economics inputs must be non-negative")
     required = gas_cost_token1 + required_edge_token1 + minimum_profit_token1
+    available_gap_value = gross_surplus_token1 + estimated_lp_fee_token1
+    minimum_compensation = minimum_compensation_fraction_wad(
+        required_compensation_token1=required,
+        available_gap_value_token1=available_gap_value,
+    )
+    current_solver_share = minimum_compensation_fraction_wad(
+        required_compensation_token1=gross_surplus_token1,
+        available_gap_value_token1=available_gap_value,
+    )
     net_profit = gross_surplus_token1 - gas_cost_token1
     profitable = gross_surplus_token1 >= required
     return FillEconomics(
@@ -83,10 +109,67 @@ def evaluate_fill_economics(
         gas_cost_token1=gas_cost_token1,
         required_edge_token1=required_edge_token1,
         minimum_profit_token1=minimum_profit_token1,
+        estimated_lp_fee_token1=estimated_lp_fee_token1,
+        available_gap_value_token1=available_gap_value,
+        required_compensation_token1=required,
+        minimum_compensation_wad=minimum_compensation,
+        current_solver_share_wad=current_solver_share,
+        free_energy_gap_potential_wad=free_energy_gap_potential_wad,
         net_profit_token1=net_profit,
         profitable=profitable,
         reason="profitable" if profitable else "below_profit_reserve",
     )
+
+
+def minimum_compensation_fraction_wad(
+    *,
+    required_compensation_token1: int,
+    available_gap_value_token1: int,
+) -> Optional[int]:
+    """Ceiling of required execution value divided by available stale-gap value."""
+    if min(required_compensation_token1, available_gap_value_token1) < 0:
+        raise ValueError("compensation inputs must be non-negative")
+    if required_compensation_token1 == 0:
+        return 0
+    if available_gap_value_token1 == 0:
+        return None
+    return (
+        required_compensation_token1 * WAD + available_gap_value_token1 - 1
+    ) // available_gap_value_token1
+
+
+def free_energy_gap_potential_wad(premium_wad: int) -> int:
+    """Return (exp(|z|/2)-1)^2 in WAD from the hook's premium directly."""
+    if premium_wad < 0:
+        raise ValueError("premium_wad must be non-negative")
+    return premium_wad * premium_wad // WAD
+
+
+def estimated_input_fee_token1(input_notional_token1: int, fee_ppm: int) -> int:
+    """Conservatively estimate the LP fee from gross input notional and fee ppm."""
+    if input_notional_token1 < 0:
+        raise ValueError("input_notional_token1 must be non-negative")
+    if not 0 <= fee_ppm <= 1_000_000:
+        raise ValueError("fee_ppm must be between 0 and 1000000")
+    if input_notional_token1 == 0 or fee_ppm == 0:
+        return 0
+    return (input_notional_token1 * fee_ppm + 1_000_000 - 1) // 1_000_000
+
+
+def input_notional_token1_from_delta(
+    *,
+    amount0: int,
+    amount1: int,
+    zero_for_one: bool,
+    reference_sqrt_price_x96: int,
+) -> int:
+    """Value the exact input actually consumed by the simulated swap in token1."""
+    raw_input = -amount0 if zero_for_one else -amount1
+    if raw_input <= 0:
+        raise ValueError("simulated BalanceDelta does not contain the expected input")
+    if zero_for_one:
+        return position_value_token1(raw_input, 0, reference_sqrt_price_x96)
+    return raw_input
 
 
 def gas_cost_in_token1_raw(
@@ -327,6 +410,8 @@ class RuntimeStore:
             self.state["pending_transaction"] = None
             self.state["last_confirmed_tx"] = fields.get("tx_hash")
             self.state["last_confirmed_tx_at"] = now
+        elif event == "fill_evaluated":
+            self.state["last_fill_economics"] = dict(fields)
 
         event_payload = {"timestamp": now, "event": event, **fields}
         self.metrics_path.parent.mkdir(parents=True, exist_ok=True)
@@ -390,6 +475,39 @@ class RuntimeStore:
             "# TYPE lvr_solver_metrics_written_timestamp_seconds gauge",
             "lvr_solver_metrics_written_timestamp_seconds %d" % now,
         ]
+        last_fill = self.state.get("last_fill_economics")
+        if isinstance(last_fill, dict):
+            gauge_fields = (
+                "gross_surplus_token1",
+                "gas_cost_token1",
+                "required_edge_token1",
+                "minimum_profit_token1",
+                "estimated_lp_fee_token1",
+                "available_gap_value_token1",
+                "required_compensation_token1",
+                "minimum_compensation_wad",
+                "current_solver_share_wad",
+                "free_energy_gap_potential_wad",
+                "net_profit_token1",
+            )
+            for field_name in gauge_fields:
+                value = last_fill.get(field_name)
+                if value is None:
+                    continue
+                metric_name = "lvr_solver_last_fill_%s" % field_name
+                lines.extend(
+                    [
+                        "# TYPE %s gauge" % metric_name,
+                        "%s %d" % (metric_name, int(value)),
+                    ]
+                )
+            lines.extend(
+                [
+                    "# TYPE lvr_solver_last_fill_profitable gauge",
+                    "lvr_solver_last_fill_profitable %d"
+                    % (1 if last_fill.get("profitable") else 0),
+                ]
+            )
         _atomic_write_text(path, "\n".join(lines) + "\n")
 
 
@@ -927,9 +1045,11 @@ class SolverBot:
 
     def estimate_fill_economics(self, amount_in: Optional[int] = None) -> FillEconomics:
         """Simulate the exact router call and apply gas/edge profitability gates."""
-        premium, above, _, ref, _ = self.read_gap()
+        premium, above, toxic_fee, ref, _ = self.read_gap()
         if premium == 0:
             raise RuntimeError("no gap to reprice")
+        if toxic_fee is None:
+            raise RuntimeError("toxic fill remains fee-deterred")
         zero_for_one = toxic_zero_for_one(above)
         if amount_in is None:
             amount_in = amount_for_direction(
@@ -946,9 +1066,15 @@ class SolverBot:
             raise RuntimeError("fill preflight returned no BalanceDelta")
         amount0, amount1 = decode_balance_delta(int(values[0]))
         gross_surplus = position_value_token1(amount0, amount1, ref)
-        input_notional = (
-            position_value_token1(amount_in, 0, ref) if zero_for_one else amount_in
+        if gross_surplus < 0:
+            raise RuntimeError("simulated fill has negative gross surplus")
+        input_notional = input_notional_token1_from_delta(
+            amount0=amount0,
+            amount1=amount1,
+            zero_for_one=zero_for_one,
+            reference_sqrt_price_x96=ref,
         )
+        estimated_lp_fee = estimated_input_fee_token1(input_notional, toxic_fee)
         gas_units = self.chain.estimate_gas(
             sender, self.swap_router, SWAP_ABI, *call_args
         )
@@ -966,15 +1092,13 @@ class SolverBot:
             gas_cost_token1=gas_cost_token1,
             required_edge_token1=edge_token1,
             minimum_profit_token1=self.minimum_profit_token1,
+            estimated_lp_fee_token1=estimated_lp_fee,
+            free_energy_gap_potential_wad=free_energy_gap_potential_wad(premium),
         )
         if gas_price_wei <= self.max_gas_price_wei:
             return economics
-        return FillEconomics(
-            gross_surplus_token1=economics.gross_surplus_token1,
-            gas_cost_token1=economics.gas_cost_token1,
-            required_edge_token1=economics.required_edge_token1,
-            minimum_profit_token1=economics.minimum_profit_token1,
-            net_profit_token1=economics.net_profit_token1,
+        return replace(
+            economics,
             profitable=False,
             reason="gas_price_above_cap",
         )
@@ -1086,9 +1210,15 @@ class SolverBot:
                 return "concession_capped"
             economics = self.estimate_fill_economics(amount_in)
             log(
-                "fill economics (token1 raw): gross=%d gas=%d edge=%d min=%d net=%d [%s]"
+                "fill economics (token1 raw): gap_value=%d lp_fee=%d solver=%d "
+                "required=%d min_share=%s current_share=%s gas=%d edge=%d min=%d net=%d [%s]"
                 % (
+                    economics.available_gap_value_token1,
+                    economics.estimated_lp_fee_token1,
                     economics.gross_surplus_token1,
+                    economics.required_compensation_token1,
+                    _format_optional_wad_pct(economics.minimum_compensation_wad),
+                    _format_optional_wad_pct(economics.current_solver_share_wad),
                     economics.gas_cost_token1,
                     economics.required_edge_token1,
                     economics.minimum_profit_token1,
@@ -1111,6 +1241,12 @@ class SolverBot:
 
 def log(msg: str) -> None:
     print("[%s] %s" % (time.strftime("%H:%M:%S"), msg), flush=True)
+
+
+def _format_optional_wad_pct(value: Optional[int]) -> str:
+    if value is None:
+        return "unmeasurable"
+    return "%.6f%%" % (value / WAD * 100)
 
 
 # ---------------------------------------------------------------------------

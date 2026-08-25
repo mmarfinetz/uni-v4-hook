@@ -64,9 +64,12 @@ Before broadcasting a fill, `solver_bot.py`:
    rate;
 5. requires simulated gross surplus to cover gas, `solver-edge-bps`, and
    `min-profit-token1`;
-6. refuses gas above `max-gas-price-gwei` and concession above the first-party
+6. reports `c_min = (gas + edge + minimum profit) / available stale-gap value`,
+   together with the squared hook premium used as the free-energy proxy;
+7. refuses gas above `max-gas-price-gwei` and concession above the first-party
    `max-concession-wad` reserve; and
-7. persists nonce, transaction hashes, receipts, counters, and health state.
+8. persists nonce, transaction hashes, receipts, counters, health state, and the
+   last fill-economics gauges.
 
 Run mode rejects raw private keys by default. It supports encrypted Foundry
 keystores, RPC failover, explicit nonces, same-nonce fee-bumped replacements,

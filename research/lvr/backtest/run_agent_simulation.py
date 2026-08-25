@@ -27,6 +27,23 @@ from research.lvr.backtest.lvr_historical_replay import (
     write_rows_csv,
 )
 from research.lvr.core.lvr_validation import correction_trade
+from research.lvr.core.economic_threshold_policy import (
+    EconomicThresholdResult,
+    bounded_economic_trigger_gap_bps,
+)
+from research.lvr.core.disequilibrium_policy import (
+    EXPONENTIAL_CONCESSION,
+    LINEAR_CONCESSION,
+    SUPPORTED_CONCESSION_SCHEDULES,
+    concession_bps_at_elapsed_seconds,
+    effective_market_temperature,
+    free_energy_gap_potential,
+    log_price_gap,
+    minimum_solver_concession_bps,
+    standardized_disequilibrium,
+    temperature_adjusted_start_concession_bps,
+    trailing_log_variance_per_second,
+)
 from research.lvr.core.oracle_gap_policy import (
     AuctionEligibilityState,
     build_eligibility_state,
@@ -81,6 +98,19 @@ class AgentSimulationConfig:
     auction_expiry_policy: str
     fallback_alpha_bps: float
     pool_price_orientation: str
+    disequilibrium_policy_enabled: bool = False
+    concession_schedule: str = LINEAR_CONCESSION
+    relaxation_tau_seconds: float = 60.0
+    volatility_lookback_seconds: int = 86_400
+    bootstrap_sigma2_per_second: float = 3e-8
+    temperature_latency_seconds: float = 60.0
+    temperature_concession_multiplier: float = 0.0
+    free_energy_solver_gate: bool = False
+    adaptive_economic_trigger: bool = False
+    adaptive_min_trigger_gap_bps: float = 5.0
+    adaptive_max_trigger_gap_bps: float = 100.0
+    adaptive_target_clear_seconds: int = 60
+    adaptive_min_lp_recovery_bps: float = 9_500.0
 
 
 @dataclass(frozen=True)
@@ -93,6 +123,7 @@ class ObservedBlock:
 class PendingAuction:
     trigger_block: int
     trigger_timestamp: int
+    start_concession_bps: float
 
 
 @dataclass(frozen=True)
@@ -182,6 +213,23 @@ class AgentSimulationRow:
     block_calendar_policy: str
     reference_update_policy: str
     decision_reason: str
+    log_price_gap: float | None = None
+    free_energy_gap_potential: float | None = None
+    sigma2_per_second: float | None = None
+    market_temperature: float | None = None
+    standardized_disequilibrium: float | None = None
+    effective_start_concession_bps: float | None = None
+    scheduled_concession_bps: float | None = None
+    minimum_solver_concession_bps: float | None = None
+    economically_correctable: bool | None = None
+    effective_trigger_gap_bps: float | None = None
+    raw_economic_break_even_gap_bps: float | None = None
+    economic_threshold_feasible: bool | None = None
+    economic_threshold_binding_bound: str | None = None
+    economic_target_concession_bps: float | None = None
+    economic_solver_profit_at_threshold_quote: float | None = None
+    economic_solver_required_at_threshold_quote: float | None = None
+    economic_lp_recovery_bps_at_threshold: float | None = None
 
 
 def parse_args() -> argparse.Namespace:
@@ -309,6 +357,48 @@ def parse_args() -> argparse.Namespace:
         help="Auction eligibility threshold on stale_gap_bps_before.",
     )
     parser.add_argument(
+        "--adaptive-economic-trigger",
+        action="store_true",
+        help=(
+            "Replace the fixed stale-gap trigger in the replay with the smallest gap "
+            "expected to cover solver costs by a target clearing horizon, clamped to "
+            "configured minimum and maximum gap bounds. Research-only."
+        ),
+    )
+    parser.add_argument(
+        "--adaptive-min-trigger-gap-bps",
+        type=float,
+        default=5.0,
+        help="Lower safety bound for the economics-based trigger gap.",
+    )
+    parser.add_argument(
+        "--adaptive-max-trigger-gap-bps",
+        type=float,
+        default=100.0,
+        help="Upper escape bound for the economics-based trigger gap.",
+    )
+    parser.add_argument(
+        "--adaptive-target-clear-seconds",
+        type=int,
+        default=60,
+        help="Horizon whose scheduled concession is used for solver break-even.",
+    )
+    parser.add_argument(
+        "--adaptive-min-lp-recovery-bps",
+        type=float,
+        default=9_500.0,
+        help="Minimum retained surcharge recovery required by the adaptive model.",
+    )
+    parser.add_argument(
+        "--disequilibrium-policy",
+        action="store_true",
+        help=(
+            "Enable the replay-only stale-price disequilibrium policy: trailing-volatility "
+            "diagnostics, an exponential concession by default, and a free-energy "
+            "solver-correctability gate. The absolute trigger remains unchanged."
+        ),
+    )
+    parser.add_argument(
         "--start-concession-bps",
         type=float,
         default=25.0,
@@ -325,6 +415,57 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=10_000.0,
         help="Maximum Dutch-auction concession, in stale-loss bps.",
+    )
+    parser.add_argument(
+        "--concession-schedule",
+        choices=sorted(SUPPORTED_CONCESSION_SCHEDULES),
+        default=None,
+        help=(
+            "Concession kinetics. Defaults to exponential under --disequilibrium-policy and "
+            "linear otherwise."
+        ),
+    )
+    parser.add_argument(
+        "--relaxation-tau-seconds",
+        type=float,
+        default=60.0,
+        help="Pool-specific clearing-time constant for the exponential concession schedule.",
+    )
+    parser.add_argument(
+        "--volatility-lookback-seconds",
+        type=int,
+        default=86_400,
+        help="Trailing, decision-time-only lookback used to estimate log variance per second.",
+    )
+    parser.add_argument(
+        "--bootstrap-sigma2-per-second",
+        type=float,
+        default=3e-8,
+        help="Variance-per-second bootstrap used until two timed reference observations are available.",
+    )
+    parser.add_argument(
+        "--temperature-latency-seconds",
+        type=float,
+        default=60.0,
+        help="Oracle-plus-solver response horizon used in T = sigma^2 * latency.",
+    )
+    parser.add_argument(
+        "--temperature-concession-multiplier",
+        type=float,
+        default=None,
+        help=(
+            "Multiplier on sqrt(T), converted to bps and added to the starting concession. "
+            "Defaults to 1 under --disequilibrium-policy and 0 otherwise."
+        ),
+    )
+    parser.add_argument(
+        "--free-energy-solver-gate",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "Do not open auctions whose maximum concession cannot cover the cheapest solver and LP reserve. "
+            "Enabled by default under --disequilibrium-policy."
+        ),
     )
     parser.add_argument(
         "--max-duration-seconds",
@@ -391,6 +532,27 @@ def run_agent_simulation(args: argparse.Namespace) -> dict[str, Any]:
     if any(update.block_number is None for update in reference_updates):
         raise ValueError("Reference updates require block_number on every row.")
 
+    disequilibrium_policy_enabled = bool(getattr(args, "disequilibrium_policy", False))
+    trigger_gap_bps = float(getattr(args, "trigger_gap_bps", 25.0))
+    configured_schedule = getattr(args, "concession_schedule", None)
+    concession_schedule = str(
+        configured_schedule
+        if configured_schedule is not None
+        else (EXPONENTIAL_CONCESSION if disequilibrium_policy_enabled else LINEAR_CONCESSION)
+    )
+    configured_temperature_multiplier = getattr(args, "temperature_concession_multiplier", None)
+    temperature_concession_multiplier = (
+        float(configured_temperature_multiplier)
+        if configured_temperature_multiplier is not None
+        else (1.0 if disequilibrium_policy_enabled else 0.0)
+    )
+    configured_free_energy_gate = getattr(args, "free_energy_solver_gate", None)
+    free_energy_solver_gate = (
+        bool(configured_free_energy_gate)
+        if configured_free_energy_gate is not None
+        else disequilibrium_policy_enabled
+    )
+
     config = AgentSimulationConfig(
         fixed_fee_bps=float(args.fixed_fee_bps) if args.fixed_fee_bps is not None else (pool_snapshot.fee / 100.0),
         base_fee_bps=float(args.base_fee_bps),
@@ -405,7 +567,7 @@ def run_agent_simulation(args: argparse.Namespace) -> dict[str, Any]:
         reserve_margin_bps=float(getattr(args, "reserve_margin_bps", 0.0)),
         trigger_condition=str(args.trigger_condition),
         auction_accounting_mode=str(getattr(args, "auction_accounting_mode", "auto")),
-        trigger_gap_bps=float(getattr(args, "trigger_gap_bps", 25.0)),
+        trigger_gap_bps=trigger_gap_bps,
         start_concession_bps=float(args.start_concession_bps),
         concession_growth_bps_per_second=float(args.concession_growth_bps_per_second),
         max_concession_bps=float(args.max_concession_bps),
@@ -417,6 +579,29 @@ def run_agent_simulation(args: argparse.Namespace) -> dict[str, Any]:
         auction_expiry_policy=str(args.auction_expiry_policy),
         fallback_alpha_bps=float(args.fallback_alpha_bps),
         pool_price_orientation=str(args.pool_price_orientation),
+        disequilibrium_policy_enabled=disequilibrium_policy_enabled,
+        concession_schedule=concession_schedule,
+        relaxation_tau_seconds=float(getattr(args, "relaxation_tau_seconds", 60.0)),
+        volatility_lookback_seconds=int(getattr(args, "volatility_lookback_seconds", 86_400)),
+        bootstrap_sigma2_per_second=float(getattr(args, "bootstrap_sigma2_per_second", 3e-8)),
+        temperature_latency_seconds=float(getattr(args, "temperature_latency_seconds", 60.0)),
+        temperature_concession_multiplier=temperature_concession_multiplier,
+        free_energy_solver_gate=free_energy_solver_gate,
+        adaptive_economic_trigger=bool(
+            getattr(args, "adaptive_economic_trigger", False)
+        ),
+        adaptive_min_trigger_gap_bps=float(
+            getattr(args, "adaptive_min_trigger_gap_bps", 5.0)
+        ),
+        adaptive_max_trigger_gap_bps=float(
+            getattr(args, "adaptive_max_trigger_gap_bps", 100.0)
+        ),
+        adaptive_target_clear_seconds=int(
+            getattr(args, "adaptive_target_clear_seconds", 60)
+        ),
+        adaptive_min_lp_recovery_bps=float(
+            getattr(args, "adaptive_min_lp_recovery_bps", 9_500.0)
+        ),
     )
     _validate_config(config)
 
@@ -462,6 +647,11 @@ def run_agent_simulation(args: argparse.Namespace) -> dict[str, Any]:
     for block in observed_blocks:
         reference_update = _latest_reference_at_or_before(reference_updates, block.block_number + 1)
         latest_oracle_move_bps = _latest_oracle_move_bps(reference_updates, block.block_number)
+        sigma2_per_second = _trailing_sigma2_per_second(
+            reference_updates=reference_updates,
+            as_of_block_number=block.block_number + 1,
+            config=config,
+        )
         for state in states.values():
             rows.append(
                 _simulate_strategy_block(
@@ -469,6 +659,7 @@ def run_agent_simulation(args: argparse.Namespace) -> dict[str, Any]:
                     block=block,
                     reference_update=reference_update,
                     latest_oracle_move_bps=latest_oracle_move_bps,
+                    sigma2_per_second=sigma2_per_second,
                     pool_snapshot=pool_snapshot,
                     config=config,
                 )
@@ -540,6 +731,7 @@ def _simulate_strategy_block(
     block: ObservedBlock,
     reference_update: Any | None,
     latest_oracle_move_bps: float | None,
+    sigma2_per_second: float,
     pool_snapshot: Any,
     config: AgentSimulationConfig,
 ) -> AgentSimulationRow:
@@ -574,6 +766,19 @@ def _simulate_strategy_block(
     stale_loss_bps_value: float | None = None
     stale_gap_bps_after: float | None = None
     expired_pending_auction: PendingAuction | None = None
+    log_price_gap_value: float | None = None
+    free_energy_gap_potential_value: float | None = None
+    market_temperature_value = effective_market_temperature(
+        sigma2_per_second=sigma2_per_second,
+        latency_seconds=config.temperature_latency_seconds,
+    )
+    standardized_disequilibrium_value: float | None = None
+    effective_start_concession_bps_value: float | None = None
+    scheduled_concession_bps_value: float | None = None
+    minimum_solver_concession_bps_value: float | None = None
+    economically_correctable_value: bool | None = None
+    auction_rejected_uncorrectable = False
+    economic_threshold_result: EconomicThresholdResult | None = None
 
     if reference_update is None:
         state.fail_closed_count += 1
@@ -698,6 +903,52 @@ def _simulate_strategy_block(
         config=config,
     )
     trade_direction = str(correction["toxic_direction"])
+    log_price_gap_value = log_price_gap(float(reference_price), float(pool_price_before))
+    free_energy_gap_potential_value = free_energy_gap_potential(
+        float(reference_price),
+        float(pool_price_before),
+    )
+    standardized_disequilibrium_value = standardized_disequilibrium(
+        log_gap=log_price_gap_value,
+        market_temperature=market_temperature_value,
+    )
+    effective_start_concession_bps_value = temperature_adjusted_start_concession_bps(
+        base_start_concession_bps=config.start_concession_bps,
+        market_temperature=market_temperature_value,
+        temperature_multiplier=config.temperature_concession_multiplier,
+        max_concession_bps=config.max_concession_bps,
+    )
+    minimum_solver_concession_bps_value = minimum_solver_concession_bps(
+        solver_required_quote=(
+            float(solver_decision.best_required_quote)
+            if solver_decision.best_required_quote is not None
+            else None
+        ),
+        available_gap_value_quote=float(gross_lvr_quote),
+    )
+    if (
+        state.strategy == DUTCH_AUCTION_PARAMETERIZED
+        and config.adaptive_economic_trigger
+    ):
+        target_concession_bps = _concession_bps_at_elapsed_seconds(
+            config=config,
+            elapsed_seconds=config.adaptive_target_clear_seconds,
+            start_concession_bps=effective_start_concession_bps_value,
+        )
+        economic_threshold_result = bounded_economic_trigger_gap_bps(
+            reference_price=float(reference_price),
+            liquidity=pool_snapshot.liquidity,
+            token0_decimals=pool_snapshot.token0_decimals,
+            token1_decimals=pool_snapshot.token1_decimals,
+            base_fee_bps=config.base_fee_bps,
+            alpha_bps=config.alpha_bps,
+            solver_gas_cost_quote=config.solver_gas_cost_quote,
+            solver_edge_bps=config.solver_edge_bps,
+            target_concession_bps=target_concession_bps,
+            min_trigger_gap_bps=config.adaptive_min_trigger_gap_bps,
+            max_trigger_gap_bps=config.adaptive_max_trigger_gap_bps,
+            min_lp_recovery_bps=config.adaptive_min_lp_recovery_bps,
+        )
 
     if state.strategy == BASELINE_NO_AUCTION:
         fee_quote, fail_closed = _hook_fee_quote(
@@ -761,6 +1012,13 @@ def _simulate_strategy_block(
         hook_lp_net_quote = fee_quote - gross_lvr_quote
         hook_agent_profit_quote = gross_lvr_quote - fee_quote
 
+        economically_correctable_value = _auction_economically_correctable(
+            hook_fee_quote=fee_quote,
+            gross_lvr_quote=gross_lvr_quote,
+            solver_decision=solver_decision,
+            config=config,
+        )
+
         if state.pending_auction is not None:
             elapsed_seconds = block.timestamp - state.pending_auction.trigger_timestamp
             if elapsed_seconds > config.max_duration_seconds:
@@ -808,7 +1066,7 @@ def _simulate_strategy_block(
                 state.cumulative_gap_time_bps_blocks += Decimal(str(stale_gap_bps_before))
                 decision_reason = "auction_expired_hook_fallback_unprofitable"
         else:
-            if state.pending_auction is None and _should_trigger_auction(
+            should_trigger = state.pending_auction is None and _should_trigger_auction(
                 gross_lvr_quote=gross_lvr_quote,
                 hook_lp_net_quote=hook_lp_net_quote,
                 hook_agent_profit_quote=hook_agent_profit_quote,
@@ -817,10 +1075,24 @@ def _simulate_strategy_block(
                 eligibility_state=eligibility_state,
                 stale_loss_bps_value=Decimal(str(stale_loss_bps_value)),
                 config=config,
+                trigger_gap_bps_override=(
+                    Decimal(str(economic_threshold_result.effective_gap_bps))
+                    if economic_threshold_result is not None
+                    else None
+                ),
+            )
+            if (
+                should_trigger
+                and config.free_energy_solver_gate
+                and not economically_correctable_value
             ):
+                auction_rejected_uncorrectable = True
+                decision_reason = "auction_economically_uncorrectable"
+            elif should_trigger:
                 state.pending_auction = PendingAuction(
                     trigger_block=block.block_number,
                     trigger_timestamp=block.timestamp,
+                    start_concession_bps=effective_start_concession_bps_value,
                 )
                 auction_triggered_this_block = True
                 auction_trigger_block = block.block_number
@@ -829,16 +1101,24 @@ def _simulate_strategy_block(
         if not agent_traded and state.pending_auction is not None:
             auction_trigger_block = state.pending_auction.trigger_block
             elapsed_seconds = block.timestamp - state.pending_auction.trigger_timestamp
-            concession_bps = _concession_bps_at_elapsed_seconds(config=config, elapsed_seconds=elapsed_seconds)
+            scheduled_concession_bps_value = _concession_bps_at_elapsed_seconds(
+                config=config,
+                elapsed_seconds=elapsed_seconds,
+                start_concession_bps=state.pending_auction.start_concession_bps,
+            )
             if _use_hook_fee_floor_auction_accounting(config):
-                solver_payment_quote = gross_lvr_quote * Decimal(str(concession_bps / 10_000.0))
+                solver_payment_quote = gross_lvr_quote * Decimal(
+                    str(scheduled_concession_bps_value / 10_000.0)
+                )
                 auction_lp_fee_quote, auction_agent_profit_quote = _auction_settlement_quotes(
                     hook_fee_quote=fee_quote,
                     gross_lvr_quote=gross_lvr_quote,
                     solver_payment_quote=solver_payment_quote,
                 )
             else:
-                concession_quote = gross_lvr_quote * Decimal(str(concession_bps / 10_000.0))
+                concession_quote = gross_lvr_quote * Decimal(
+                    str(scheduled_concession_bps_value / 10_000.0)
+                )
                 solver_payment_quote = concession_quote
                 effective_fee_quote = max(fee_quote - concession_quote, DECIMAL_ZERO)
                 auction_lp_fee_quote = effective_fee_quote
@@ -902,6 +1182,9 @@ def _simulate_strategy_block(
                 stale_gap_bps_after = stale_gap_bps_before
                 state.cumulative_gap_time_bps_blocks += Decimal(str(stale_gap_bps_before))
                 decision_reason = "hook_unprofitable_no_auction"
+
+        if auction_rejected_uncorrectable and not agent_traded:
+            decision_reason = "auction_economically_uncorrectable"
 
     state.pool_price = pool_price_after
     if agent_traded:
@@ -991,6 +1274,76 @@ def _simulate_strategy_block(
         block_calendar_policy="observed_blocks_only",
         reference_update_policy=config.reference_update_policy,
         decision_reason=decision_reason,
+        log_price_gap=log_price_gap_value,
+        free_energy_gap_potential=free_energy_gap_potential_value,
+        sigma2_per_second=sigma2_per_second,
+        market_temperature=market_temperature_value,
+        standardized_disequilibrium=standardized_disequilibrium_value,
+        effective_start_concession_bps=(
+            effective_start_concession_bps_value
+            if state.strategy == DUTCH_AUCTION_PARAMETERIZED
+            else None
+        ),
+        scheduled_concession_bps=(
+            scheduled_concession_bps_value
+            if state.strategy == DUTCH_AUCTION_PARAMETERIZED
+            else None
+        ),
+        minimum_solver_concession_bps=(
+            minimum_solver_concession_bps_value
+            if state.strategy == DUTCH_AUCTION_PARAMETERIZED
+            else None
+        ),
+        economically_correctable=(
+            economically_correctable_value
+            if state.strategy == DUTCH_AUCTION_PARAMETERIZED
+            else None
+        ),
+        effective_trigger_gap_bps=(
+            economic_threshold_result.effective_gap_bps
+            if economic_threshold_result is not None
+            else (
+                config.trigger_gap_bps
+                if state.strategy == DUTCH_AUCTION_PARAMETERIZED
+                and config.trigger_condition == "stale_gap_bps_before"
+                else None
+            )
+        ),
+        raw_economic_break_even_gap_bps=(
+            economic_threshold_result.raw_break_even_gap_bps
+            if economic_threshold_result is not None
+            else None
+        ),
+        economic_threshold_feasible=(
+            economic_threshold_result.feasible_within_bounds
+            if economic_threshold_result is not None
+            else None
+        ),
+        economic_threshold_binding_bound=(
+            economic_threshold_result.binding_bound
+            if economic_threshold_result is not None
+            else None
+        ),
+        economic_target_concession_bps=(
+            economic_threshold_result.target_concession_bps
+            if economic_threshold_result is not None
+            else None
+        ),
+        economic_solver_profit_at_threshold_quote=(
+            economic_threshold_result.solver_profit_quote_at_threshold
+            if economic_threshold_result is not None
+            else None
+        ),
+        economic_solver_required_at_threshold_quote=(
+            economic_threshold_result.solver_required_quote_at_threshold
+            if economic_threshold_result is not None
+            else None
+        ),
+        economic_lp_recovery_bps_at_threshold=(
+            economic_threshold_result.lp_recovery_bps_at_threshold
+            if economic_threshold_result is not None
+            else None
+        ),
     )
 
 
@@ -1127,6 +1480,41 @@ def _auction_reserve_floor_quote(
     return hook_fee_quote + margin_quote
 
 
+def _auction_economically_correctable(
+    *,
+    hook_fee_quote: Decimal,
+    gross_lvr_quote: Decimal,
+    solver_decision: SolverAuctionDecision,
+    config: AgentSimulationConfig,
+) -> bool:
+    """Return whether the best solver can clear at the configured maximum concession."""
+
+    if solver_decision.best_required_quote is None:
+        return False
+    max_solver_payment_quote = gross_lvr_quote * Decimal(
+        str(config.max_concession_bps / 10_000.0)
+    )
+    if _use_hook_fee_floor_auction_accounting(config):
+        auction_lp_fee_quote, auction_agent_profit_quote = _auction_settlement_quotes(
+            hook_fee_quote=hook_fee_quote,
+            gross_lvr_quote=gross_lvr_quote,
+            solver_payment_quote=max_solver_payment_quote,
+        )
+    else:
+        effective_fee_quote = max(hook_fee_quote - max_solver_payment_quote, DECIMAL_ZERO)
+        auction_lp_fee_quote = effective_fee_quote
+        auction_agent_profit_quote = gross_lvr_quote - effective_fee_quote
+    reserve_floor_quote = _auction_reserve_floor_quote(
+        hook_fee_quote=hook_fee_quote,
+        gross_lvr_quote=gross_lvr_quote,
+        config=config,
+    )
+    return (
+        auction_agent_profit_quote > solver_decision.best_required_quote
+        and auction_lp_fee_quote >= reserve_floor_quote
+    )
+
+
 def _use_hook_fee_floor_auction_accounting(config: AgentSimulationConfig) -> bool:
     if config.auction_accounting_mode == "hook_fee_floor":
         return True
@@ -1145,13 +1533,19 @@ def _should_trigger_auction(
     eligibility_state: AuctionEligibilityState,
     stale_loss_bps_value: Decimal,
     config: AgentSimulationConfig,
+    trigger_gap_bps_override: Decimal | None = None,
 ) -> bool:
     if gross_lvr_quote < Decimal(str(config.min_stale_loss_quote)):
         return False
     if stale_loss_bps_value < Decimal(str(config.min_stale_loss_bps)):
         return False
     if config.trigger_condition == "stale_gap_bps_before":
-        return is_auction_eligible(eligibility_state, Decimal(str(config.trigger_gap_bps)))
+        trigger_gap_bps = (
+            trigger_gap_bps_override
+            if trigger_gap_bps_override is not None
+            else Decimal(str(config.trigger_gap_bps))
+        )
+        return is_auction_eligible(eligibility_state, trigger_gap_bps)
     if config.trigger_condition == "all_toxic":
         return True
     if config.trigger_condition == "hook_lp_net_negative":
@@ -1161,10 +1555,41 @@ def _should_trigger_auction(
     raise AssertionError(f"Unsupported trigger_condition={config.trigger_condition}.")
 
 
-def _concession_bps_at_elapsed_seconds(*, config: AgentSimulationConfig, elapsed_seconds: int) -> float:
-    return min(
-        config.start_concession_bps + (elapsed_seconds * config.concession_growth_bps_per_second),
-        config.max_concession_bps,
+def _concession_bps_at_elapsed_seconds(
+    *,
+    config: AgentSimulationConfig,
+    elapsed_seconds: int,
+    start_concession_bps: float,
+) -> float:
+    return concession_bps_at_elapsed_seconds(
+        schedule=config.concession_schedule,
+        start_concession_bps=start_concession_bps,
+        max_concession_bps=config.max_concession_bps,
+        elapsed_seconds=elapsed_seconds,
+        linear_growth_bps_per_second=config.concession_growth_bps_per_second,
+        relaxation_tau_seconds=config.relaxation_tau_seconds,
+    )
+
+
+def _trailing_sigma2_per_second(
+    *,
+    reference_updates: list[Any],
+    as_of_block_number: int,
+    config: AgentSimulationConfig,
+) -> float:
+    eligible_observations = [
+        (int(update.timestamp), float(update.price))
+        for update in reference_updates
+        if update.block_number is not None and update.block_number <= as_of_block_number
+    ]
+    if not eligible_observations:
+        return config.bootstrap_sigma2_per_second
+    as_of_timestamp = max(timestamp for timestamp, _ in eligible_observations)
+    return trailing_log_variance_per_second(
+        eligible_observations,
+        as_of_timestamp=as_of_timestamp,
+        lookback_seconds=config.volatility_lookback_seconds,
+        bootstrap_sigma2_per_second=config.bootstrap_sigma2_per_second,
     )
 
 
@@ -1424,6 +1849,36 @@ def _augment_strategy_summaries_with_exposure_metrics(
         cumulative_gap_time_bps_seconds = sum(
             row.gap_time_bps_seconds_to_next_observed_block for row in strategy_rows
         )
+        correctability_observations = [
+            row.economically_correctable
+            for row in strategy_rows
+            if row.economically_correctable is not None
+        ]
+        standardized_energy_observations = [
+            row.standardized_disequilibrium
+            for row in strategy_rows
+            if row.standardized_disequilibrium is not None
+        ]
+        minimum_concession_observations = [
+            row.minimum_solver_concession_bps
+            for row in strategy_rows
+            if row.minimum_solver_concession_bps is not None
+        ]
+        scheduled_concession_observations = [
+            row.scheduled_concession_bps
+            for row in strategy_rows
+            if row.scheduled_concession_bps is not None
+        ]
+        effective_trigger_observations = [
+            row.effective_trigger_gap_bps
+            for row in strategy_rows
+            if row.effective_trigger_gap_bps is not None
+        ]
+        economic_threshold_observations = [
+            row
+            for row in strategy_rows
+            if row.economic_threshold_feasible is not None
+        ]
         summary["total_potential_gross_lvr_quote"] = total_potential_gross_lvr_quote
         summary["total_foregone_gross_lvr_quote"] = total_foregone_gross_lvr_quote
         summary["reprice_execution_rate_by_quote"] = (
@@ -1443,6 +1898,61 @@ def _augment_strategy_summaries_with_exposure_metrics(
             else 0.0
         )
         summary["cumulative_gap_time_bps_seconds"] = cumulative_gap_time_bps_seconds
+        summary["economically_correctable_block_count"] = sum(
+            1 for value in correctability_observations if value
+        )
+        summary["economically_uncorrectable_block_count"] = sum(
+            1 for value in correctability_observations if not value
+        )
+        summary["economically_correctable_rate"] = (
+            sum(1 for value in correctability_observations if value)
+            / len(correctability_observations)
+            if correctability_observations
+            else None
+        )
+        summary["mean_standardized_disequilibrium"] = (
+            statistics.mean(standardized_energy_observations)
+            if standardized_energy_observations
+            else None
+        )
+        summary["mean_minimum_solver_concession_bps"] = (
+            statistics.mean(minimum_concession_observations)
+            if minimum_concession_observations
+            else None
+        )
+        summary["mean_scheduled_concession_bps"] = (
+            statistics.mean(scheduled_concession_observations)
+            if scheduled_concession_observations
+            else None
+        )
+        summary["mean_effective_trigger_gap_bps"] = (
+            statistics.mean(effective_trigger_observations)
+            if effective_trigger_observations
+            else None
+        )
+        summary["median_effective_trigger_gap_bps"] = (
+            statistics.median(effective_trigger_observations)
+            if effective_trigger_observations
+            else None
+        )
+        summary["economic_threshold_feasible_rate"] = (
+            sum(1 for row in economic_threshold_observations if row.economic_threshold_feasible)
+            / len(economic_threshold_observations)
+            if economic_threshold_observations
+            else None
+        )
+        summary["economic_threshold_minimum_bound_count"] = sum(
+            row.economic_threshold_binding_bound == "minimum"
+            for row in economic_threshold_observations
+        )
+        summary["economic_threshold_interior_count"] = sum(
+            row.economic_threshold_binding_bound == "economic"
+            for row in economic_threshold_observations
+        )
+        summary["economic_threshold_maximum_escape_count"] = sum(
+            row.economic_threshold_binding_bound == "maximum_escape"
+            for row in economic_threshold_observations
+        )
 
 
 def _resolve_initial_pool_price(
@@ -1505,6 +2015,25 @@ def _validate_config(config: AgentSimulationConfig) -> None:
         raise ValueError("reserve_margin_bps must be non-negative.")
     if config.trigger_gap_bps < 0.0:
         raise ValueError("trigger_gap_bps must be non-negative.")
+    if config.adaptive_min_trigger_gap_bps < 0.0:
+        raise ValueError("adaptive_min_trigger_gap_bps must be non-negative.")
+    if config.adaptive_max_trigger_gap_bps < config.adaptive_min_trigger_gap_bps:
+        raise ValueError(
+            "adaptive_max_trigger_gap_bps must be >= adaptive_min_trigger_gap_bps."
+        )
+    if config.adaptive_target_clear_seconds < 0:
+        raise ValueError("adaptive_target_clear_seconds must be non-negative.")
+    if not 0.0 <= config.adaptive_min_lp_recovery_bps <= 10_000.0:
+        raise ValueError("adaptive_min_lp_recovery_bps must be between 0 and 10_000.")
+    if config.adaptive_economic_trigger:
+        if config.trigger_condition != "stale_gap_bps_before":
+            raise ValueError(
+                "adaptive_economic_trigger requires trigger_condition=stale_gap_bps_before."
+            )
+        if config.solver_competition_mode != SINGLE_SOLVER:
+            raise ValueError(
+                "adaptive_economic_trigger currently supports only single-solver economics."
+            )
     if config.start_concession_bps < 0.0:
         raise ValueError("start_concession_bps must be non-negative.")
     if config.concession_growth_bps_per_second < 0.0:
@@ -1513,6 +2042,18 @@ def _validate_config(config: AgentSimulationConfig) -> None:
         raise ValueError("max_concession_bps must be >= start_concession_bps.")
     if config.max_concession_bps > 10_000.0:
         raise ValueError("max_concession_bps must be <= 10_000.")
+    if config.concession_schedule not in SUPPORTED_CONCESSION_SCHEDULES:
+        raise ValueError(f"Unsupported concession_schedule={config.concession_schedule}.")
+    if config.relaxation_tau_seconds <= 0.0:
+        raise ValueError("relaxation_tau_seconds must be positive.")
+    if config.volatility_lookback_seconds <= 0:
+        raise ValueError("volatility_lookback_seconds must be positive.")
+    if config.bootstrap_sigma2_per_second < 0.0:
+        raise ValueError("bootstrap_sigma2_per_second must be non-negative.")
+    if config.temperature_latency_seconds < 0.0:
+        raise ValueError("temperature_latency_seconds must be non-negative.")
+    if config.temperature_concession_multiplier < 0.0:
+        raise ValueError("temperature_concession_multiplier must be non-negative.")
     if config.max_duration_seconds < 0:
         raise ValueError("max_duration_seconds must be non-negative.")
     if config.min_stale_loss_quote < 0.0:

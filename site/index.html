@@ -3,16 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LVR Minimizer — Uniswap v4 Hook that Recaptures LVR for LPs · Live on Base Sepolia</title>
-<meta name="description" content="A Uniswap v4 hook that recaptures loss-versus-rebalancing (LVR) for LPs: exact toxic-flow fees, an on-chain Dutch-auction repricing path, and a live Base Sepolia USDC/WETH deployment with raw EVM inspection.">
-<link rel="canonical" href="https://lvr-minimizer.vercel.app/">
+<title>FairFlow — Ordering-Independent MEV Auction for Uniswap v4 · Live on Base Sepolia</title>
+<meta name="description" content="FairFlow is an ordering-independent MEV auction for Uniswap v4 that keeps benign swaps cheap, charges oracle-visible toxic flow, and returns captured value to LPs through standard v4 fees.">
+<link rel="canonical" href="https://fairflow-v4.vercel.app/">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://lvr-minimizer.vercel.app/">
-<meta property="og:title" content="LVR Minimizer — Uniswap v4 hook, live instrument">
-<meta property="og:description" content="Stale prices tax LPs. This hook taxes them back: exact toxic-flow fees + a permissionless on-chain Dutch auction, running live on Base Sepolia with every EVM call inspectable.">
-<meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="LVR Minimizer — Uniswap v4 hook, live instrument">
-<meta name="twitter:description" content="Exact toxic-flow fees + a permissionless Dutch-auction repricing path, recapturing ~78% of true CEX-measured LVR for LPs. Live on Base Sepolia, raw EVM logs included.">
+<meta property="og:url" content="https://fairflow-v4.vercel.app/">
+<meta property="og:title" content="FairFlow — Ordering-Independent MEV Auction for Uniswap v4">
+<meta property="og:description" content="Keep benign swaps cheap, charge oracle-visible toxic flow, and return captured value to LPs through standard v4 fees. Live on Base Sepolia.">
+<meta property="og:image" content="https://fairflow-v4.vercel.app/og-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="FairFlow — MEV auctions without the ordering game">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="FairFlow — Ordering-Independent MEV Auction for Uniswap v4">
+<meta name="twitter:description" content="Benign swaps stay cheap. Oracle-visible toxic flow pays. Captured value returns to LPs as standard v4 fees.">
+<meta name="twitter:image" content="https://fairflow-v4.vercel.app/og-card.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
@@ -22,7 +28,7 @@
 
 <header>
   <div class="wrap">
-    <div class="brand">LVR<em>·</em>HOOK <em>/ live instrument</em></div>
+    <div class="brand">FAIR<em>·</em>FLOW <em>/ live instrument</em></div>
     <nav>
       <a href="#instrument">Instrument</a>
       <a href="#impact">LP Impact</a>
@@ -37,13 +43,14 @@
 
 <section class="hero">
   <div class="wrap">
-    <h1>Stale prices tax LPs.<br>This hook <span class="hl">taxes them back.</span></h1>
+    <h1>MEV auctions without the ordering game.<br><span class="hl">Fair flow for Uniswap v4.</span></h1>
     <p class="sub">
-      <b>OracleAnchoredLVRHook</b> is a Uniswap v4 hook that prices toxic flow exactly —
-      benign swaps pay a 5&nbsp;bps base fee while informed flow trading against a stale pool
-      pays the surcharge <b>f*&nbsp;=&nbsp;e^{|z|/2}&nbsp;−&nbsp;1</b> — and runs a permissionless
-      on-chain Dutch auction, an <b>open market of autonomous repricing agents</b>, so the pool
-      still gets repriced, with the recaptured value going to LPs. No protocol fee. Everything below reads the <b>live USDC/WETH deployment on Base Sepolia</b>,
+      <b>FairFlow</b> is an ordering-independent MEV auction for Uniswap v4 that keeps benign swaps
+      cheap, charges oracle-visible toxic flow, and returns the captured value to LPs through
+      standard v4 fees. Its deployed implementation, <b>OracleAnchoredLVRHook</b>, prices toxic flow
+      with <b>f*&nbsp;=&nbsp;e^{|z|/2}&nbsp;−&nbsp;1</b> and uses a permissionless Dutch auction so the
+      pool still gets repriced without a solver allowlist, private ordering market, protocol fee,
+      or new LP claim path. Everything below reads the <b>live USDC/WETH deployment on Base Sepolia</b>,
       backed by Chainlink’s USDC/USD and ETH/USD feeds,
       and every EVM call this page makes is logged raw in the <a href="#bus">bus inspector</a>.
     </p>
@@ -58,7 +65,7 @@
 
 <section id="instrument">
   <div class="wrap">
-    <div class="seclabel"><span class="idx">01</span> live instrument — base sepolia USDC/WETH pool</div>
+    <div class="seclabel"><span class="idx">01</span> fairflow live instrument — base sepolia USDC/WETH pool</div>
     <div class="gauge-card">
       <div class="gauge-head">
         <div><span class="gap-big" id="gapbig">—</span> <small id="gapunits"></small></div>
@@ -240,7 +247,7 @@
 
 <section id="evidence">
   <div class="wrap">
-    <div class="seclabel"><span class="idx">05</span> the evidence chain</div>
+    <div class="seclabel"><span class="idx">05</span> fairflow evidence chain</div>
     <div class="pitchgrid">
       <div class="pitch">
         <h4>Backtest → contract, mechanically</h4>
@@ -290,6 +297,7 @@
 
 <footer>
   <div class="wrap">
+    <span>FairFlow · ordering-independent MEV auction for Uniswap v4</span>
     <span>hook <a href="https://sepolia.basescan.org/address/0x22081E668dC0f43B6166561Ac4A6Df359AA88880" target="_blank">0x2208…8880</a></span>
     <span>oracle <a href="https://sepolia.basescan.org/address/0xA68812AA66A2417BDFAFF9a45BD9A7578C5A3202" target="_blank">0xA688…3202</a></span>
     <span>pool <a href="https://sepolia.basescan.org/address/0x036CbD53842c5426634e7929541eC2318f3dCF7e" target="_blank">USDC</a>/<a href="https://sepolia.basescan.org/address/0x4200000000000000000000000000000000000006" target="_blank">WETH</a></span>
